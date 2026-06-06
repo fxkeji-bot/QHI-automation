@@ -1,0 +1,41 @@
+{
+  "qhi_path": "C:\\Program Files (x86)\\Quite\\Quite Hot Imposing 5\\qi_applycommands.exe",
+  "output_dir": "C:\\Users\\diy\\Desktop\\定稿文件",
+  "rename_enabled": true,
+  "rename_template": "{seq}-{paper}-{pages}P-{name}",
+  "number_digits": 3,
+  "number_start": 1,
+  "default_machine": "HP12000",
+  "monitor_dirs": [
+    {
+      "root_path": "\\\\Server2\\客户文件2",
+      "enabled": false,
+      "check_interval": 300,
+      "stable_minutes": 10,
+      "days_back": 2,
+      "auto_process": 1,
+      "customer": "9705-小风"
+    }
+  ],
+  "rules": [
+    {
+      "name": "默认处理规则",
+      "enabled": true,
+      "condition_type": "always",
+      "condition_value": "",
+      "steps": []
+    },
+    {
+      "name": "默认处理规则 (副本)",
+      "enabled": true,
+      "condition_type": "always",
+      "condition_value": "",
+      "steps": []
+    }
+  ],
+  "ui_settings": {
+    "window_width": 1280,
+    "window_height": 800,
+    "log_font_size": 12
+  }
+}

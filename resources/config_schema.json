@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qhi-processor.local/schemas/config-v1.json",
+  "title": "QHI拼版处理器配置Schema",
+  "description": "qhi_config.json 的结构定义，版本 v1.0",
+  "type": "object",
+  "properties": {
+    "qhi_path": {
+      "type": "string",
+      "description": "Quite Hot Imposing 可执行文件路径"
+    },
+    "output_dir": {
+      "type": "string",
+      "description": "默认输出目录"
+    },
+    "rename_enabled": {
+      "type": "boolean",
+      "description": "是否启用自动重命名"
+    },
+    "rename_template": {
+      "type": "string",
+      "description": "重命名模板，支持 {seq} {paper} {pages} {name} 等变量"
+    },
+    "number_digits": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 6,
+      "description": "序号位数"
+    },
+    "number_start": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9999,
+      "description": "起始编号"
+    },
+    "default_machine": {
+      "type": "string",
+      "enum": ["HP12000", "HP7900", "OCE", "HP7600", "KONICA", "RICOH"],
+      "description": "默认数码印刷设备"
+    },
+    "monitor_dirs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "root_path": {"type": "string"},
+          "enabled": {"type": "boolean"},
+          "check_interval": {"type": "integer", "minimum": 30},
+          "stable_minutes": {"type": "integer", "minimum": 1},
+          "days_back": {"type": "integer", "minimum": 0},
+          "auto_process": {"type": "integer", "minimum": 0, "maximum": 1}
+        },
+        "required": ["root_path"]
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "enabled": {"type": "boolean"},
+          "condition_type": {
+            "type": "string",
+            "enum": [
+              "always", "name_contains", "name_not_contains",
+              "folder_contains", "folder_not_contains",
+              "path_contains", "path_not_contains",
+              "page_equals", "page_less", "page_greater", "page_between",
+              "file_size_less", "file_size_greater",
+              "paper_match", "binding_match", "machine_match"
+            ]
+          },
+          "condition_value": {"type": "string"},
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action_type": {"type": "string", "enum": ["xml", "py", "eal", "callas"]},
+                "action_path": {"type": "string"},
+                "params": {"type": "object"}
+              }
+            }
+          }
+        },
+        "required": ["name"]
+      }
+    },
+    "ui_settings": {
+      "type": "object",
+      "properties": {
+        "window_width": {"type": "integer", "minimum": 800},
+        "window_height": {"type": "integer", "minimum": 600},
+        "log_font_size": {"type": "integer", "minimum": 8, "maximum": 24}
+      }
+    }
+  },
+  "required": ["qhi_path", "output_dir"]
+}
