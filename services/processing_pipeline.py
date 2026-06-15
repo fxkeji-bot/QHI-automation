@@ -34,6 +34,7 @@ from models.constants import PLUGIN_DIR
 class PipeStage(str, Enum):
     """管线处理阶段"""
     PREFLIGHT = "preflight"        # 预检（文件完整性、尺寸、出血等）
+    GANG_LAYOUT = "gang_layout"    # AI合版排版（贪心+退火算法）
     RULE_MATCH = "rule_match"      # 规则匹配
     IMPOSE = "impose"              # 拼版处理（QHI XML / Plugin）
     POSTPROCESS = "postprocess"    # 后处理（覆膜、裁切标记等）
@@ -72,10 +73,14 @@ class PipeItem:
 class PipeConfig:
     """管线配置"""
     output_dir: str = ""
-    max_workers: int = 2              # QThreadPool 最大线程数
+    max_workers: int = 4              # QThreadPool 最大线程数（默认4，根据CPU核心数优化）
     auto_archive: bool = True          # 输出后自动归档
     stop_on_error: bool = False        # 单文件出错是否停止整批
     timeout_per_file: int = 300        # 单文件超时秒数
+    enable_gang_layout: bool = True    # 是否启用AI合版排版
+    enable_preflight_check: bool = True  # 是否启用PDF印前预检增强
+    min_dpi_threshold: int = 300       # 预检最低DPI阈值
+    required_bleed_mm: float = 3.0     # 预检要求出血位 (mm)
 
 
 # ── 管线 Worker (QRunnable) ────────────────────────────────
@@ -112,6 +117,11 @@ class _PipeWorker(QRunnable):
             if self._cancelled:
                 return
 
+            if self.config.enable_gang_layout:
+                self._execute_stage(PipeStage.GANG_LAYOUT, self._do_gang_layout)
+            if self._cancelled:
+                return
+
             self._execute_stage(PipeStage.RULE_MATCH, self._do_rule_match)
             if self._cancelled:
                 return
@@ -141,25 +151,118 @@ class _PipeWorker(QRunnable):
         func()
 
     def _do_preflight(self):
-        """预检：文件存在性、格式、尺寸"""
+        """预检：文件存在性、格式、尺寸 + PDF印前自动预检增强"""
         fp = self.item.file_path
         if not os.path.exists(fp):
             raise FileNotFoundError(f"文件不存在: {fp}")
         if not fp.lower().endswith('.pdf'):
             raise ValueError(f"非 PDF 文件: {fp}")
 
-        # 尝试读取页数
+        # 基础页数检测
+        page_ct = 0
         try:
             import fitz
             doc = fitz.open(fp)
             page_ct = doc.page_count
             doc.close()
-            self.log(f"  预检通过: {Path(fp).name} ({page_ct}页)")
         except Exception:
-            self.log(f"  预检通过: {Path(fp).name} (无法读取页数)")
+            pass
+
+        # PDF印前自动预检增强（文字矢量化 / DPI / 专色 / 出血）
+        preflight_warnings = []
+        preflight_errors = []
+        if self.config.enable_preflight_check:
+            try:
+                from integration.pdf_processor import PDFPreflightChecker
+                checker = PDFPreflightChecker()
+                report = checker.run_preflight(
+                    fp,
+                    min_dpi=self.config.min_dpi_threshold,
+                    required_bleed_mm=self.config.required_bleed_mm,
+                )
+                for issue in report.issues:
+                    if issue.severity.value == "error":
+                        preflight_errors.append(issue.message)
+                    else:
+                        preflight_warnings.append(issue.message)
+
+                # 将预检结果附加到 item 元数据
+                setattr(self.item, '_preflight_report', report.to_dict())
+
+                if report.passed:
+                    status = "通过"
+                    if report.warning_count > 0:
+                        status += f" ({report.warning_count}项警告)"
+                    self.log(f"  预检{status}: {Path(fp).name} ({page_ct}页)")
+                else:
+                    self.log(f"  预检未通过: {Path(fp).name} ({report.error_count}项错误, {report.warning_count}项警告)")
+            except ImportError:
+                self.log(f"  预检通过: {Path(fp).name} ({page_ct}页) [预检增强未加载]")
+            except Exception as e:
+                self.log(f"  预检通过: {Path(fp).name} ({page_ct}页) [预检增强异常: {e}]")
+        else:
+            self.log(f"  预检通过: {Path(fp).name} ({page_ct}页)")
+
+        # 严重错误阻断进入拼版阶段
+        if preflight_errors:
+            setattr(self.item, '_preflight_blocked', True)
+            setattr(self.item, '_preflight_errors', preflight_errors)
+            # 不抛异常，记录警告让后续阶段根据此标记决定是否继续
+            self.log(f"  [警告] 预检发现 {len(preflight_errors)} 项严重错误，建议人工复核")
 
         # 更新 workflow_state
         self.item.workflow_state = WorkflowState.REVIEWING.value
+
+    def _do_gang_layout(self):
+        """AI合版排版：基于贪心+模拟退火的矩形装箱优化"""
+        fp = self.item.file_path
+        try:
+            from services.gang_layout import GangLayoutEngine, OrderRect
+
+            # 获取当前文件的页面信息作为订单尺寸
+            page_info = getattr(self.item, '_page_info', None)
+            if page_info is None:
+                try:
+                    import fitz
+                    doc = fitz.open(fp)
+                    pages = []
+                    for i in range(doc.page_count):
+                        rect = doc[i].rect
+                        pages.append({"page_number": i + 1, "width_mm": round(rect.width * 0.3528, 1), 
+                                      "height_mm": round(rect.height * 0.3528, 1)})
+                    doc.close()
+                    page_info = pages
+                    setattr(self.item, '_page_info', page_info)
+                except Exception:
+                    self.log(f"  合版跳过: 无法读取 {Path(fp).name} 页面信息")
+                    return
+
+            # 将每个页面作为一个排版单元（模拟多个订单拼在同一张纸上）
+            if not page_info:
+                return
+
+            orders = [
+                OrderRect(
+                    order_id=f"{Path(fp).stem}_p{p['page_number']}",
+                    width_mm=p["width_mm"],
+                    height_mm=p["height_mm"],
+                    bleed_mm=self.config.required_bleed_mm,
+                )
+                for p in page_info
+            ]
+
+            engine = GangLayoutEngine(use_sa=True)
+            report = engine.get_layout_report(orders)
+            setattr(self.item, '_gang_layout', report)
+
+            util = report.get("utilization", 0)
+            paper = report.get("paper", "N/A")
+            self.log(f"  合版排版: {Path(fp).name} → {paper} 利用率 {util}%")
+            self.item.workflow_state = WorkflowState.SCHEDULED.value
+        except ImportError as e:
+            self.log(f"  合版跳过: 模块未加载 ({e})")
+        except Exception as e:
+            self.log(f"  合版跳过: {e}")
 
     def _do_rule_match(self):
         """规则匹配：用 RuleEngine 找到适用规则"""
@@ -194,10 +297,20 @@ class _PipeWorker(QRunnable):
             self.item.result_path = fp
 
     def _do_postprocess(self):
-        """后处理：裁切标记、出血检查等（当前阶段为空操作，预留）"""
+        """后处理：裁切标记、出血检查、合版利用率上报"""
         self.item.workflow_state = WorkflowState.QC.value
-        # 预留后处理钩子
-        pass
+
+        # 上报合版排版利用率到看板
+        gang_layout = getattr(self.item, '_gang_layout', None)
+        if gang_layout:
+            util = gang_layout.get("utilization", 0)
+            paper = gang_layout.get("paper", "")
+            self.log(f"  后处理: {Path(self.item.file_path).name} 合版利用率 {util}% ({paper})")
+
+        # 预检阻塞标记
+        if getattr(self.item, '_preflight_blocked', False):
+            errors = getattr(self.item, '_preflight_errors', [])
+            self.log(f"  [警告] 预检错误阻断: {'; '.join(errors[:3])}")
 
     def _do_output(self):
         """输出归档"""
@@ -269,14 +382,24 @@ class ProcessingPipeline(QObject):
         self._cancelled = False
 
     # ── 公共接口 ─────────────────────────────────────────────
-    def start(self, files: List[str], output_dir: str = "", max_workers: int = 2):
+    def start(self, files: List[str], output_dir: str = "", max_workers: int = None,
+              enable_gang_layout: bool = None, enable_preflight: bool = None):
         """启动管线处理
 
         Args:
             files: 待处理的文件路径列表
             output_dir: 输出目录
-            max_workers: 线程池大小
+            max_workers: 线程池大小（默认取 PipeConfig.max_workers）
+            enable_gang_layout: 是否启用AI合版排版（None=使用默认配置）
+            enable_preflight: 是否启用PDF预检增强（None=使用默认配置）
         """
+        if max_workers is None:
+            max_workers = self._config.max_workers
+        if enable_gang_layout is not None:
+            self._config.enable_gang_layout = enable_gang_layout
+        if enable_preflight is not None:
+            self._config.enable_preflight_check = enable_preflight
+
         self._cancelled = False
         self._paused = False
         self._config.output_dir = output_dir or os.path.dirname(files[0]) if files else ""

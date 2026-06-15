@@ -1,16 +1,16 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+每日自动审查脚本（合并版 — 源自 daily_review.py + daily_review_fixed.py）
 
+功能：
+1. 语法检查（所有.py文件）
+2. 导入检查（关键模块）
+3. 运行验收测试
+4. 生成审查报告
 
-
-1. .py
-2. 
-3. 
-4.  E:\Temp\bug\
-
-8:00 AM
-E:\Temp\bug\review_YYYY-MM-DD_HH-MM-SS.txt
+调度：每天8:00 AM自动运行
+输出路径：项目根目录的 review_reports/ 子目录（按日期归档）
 """
 
 import sys
@@ -21,65 +21,66 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Tuple
 
-# 
-PROJECT_ROOT = Path(r"C:\Users\diy\AppData\Roaming\Tencent\Marvis\User\oAN1i2RR3FJVCxKB7RydPILg8Nrg\workspace\conv_19e8e55ce77_b1c0386becb8\output\qhi_processor")
+# 项目根目录 — 自动推导，不再硬编码
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# 
-OUTPUT_DIR = Path(r"E:\Temp\bug")
+# 输出目录：项目根下的 review_reports/
+OUTPUT_DIR = PROJECT_ROOT / "review_reports"
 
 
 class DailyReviewer:
-    """"""
-    
-    def __init__(self):
+    """每日审查器"""
+
+    def __init__(self, project_root: Path = None, output_dir: Path = None):
+        self.project_root = project_root or PROJECT_ROOT
+        self.output_dir = output_dir or OUTPUT_DIR
         self.results: List[Tuple[str, bool, str]] = []
         self.report_lines: List[str] = []
-    
+
     def log(self, message: str):
-        """"""
+        """记录日志"""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_line = f"[{timestamp}] {message}"
         self.report_lines.append(log_line)
         print(log_line)
-    
+
     def check_syntax(self) -> bool:
-        """1: """
+        """检查#1: 语法检查"""
         self.log("=" * 60)
-        self.log("#1: py_compile")
+        self.log("检查#1: 语法检查（py_compile）")
         self.log("=" * 60)
-        
-        py_files = list(PROJECT_ROOT.rglob("*.py"))
-        self.log(f" {len(py_files)} Python")
-        
+
+        py_files = list(self.project_root.rglob("*.py"))
+        self.log(f"扫描到 {len(py_files)} 个Python文件")
+
         failed_files = []
         for py_file in py_files:
             try:
                 py_compile.compile(str(py_file), doraise=True)
-                self.log(f"   {py_file.name}")
+                self.log(f"  ✅ {py_file.name}")
             except py_compile.PyCompileError as e:
                 error_msg = str(e)
-                self.log(f"   {py_file.name}: {error_msg}")
+                self.log(f"  ❌ {py_file.name}: {error_msg}")
                 failed_files.append((py_file, error_msg))
-        
-        self.log(f"\n: {len(py_files) - len(failed_files)}/{len(py_files)} ")
-        
+
+        self.log(f"\n语法检查完成: {len(py_files) - len(failed_files)}/{len(py_files)} 通过")
+
         if failed_files:
-            self.results.append(("", False, f"{len(failed_files)} "))
+            self.results.append(("语法检查", False, f"{len(failed_files)} 个文件失败"))
             return False
         else:
-            self.results.append(("", True, ""))
+            self.results.append(("语法检查", True, "全部通过"))
             return True
-    
+
     def check_imports(self) -> bool:
-        """#2: """
+        """检查#2: 导入检查"""
         self.log("=" * 60)
-        self.log("#2: ")
+        self.log("检查#2: 导入检查（关键模块）")
         self.log("=" * 60)
-        
-        #  sys.path
-        if str(PROJECT_ROOT) not in sys.path:
-            sys.path.insert(0, str(PROJECT_ROOT))
-        
+
+        if str(self.project_root) not in sys.path:
+            sys.path.insert(0, str(self.project_root))
+
         modules_to_check = [
             ("core.database", "Database"),
             ("models.metadata", "MetadataManager"),
@@ -91,170 +92,162 @@ class DailyReviewer:
             ("utils.price_calculator", "DigitalPricingEngine"),
             ("utils.i18n", "I18nEngine"),
         ]
-        
+
         failed_modules = []
         for module_name, class_name in modules_to_check:
             try:
                 module = __import__(module_name, fromlist=[class_name])
                 cls = getattr(module, class_name)
-                self.log(f"   {module_name}.{class_name}")
+                self.log(f"  ✅ {module_name}.{class_name}")
             except ImportError as e:
-                self.log(f"   {module_name}.{class_name}: {e}")
+                self.log(f"  ❌ {module_name}.{class_name}: {e}")
                 failed_modules.append((module_name, class_name, str(e)))
             except Exception as e:
-                self.log(f"   {module_name}.{class_name}:  - {e}")
+                self.log(f"  ❌ {module_name}.{class_name}: 未预期错误 - {e}")
                 failed_modules.append((module_name, class_name, str(e)))
-        
-        self.log(f"\n: {len(modules_to_check) - len(failed_modules)}/{len(modules_to_check)} ")
-        
+
+        self.log(f"\n导入检查完成: {len(modules_to_check) - len(failed_modules)}/{len(modules_to_check)} 通过")
+
         if failed_modules:
-            self.results.append(("", False, f"{len(failed_modules)} "))
+            self.results.append(("导入检查", False, f"{len(failed_modules)} 个模块失败"))
             return False
         else:
-            self.results.append(("", True, ""))
+            self.results.append(("导入检查", True, "全部通过"))
             return True
-    
+
     def run_acceptance_test(self) -> bool:
-        """#3: """
+        """检查#3: 运行验收测试"""
         self.log("=" * 60)
-        self.log("#3: test_p0_acceptance.py")
+        self.log("检查#3: 运行验收测试（test_p0_acceptance.py）")
         self.log("=" * 60)
-        
-        test_script = PROJECT_ROOT / "test_p0_acceptance.py"
+
+        test_script = self.project_root / "test_p0_acceptance.py"
         if not test_script.exists():
-            self.log(f"    : {test_script}")
-            self.results.append(("", False, ""))
+            self.log(f"  ⚠️  验收测试脚本不存在: {test_script}")
+            self.results.append(("验收测试", False, "测试脚本不存在"))
             return False
-        
+
         try:
             import subprocess
             result = subprocess.run(
                 [sys.executable, str(test_script)],
                 capture_output=True,
                 text=True,
-                cwd=str(PROJECT_ROOT),
+                cwd=str(self.project_root),
                 timeout=60
             )
-            
-            # 
+
             if result.stdout:
                 for line in result.stdout.splitlines():
                     self.log(f"  [STDOUT] {line}")
             if result.stderr:
                 for line in result.stderr.splitlines():
                     self.log(f"  [STDERR] {line}")
-            
+
             if result.returncode == 0:
-                self.log("\n")
-                self.results.append(("", True, ""))
+                self.log("\n验收测试通过")
+                self.results.append(("验收测试", True, "全部通过"))
                 return True
             else:
-                self.log(f"\n: {result.returncode}")
-                self.results.append(("", False, f": {result.returncode}"))
+                self.log(f"\n验收测试失败（返回码: {result.returncode}）")
+                self.results.append(("验收测试", False, f"返回码: {result.returncode}"))
                 return False
         except Exception as e:
-            self.log(f"\n: {e}")
-            self.results.append(("", False, str(e)))
+            self.log(f"\n验收测试执行失败: {e}")
+            self.results.append(("验收测试", False, str(e)))
             return False
-    
+
     def generate_report(self) -> Path:
-        """"""
+        """生成审查报告"""
         self.log("=" * 60)
-        self.log("")
+        self.log("生成审查报告")
         self.log("=" * 60)
-        
-        # 
+
         passed = sum(1 for _, result, _ in self.results if result)
         total = len(self.results)
-        
-        # 
+
         report_content = [
             "=" * 60,
-            f"QHI v35 - ",
-            f": {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"QHI拼版处理器 - 每日自动审查报告",
+            f"审查时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "=" * 60,
             "",
-            "## ",
+            "## 检查结果",
             "",
         ]
-        
+
         for check_name, result, detail in self.results:
-            status = " " if result else " "
+            status = "✅ 通过" if result else "❌ 失败"
             report_content.append(f"{status}  {check_name}: {detail}")
-        
+
         report_content.extend([
             "",
             "-" * 60,
-            f": {passed}/{total} ",
+            f"总计: {passed}/{total} 通过",
             "",
         ])
-        
+
         if passed == total:
-            report_content.append(" ")
-            report_content.append(" ")
+            report_content.append("所有检查通过！项目状态良好。")
+            report_content.append("可以进行生产部署。")
         else:
-            report_content.append("  ")
-            report_content.append(" ")
-        
+            report_content.append("部分检查失败！请查看详细日志。")
+            report_content.append("建议修复失败项后再部署。")
+
         report_content.extend([
             "",
             "=" * 60,
-            "## ",
+            "## 详细日志",
             "=" * 60,
             "",
         ])
         report_content.extend(self.report_lines)
         report_content.append("")
         report_content.append("=" * 60)
-        report_content.append("")
+        report_content.append("报告结束")
         report_content.append("=" * 60)
-        
-        # 
+
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        report_file = OUTPUT_DIR / f"review_{timestamp}.txt"
-        
+        report_file = self.output_dir / f"review_{timestamp}.txt"
+
         report_file.write_text("\n".join(report_content), encoding="utf-8-sig")
-        
-        self.log(f"\n: {report_file}")
-        
+
+        self.log(f"\n报告已保存: {report_file}")
+
         return report_file
-    
+
     def run(self) -> bool:
-        """"""
-        self.log(" QHI v35 - ")
-        self.log(f": {PROJECT_ROOT}")
-        self.log(f": {OUTPUT_DIR}")
+        """运行完整审查"""
+        self.log("QHI拼版处理器 - 每日自动审查")
+        self.log(f"项目目录: {self.project_root}")
+        self.log(f"输出目录: {self.output_dir}")
         self.log("")
-        
-        # 
+
         self.check_syntax()
         self.check_imports()
         self.run_acceptance_test()
-        
-        # 
+
         report_file = self.generate_report()
-        
-        # 
+
         passed = sum(1 for _, result, _ in self.results if result)
         total = len(self.results)
-        
+
         self.log("")
-        self.log(f": {passed}/{total} ")
-        self.log(f": {report_file}")
-        
+        self.log(f"审查完成: {passed}/{total} 通过")
+        self.log(f"报告文件: {report_file}")
+
         return passed == total
 
 
 def main():
-    """"""
-    # 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    
-    # 
-    reviewer = DailyReviewer()
+    """主函数 — 从 tools/ 运行时自动推导项目根为上级目录"""
+    project_root = Path(__file__).resolve().parent.parent
+    output_dir = project_root / "review_reports"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    reviewer = DailyReviewer(project_root=project_root, output_dir=output_dir)
     success = reviewer.run()
-    
-    # 
+
     sys.exit(0 if success else 1)
 
 

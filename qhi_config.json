@@ -19,17 +19,24 @@
   ],
   "rules": [
     {
-      "name": "默认处理规则",
+      "name": "封面处理",
       "enabled": true,
-      "condition_type": "always",
-      "condition_value": "",
+      "condition_type": "name_contains",
+      "condition_value": "封面",
       "steps": []
     },
     {
-      "name": "默认处理规则 (副本)",
+      "name": "内文处理",
       "enabled": true,
-      "condition_type": "always",
-      "condition_value": "",
+      "condition_type": "name_contains",
+      "condition_value": "内文",
+      "steps": []
+    },
+    {
+      "name": "骑马钉书刊",
+      "enabled": true,
+      "condition_type": "machine_match",
+      "condition_value": "骑马钉",
       "steps": []
     }
   ],

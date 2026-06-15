@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 """
-ui/widgets/visual_rule_editor.py — 可视化规则编辑器
+ui/widgets/visual_rule_editor.py — Visual Rule Editor
 
-基于 QGraphicsView 的节点式规则编辑系统，支持:
-  - 拖拽添加条件/动作节点
-  - 贝塞尔曲线连线
-  - 节点属性实时编辑
-  - 规则图序列化/反序列化
-  - 与 RuleEngine 后端对接生成 Python 规则代码
+Node-based visual rule editing system based on QGraphicsView, supporting:
+  - Drag & drop to add condition/action nodes
+  - Bezier curve connections
+  - Real-time node property editing
+  - Rule graph serialization/deserialization
+  - Integration with RuleEngine backend to generate Python rule code
 """
 
 import sys, json, math
@@ -39,6 +39,11 @@ from PyQt5.QtGui import (
     QTransform, QPolygonF, QLinearGradient, QWheelEvent,
     QMouseEvent, QKeyEvent,
 )
+
+from utils.i18n import I18nEngine
+
+# 模块级 i18n 实例
+_i18n = I18nEngine.instance()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -267,11 +272,11 @@ class RuleNodeItem(QGraphicsRectItem):
 
     def contextMenuEvent(self, event):
         menu = QMenu()
-        act_delete = QAction("删除节点", menu)
+        act_delete = QAction(_i18n.tr("删除节点"), menu)
         act_delete.triggered.connect(lambda: self.node_deleted.emit(self.data.id))
         menu.addAction(act_delete)
         menu.addSeparator()
-        act_props = QAction("编辑属性...", menu)
+        act_props = QAction(_i18n.tr("编辑属性..."), menu)
         act_props.triggered.connect(lambda: self._on_edit_properties())
         menu.addAction(act_props)
         menu.exec_(event.screenPos())
@@ -635,12 +640,12 @@ class RuleEditScene(QGraphicsScene):
 class VisualRuleEditor(QWidget):
     """可视化规则编辑器主组件"""
 
-    rule_saved = pyqtSignal(str)   # 规则名称
+    rule_saved = pyqtSignal(str)   # rule name
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._rule_name = "Untitled"
-        self.setWindowTitle("可视化规则编辑器")
+        self.setWindowTitle(_i18n.tr("可视化规则编辑器"))
         self.resize(1100, 720)
 
         self._init_ui()
@@ -655,7 +660,7 @@ class VisualRuleEditor(QWidget):
         left_panel.setFixedWidth(200)
 
         # 条件节点
-        cond_group = QGroupBox("条件节点")
+        cond_group = QGroupBox(_i18n.tr("条件节点"))
         cond_layout = QVBoxLayout(cond_group)
         self._cond_list = QListWidget()
         self._cond_list.setDragEnabled(True)
@@ -663,7 +668,7 @@ class VisualRuleEditor(QWidget):
         left_layout.addWidget(cond_group)
 
         # 动作节点
-        act_group = QGroupBox("动作节点")
+        act_group = QGroupBox(_i18n.tr("动作节点"))
         act_layout = QVBoxLayout(act_group)
         self._act_list = QListWidget()
         self._act_list.setDragEnabled(True)
@@ -671,18 +676,18 @@ class VisualRuleEditor(QWidget):
         left_layout.addWidget(act_group)
 
         # 属性面板
-        prop_group = QGroupBox("节点属性")
+        prop_group = QGroupBox(_i18n.tr("节点属性"))
         prop_layout = QFormLayout(prop_group)
         self._prop_label = QLabel("")
         self._prop_cond_type = QComboBox()
         self._prop_cond_op = QComboBox()
         self._prop_cond_val = QLineEdit()
         self._prop_action_type = QComboBox()
-        prop_layout.addRow(QLabel("标签:"), self._prop_label)
-        prop_layout.addRow(QLabel("条件类型:"), self._prop_cond_type)
-        prop_layout.addRow(QLabel("运算符:"), self._prop_cond_op)
-        prop_layout.addRow(QLabel("值:"), self._prop_cond_val)
-        prop_layout.addRow(QLabel("动作类型:"), self._prop_action_type)
+        prop_layout.addRow(QLabel(_i18n.tr("标签:")), self._prop_label)
+        prop_layout.addRow(QLabel(_i18n.tr("条件类型:")), self._prop_cond_type)
+        prop_layout.addRow(QLabel(_i18n.tr("运算符:")), self._prop_cond_op)
+        prop_layout.addRow(QLabel(_i18n.tr("值:")), self._prop_cond_val)
+        prop_layout.addRow(QLabel(_i18n.tr("动作类型:")), self._prop_action_type)
         left_layout.addWidget(prop_group)
 
         left_layout.addStretch()
@@ -702,19 +707,19 @@ class VisualRuleEditor(QWidget):
 
         # 工具栏（顶部浮动）
         self._toolbar = QHBoxLayout()
-        self._toolbar.addWidget(QLabel("规则名称:"))
+        self._toolbar.addWidget(QLabel(_i18n.tr("规则名称:")))
         self._name_input = QLineEdit("Untitled")
         self._name_input.setFixedWidth(150)
         self._toolbar.addWidget(self._name_input)
         self._toolbar.addStretch()
-        btn_add_cond = QPushButton("+ 条件")
+        btn_add_cond = QPushButton(_i18n.tr("+ 条件"))
         btn_add_cond.clicked.connect(lambda: self._add_node(NodeType.CONDITION))
         self._toolbar.addWidget(btn_add_cond)
-        btn_add_act = QPushButton("+ 动作")
+        btn_add_act = QPushButton(_i18n.tr("+ 动作"))
         btn_add_act.clicked.connect(lambda: self._add_node(NodeType.ACTION))
         self._toolbar.addWidget(btn_add_act)
         self._toolbar.addStretch()
-        btn_save = QPushButton("保存规则")
+        btn_save = QPushButton(_i18n.tr("保存规则"))
         btn_save.clicked.connect(self._save_rule)
         self._toolbar.addWidget(btn_save)
 
@@ -731,16 +736,16 @@ class VisualRuleEditor(QWidget):
     def _init_palette(self):
         """初始化可选节点面板"""
         conditions = [
-            ("文件后缀", "file_ext"),
-            ("页数判断", "page_count"),
-            ("文件大小", "file_size"),
-            ("色彩模式", "color_mode"),
-            ("包含文本", "contains_text"),
-            ("客户名称", "customer"),
-            ("纸张类型", "paper_type"),
+            (_i18n.t("file_extension"), "file_ext"),
+            (_i18n.t("page_count"), "page_count"),
+            (_i18n.t("file_size"), "file_size"),
+            (_i18n.t("color_mode"), "color_mode"),
+            (_i18n.t("contains_text"), "contains_text"),
+            (_i18n.t("customer_name"), "customer"),
+            (_i18n.t("paper_type"), "paper_type"),
         ]
         for label, ctype in conditions:
-            item = QListWidgetItem(label)
+            item = QListWidgetItem(_i18n.tr(label))
             item.setData(Qt.UserRole, {"type": "condition", "condition_type": ctype})
             self._cond_list.addItem(item)
         self._cond_list.itemDoubleClicked.connect(
@@ -748,16 +753,16 @@ class VisualRuleEditor(QWidget):
         )
 
         actions = [
-            ("重命名", "rename"),
-            ("输出格式", "output_format"),
-            ("拼版", "impose"),
-            ("添加页码", "add_page_num"),
-            ("裁切标记", "crop_marks"),
-            ("移动文件", "move_file"),
-            ("发送通知", "send_notify"),
+            (_i18n.t("rename"), "rename"),
+            (_i18n.t("output_format"), "output_format"),
+            (_i18n.t("impose"), "impose"),
+            (_i18n.t("add_page_number"), "add_page_num"),
+            (_i18n.t("crop_marks"), "crop_marks"),
+            (_i18n.t("move_file"), "move_file"),
+            (_i18n.t("send_notification"), "send_notify"),
         ]
         for label, atype in actions:
-            item = QListWidgetItem(label)
+            item = QListWidgetItem(_i18n.tr(label))
             item.setData(Qt.UserRole, {"type": "action", "action_type": atype})
             self._act_list.addItem(item)
         self._act_list.itemDoubleClicked.connect(
@@ -770,7 +775,7 @@ class VisualRuleEditor(QWidget):
         center = self._view.mapToScene(self._view.viewport().rect().center())
         ndata = NodeData(
             id=nid, type=ntype,
-            label=f"新{ntype.name}",
+            label=f"New {ntype.name}",
             x=center.x(), y=center.y(),
         )
         self._scene.add_node(ndata)
@@ -791,7 +796,7 @@ class VisualRuleEditor(QWidget):
         center = self._view.mapToScene(self._view.viewport().rect().center())
         ndata = NodeData(
             id=nid, type=NodeType.ACTION,
-            label=f"动作: {atype}",
+            label=f"{_i18n.t('action')}: {atype}",
             action_type=atype,
             x=center.x(), y=center.y(),
         )

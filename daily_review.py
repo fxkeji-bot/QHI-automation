@@ -7,10 +7,10 @@
 1. 语法检查（所有.py文件）
 2. 导入检查（关键模块）
 3. 运行验收测试
-4. 生成审查报告并保存到 E:\Temp\bug\
+4. 生成审查报告并保存到 REVIEW_OUTPUT_DIR 或项目 review_output 目录
 
 调度：每天8:00 AM自动运行
-输出：E:\Temp\bug\review_YYYY-MM-DD_HH-MM-SS.txt
+输出：<REVIEW_OUTPUT_DIR>/review_YYYY-MM-DD_HH-MM-SS.txt
 """
 
 import sys
@@ -25,7 +25,7 @@ from typing import List, Dict, Tuple
 PROJECT_ROOT = Path(r"C:\Users\diy\AppData\Roaming\Tencent\Marvis\User\oAN1i2RR3FJVCxKB7RydPILg8Nrg\workspace\conv_19e8e55ce77_b1c0386becb8\output\qhi_processor")
 
 # 输出目录
-OUTPUT_DIR = Path(r"E:\Temp\bug")
+OUTPUT_DIR = Path(os.environ.get("REVIEW_OUTPUT_DIR", str(PROJECT_ROOT / "review_output")))
 
 
 class DailyReviewer:

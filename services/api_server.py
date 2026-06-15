@@ -150,7 +150,7 @@ class _APIHandler(BaseHTTPRequestHandler):
         orders = []
         if self.db:
             try:
-                orders = self.db.select("orders", limit=100)
+                orders = self.db.get_all_orders()
             except Exception:
                 pass
         self._json_response(200, {"orders": orders, "total": len(orders)})
@@ -161,13 +161,25 @@ class _APIHandler(BaseHTTPRequestHandler):
             self._json_response(500, {"error": "db_not_available"})
             return
         try:
-            order = self.db.select_one("orders", id=order_id)
+            oid = int(order_id)
+            order = self.db.get("orders", oid)
             if order:
                 self._json_response(200, {"order": order})
             else:
                 self._json_response(404, {"error": "not_found", "order_id": order_id})
+        except ValueError:
+            self._json_response(400, {"error": "invalid_order_id", "order_id": order_id})
         except Exception as e:
             self._json_response(500, {"error": str(e)})
+
+    # 订单创建允许的字段白名单（防注入）
+    _ORDER_FIELDS = {
+        "customer_id", "customer_name", "file_path", "file_name",
+        "paper_id", "paper_name", "paper_cost", "quantity", "page_count",
+        "process_list", "process_cost", "machine_cost", "labor_cost",
+        "total_cost", "total_price", "unit_price", "profit",
+        "machine_used", "status", "variable_snapshot",
+    }
 
     def _handle_create_order(self):
         """POST /api/v1/orders"""
@@ -177,7 +189,9 @@ class _APIHandler(BaseHTTPRequestHandler):
             return
         if self.db:
             try:
-                order_id = self.db.insert("orders", **data)
+                # 仅允许白名单字段通过，防止任意列注入
+                safe_data = {k: v for k, v in data.items() if k in self._ORDER_FIELDS}
+                order_id = self.db.insert("orders", **safe_data)
                 self._json_response(201, {"order_id": order_id, "status": "created"})
             except Exception as e:
                 self._json_response(500, {"error": str(e)})
@@ -265,7 +279,7 @@ class APIServer:
         server.stop()
     """
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 8899):
+    def __init__(self, host: str = "127.0.0.1", port: int = 18900):
         self.host = host
         self.port = port
         self._httpd: Optional[HTTPServer] = None

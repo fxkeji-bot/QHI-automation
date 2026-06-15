@@ -219,7 +219,7 @@ def main():
         window = MainWindow()
         window.show()
         logger.info("程序已启动")
-        _print_startup_info()
+        _print_startup_info(plugin_mgr, api_server)
         logger.info("-" * 70)
     except Exception as e:
         logger.error(f"创建主窗口失败: {e}")
@@ -247,9 +247,9 @@ def main():
     sys.exit(exit_code)
 
 
-def _print_startup_info():
+def _print_startup_info(plugin_mgr=None, api_server=None):
     """输出模块加载完成信息（仅在 main() 中调用，避免 import 时执行）"""
-    i18n_status = "✅" if _i18n and _i18n.current_locale else "—"
+    i18n_status = "✅" if _i18n and _i18n.locale else "—"
     plugin_count = len(plugin_mgr.plugins) if plugin_mgr else "—"
     api_status = "✅" if api_server and api_server.running else "—"
     update_status = "✅ 后台" if UpdateService is not None else "—"

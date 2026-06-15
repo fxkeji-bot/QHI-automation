@@ -66,13 +66,68 @@ class ActionExecutionError(SmartProcessorError):
     pass
 
 
+class ActionContext:
+    """事务性操作上下文管理器
+    
+    在批量处理动作时记录每个步骤产生的文件列表，
+    若任一步骤失败，自动撤销（删除）已完成的前序步骤产生的文件。
+    
+    用法:
+        with ActionContext() as ctx:
+            ctx.track_file("/path/to/generated.pdf")
+            # 若异常发生，tracked 的文件将被自动清理
+    """
+    
+    def __init__(self):
+        self._generated_files = []
+        self._backup_data = {}
+    
+    def track_file(self, file_path):
+        """记录生成的文件路径，用于回滚时清理"""
+        self._generated_files.append(str(file_path))
+    
+    def set_backup(self, key, value):
+        """保存回滚所需的备份数据"""
+        self._backup_data[key] = value
+    
+    def get_backup(self, key, default=None):
+        """获取备份数据"""
+        return self._backup_data.get(key, default)
+    
+    def commit(self):
+        """提交事务：清空追踪，标记操作成功"""
+        self._generated_files.clear()
+        self._backup_data.clear()
+    
+    def rollback(self):
+        """回滚事务：逆序删除所有追踪到的生成文件"""
+        for gen_file in reversed(self._generated_files):
+            try:
+                if os.path.exists(gen_file):
+                    os.remove(gen_file)
+            except OSError:
+                pass
+        self._generated_files.clear()
+        self._backup_data.clear()
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            self.rollback()
+        else:
+            self.commit()
+        return False
+
+
 class SmartProcessor:
     """
     智能处理器 - 协调整个PDF处理流程
     
     生产级特性：
     1. 状态机管理处理生命周期
-    2. 失败自动回滚
+    2. 失败自动回滚（基于 ActionContext 事务机制）
     3. 完整日志链路追踪
     4. 幂等性保证
     
@@ -125,6 +180,7 @@ class SmartProcessor:
         self._state = ProcessState.PENDING
         self._current_file = None
         self._backup_data = {}  # 用于回滚
+        self._generated_files: List[str] = []  # 追踪处理过程中生成的文件，用于回滚清理
         
         # 重试配置
         self.max_retries = config.get('max_retries', 3)
@@ -166,6 +222,7 @@ class SmartProcessor:
         self._current_file = file_path
         self._log_chain = []
         self._backup_data = {}
+        self._generated_files = []
         
         # 幂等性检查
         if not kwargs.get('force_reprocess', False):
@@ -203,9 +260,14 @@ class SmartProcessor:
     def _process_once(self, file_path: str, output_base: str, **kwargs) -> Tuple[bool, List[str], Dict]:
         """
         单次处理流程（核心逻辑）
+        
+        使用 ActionContext 事务机制：任一步骤失败时，
+        自动撤销（删除）已完成步骤产生的文件，保证原子性。
         """
         msgs = []
         info = {}
+        
+        ctx = ActionContext()
         
         try:
             # ===== Step 1: 信息提取 =====
@@ -228,9 +290,9 @@ class SmartProcessor:
             metadata = self.metadata_mgr.get(file_path)
             if metadata is None:
                 metadata = self.metadata_mgr.create(file_path, info)
-                self._backup_data['metadata_created'] = True
+                ctx.set_backup('metadata_created', True)
             else:
-                self._backup_data['original_metadata'] = metadata.to_dict().copy()
+                ctx.set_backup('original_metadata', metadata.to_dict().copy())
             
             # ===== Step 3: 规则匹配 =====
             self._state = ProcessState.MATCHING
@@ -264,6 +326,12 @@ class SmartProcessor:
                     try:
                         ok, msg = self.action_exec.execute(action, file_path, output_base, info)
                         msgs.append(msg)
+                        
+                        # 追踪生成的文件路径（由 ActionContext 管理，用于失败回滚清理）
+                        if ok and isinstance(msg, dict):
+                            generated = msg.get('output_path') or msg.get('output')
+                            if generated and os.path.exists(str(generated)):
+                                ctx.track_file(str(generated))
                         
                         if not ok:
                             raise ActionExecutionError(f"动作执行失败: {msg}")
@@ -310,14 +378,18 @@ class SmartProcessor:
             msgs.append("处理完成")
             self._log("处理完成", "INFO")
             
+            # 事务提交：清空 ActionContext 追踪
+            ctx.commit()
+            
             return True, msgs, info
             
         except SmartProcessorError as e:
             self._state = ProcessState.FAILED
             self._log(f"处理失败: {e}", "ERROR")
             
-            # 回滚
-            self._rollback(file_path)
+            # ActionContext 事务回滚：删除已生成文件 + 恢复元数据
+            ctx.rollback()
+            self._rollback_metadata(file_path, ctx)
             
             msgs.append(f"失败: {e}")
             return False, msgs, {'error': str(e), 'info': info}
@@ -327,37 +399,42 @@ class SmartProcessor:
             error_detail = tb_module.format_exc()
             self._log(f"未预期异常: {e}\n{error_detail}", "CRITICAL")
             
-            self._rollback(file_path)
+            # ActionContext 事务回滚
+            ctx.rollback()
+            self._rollback_metadata(file_path, ctx)
             
             msgs.append(f"异常: {e}")
             return False, msgs, {'error': str(e), 'traceback': error_detail}
     
-    def _rollback(self, file_path: str):
+    def _rollback_metadata(self, file_path: str, ctx):
         """
-        回滚已执行的操作
+        回滚元数据变更（ActionContext 已处理文件删除）
+        
+        回滚策略：
+        1. [已由 ActionContext.rollback() 处理] 删除处理过程中生成的文件
+        2. 回滚元数据变更（删除或恢复原始状态）
+        3. 标记状态为 ROLLED_BACK
         """
-        self._log("开始回滚...", "WARNING")
+        self._log("开始元数据回滚...", "WARNING")
         
         try:
             # 回滚元数据
-            if self._backup_data.get('metadata_created'):
+            if ctx.get_backup('metadata_created'):
                 self.metadata_mgr.delete(file_path)
                 self._log("删除已创建的元数据")
-            elif self._backup_data.get('original_metadata'):
-                original = self._backup_data['original_metadata']
+            elif ctx.get_backup('original_metadata'):
+                original = ctx.get_backup('original_metadata')
                 metadata = self.metadata_mgr.get(file_path)
                 if metadata:
                     metadata.update(original)
                     self.metadata_mgr.save()
                     self._log("恢复原始元数据")
             
-            # TODO: 回滚已执行的动作（如删除生成的文件）
-            
             self._state = ProcessState.ROLLED_BACK
             self._log("回滚完成", "WARNING")
             
         except Exception as e:
-            self._log(f"回滚失败: {e}", "CRITICAL")
+            self._log(f"元数据回滚失败: {e}", "CRITICAL")
     
     def _log_production(self, file_path: str, info: Dict):
         """

@@ -25,6 +25,13 @@ if str(_parent) not in sys.path:
 
 from models.constants import DB_PATH, VALID_TABLES, ACTIVE_FIELD_MAP, PLUGIN_DIR
 
+from core.codec_manager import auto_generate_codes
+from core.seed_manager import seed_database
+from core.order_repository import OrderRepository
+from core.repositories.material_repository import PaperRepository, ProcessRepository, BindingRepository
+from core.repositories.config_repository import MachineRepository, CustomerRepository
+from core.repositories.custom_repository import CustomProcessRepository, CustomBindingRepository
+
 class Database:
     """数据库管理器
     
@@ -60,7 +67,17 @@ class Database:
         # 初始化表结构和数据
         self._create_tables()
         self._fix_tables()
-        self._seed_defaults()
+        seed_database(self.conn, logger)
+
+        # 订单仓储（从上帝类拆分）
+        self._order_repo = OrderRepository(self)
+        self._paper_repo = PaperRepository(self)
+        self._binding_repo = BindingRepository(self)
+        self._process_repo = ProcessRepository(self)
+        self._custom_process_repo = CustomProcessRepository(self)
+        self._custom_binding_repo = CustomBindingRepository(self)
+        self._machine_repo = MachineRepository(self)
+        self._customer_repo = CustomerRepository(self)
 
     def _safe_execute(self, operation: Callable, error_msg: str = "数据库操作失败"):
         """安全执行数据库操作（带错误处理和日志）
@@ -450,7 +467,7 @@ class Database:
             for table in tables_with_code:
                 self._add_column_if_missing(cur, table, 'code', 'TEXT UNIQUE')
                 # 为已有数据自动生成编码
-                self._auto_generate_codes(cur, table)
+                auto_generate_codes(cur, self.conn, table, logger)
 
             # 修复7：为 orders 表添加 workflow_state 列（工序状态机）
             from models.enums import WorkflowState
@@ -483,134 +500,6 @@ class Database:
                 pass  # 列已存在
         except Exception:
             pass
-
-    def _auto_generate_codes(self, cur, table: str):
-        """为已有数据自动生成标准化编码"""
-        try:
-            from models.enums import PaperCategory, ProcessCategory, MachineCategory, BindingCode
-            cur.execute(f"SELECT * FROM {table}")
-            rows = cur.fetchall()
-            updated = 0
-            for row in rows:
-                rid, name, code = row[0], row[1], None
-                # 尝试获取 code（最后一列）
-                col_names = [desc[1] for desc in cur.description]
-                if 'code' in col_names:
-                    code = row[col_names.index('code')]
-                if code and str(code).strip():
-                    continue
-                category = row[col_names.index('category')] if 'category' in col_names else ""
-                generated = None
-                if table == 'papers':
-                    weight = row[col_names.index('weight')] if 'weight' in col_names else 0
-                    size = row[col_names.index('size')] if 'size' in col_names else ""
-                    generated = PaperCategory.build_code(name or "", weight or 0, size or "")
-                elif table in ('processes', 'processes_custom'):
-                    generated = ProcessCategory.build_code(category or "", rid)
-                elif table == 'machines':
-                    generated = MachineCategory.build_code(category or "", rid)
-                elif table in ('bindings', 'bindings_custom'):
-                    generated = BindingCode.build_code(name or "")
-                if generated:
-                    try:
-                        cur.execute(f"UPDATE {table} SET code=? WHERE id=?", (generated, rid))
-                        updated += 1
-                    except sqlite3.IntegrityError:
-                        cur.execute(f"UPDATE {table} SET code=? WHERE id=?", (f"{generated}_{rid}", rid))
-            if updated:
-                self.conn.commit()
-                logger.info(f"表 {table} 已为 {updated} 条记录生成编码")
-        except Exception as e:
-            logger.info(f"自动生成编码失败 (表 {table}): {e}")
-
-    def _seed_defaults(self):
-        """预置默认数据
-        
-        如果表为空，自动插入默认数据：
-        - 9种常用纸张（铜版纸、双胶纸、哑粉纸、白卡纸）
-        - 9种常用工艺（覆膜、烫金、UV、压纹、模切、装订等）
-        - 6种常用机型（印刷机、覆膜机、烫金机、模切机）
-        - 插件目录中的Python脚本
-        """
-        cur = self.conn.cursor()
-
-        # 预置纸张
-        cur.execute("SELECT COUNT(*) FROM papers")
-        if cur.fetchone()[0] == 0:
-            default_papers = [
-                ("PAP-CT-157-889x1194", "157g铜版纸", "铜版", 157, "889×1194", 680, "令", "默认供应商"),
-                ("PAP-CT-200-889x1194", "200g铜版纸", "铜版", 200, "889×1194", 850, "令", "默认供应商"),
-                ("PAP-CT-250-889x1194", "250g铜版纸", "铜版", 250, "889×1194", 1050, "令", "默认供应商"),
-                ("PAP-CT-300-889x1194", "300g铜版纸", "铜版", 300, "889×1194", 1280, "令", "默认供应商"),
-                ("PAP-WF-100-889x1194", "100g双胶纸", "双胶", 100, "889×1194", 380, "令", "默认供应商"),
-                ("PAP-WF-120-889x1194", "120g双胶纸", "双胶", 120, "889×1194", 450, "令", "默认供应商"),
-                ("PAP-MP-157-889x1194", "157g哑粉纸", "哑粉", 157, "889×1194", 720, "令", "默认供应商"),
-                ("PAP-IV-250-787x1092", "250g白卡纸", "白卡", 250, "787×1092", 1100, "令", "默认供应商"),
-                ("PAP-IV-300-787x1092", "300g白卡纸", "白卡", 300, "787×1092", 1350, "令", "默认供应商"),
-            ]
-            cur.executemany(
-                "INSERT INTO papers (code,name,category,weight,size,unit_price,price_unit,supplier) VALUES (?,?,?,?,?,?,?,?)",
-                default_papers
-            )
-            logger.info("已预置9种默认纸张")
-
-        # 预置工艺
-        cur.execute("SELECT COUNT(*) FROM processes")
-        if cur.fetchone()[0] == 0:
-            default_procs = [
-                ("PRC-SURF-001", "单面覆亮膜", "表面处理", 0.8, "元/㎡", 50, "亮膜/光膜"),
-                ("PRC-SURF-002", "单面覆哑膜", "表面处理", 0.9, "元/㎡", 50, "哑膜/哑光/雾面"),
-                ("PRC-POST-001", "烫金", "后道加工", 0.15, "元/次", 30, "烫金/烫银/烫红"),
-                ("PRC-SURF-003", "局部UV", "表面处理", 1.2, "元/㎡", 60, "局部UV/spot uv"),
-                ("PRC-POST-002", "压纹", "后道加工", 1.5, "元/㎡", 80, "压纹/压花"),
-                ("PRC-POST-003", "模切", "后道加工", 0.5, "元/张", 100, "模切"),
-                ("PRC-BIND-001", "骑马钉", "装订", 0.05, "元/贴", 20, "骑马钉/骑订"),
-                ("PRC-BIND-002", "胶装", "装订", 0.3, "元/本", 30, "胶装/胶订"),
-                ("PRC-POST-004", "击凸", "后道加工", 0.12, "元/次", 30, "击凸/压凹"),
-            ]
-            cur.executemany(
-                "INSERT INTO processes (code,name,category,unit_price,price_unit,min_charge,keyword) VALUES (?,?,?,?,?,?,?)",
-                default_procs
-            )
-            logger.info("已预置9种默认工艺")
-
-        # 预置机型
-        cur.execute("SELECT COUNT(*) FROM machines")
-        if cur.fetchone()[0] == 0:
-            default_machines = [
-                ("MAC-PRNT-001", "海德堡SM74-4", "印刷", "520×740", "210×280", 12000, 500, 120, 4),
-                ("MAC-PRNT-002", "海德堡CD102-5", "印刷", "720×1020", "280×420", 15000, 800, 180, 5),
-                ("MAC-PRNT-003", "小森L440", "印刷", "720×1030", "280×420", 13000, 600, 140, 4),
-                ("MAC-COAT-001", "覆膜机FM-650", "覆膜", "650×900", "140×180", 3000, 80, 0.3, 0),
-                ("MAC-STMP-001", "自动烫金机", "烫金", "900×1200", "100×100", 1500, 200, 0.8, 0),
-                ("MAC-DIEC-001", "模切机MY-1060", "模切", "1060×750", "200×200", 2500, 300, 0.6, 0),
-            ]
-            cur.executemany(
-                "INSERT INTO machines (code,name,category,max_sheet,min_sheet,speed,setup_cost,run_cost,color_count) VALUES (?,?,?,?,?,?,?,?,?)",
-                default_machines
-            )
-            logger.info("已预置6种默认机型")
-
-        # 预置插件（从插件目录扫描）
-        cur.execute("SELECT COUNT(*) FROM plugins")
-        if cur.fetchone()[0] == 0 and PLUGIN_DIR.exists():
-            count = 0
-            for py_file in PLUGIN_DIR.glob("*.py"):
-                if py_file.name not in ['base.py', '__init__.py']:
-                    try:
-                        cur.execute(
-                            "INSERT OR IGNORE INTO plugins (name, file_path, version) VALUES (?, ?, '1.0')",
-                            (py_file.stem, str(py_file))
-                        )
-                        count += 1
-                    except Exception:
-                        pass
-            if count > 0:
-                logger.info(f"已预置 {count} 个插件")
-
-        self.conn.commit()
-
-    # ===== 表名验证（安全防护）=====
 
     def _validate_table(self, table: str) -> str:
         """验证表名安全性（白名单机制，防止SQL注入）
@@ -934,7 +823,7 @@ class Database:
             
             return self._safe_execute(_query, "获取单价失败")
 
-    # ===== 订单管理 =====
+    # ===== 订单管理（委托给 OrderRepository） =====
 
     def create_order(self, **kwargs) -> int:
         """创建订单（自动生成订单号）
@@ -945,9 +834,7 @@ class Database:
         Returns:
             新订单ID
         """
-        if 'order_no' not in kwargs:
-            kwargs['order_no'] = f"ORD{datetime.now().strftime('%Y%m%d%H%M%S')}{uuid.uuid4().hex[:4].upper()}"
-        return self.insert("orders", **kwargs)
+        return self._order_repo.create_order(**kwargs)
 
     def get_orders(self, status: str = None, customer_id: int = None,
                    date_from: str = None, date_to: str = None) -> List[Dict]:
@@ -962,30 +849,7 @@ class Database:
         Returns:
             订单列表
         """
-        with self._lock:
-            def _query():
-                cur = self.conn.cursor()
-                conds = []
-                params = []
-                
-                if status:
-                    conds.append("status=?")
-                    params.append(status)
-                if customer_id:
-                    conds.append("customer_id=?")
-                    params.append(customer_id)
-                if date_from:
-                    conds.append("created_at >= ?")
-                    params.append(date_from)
-                if date_to:
-                    conds.append("created_at <= ?")
-                    params.append(date_to)
-                
-                where = " AND ".join(conds) if conds else "1=1"
-                cur.execute(f"SELECT * FROM orders WHERE {where} ORDER BY id DESC LIMIT 500", params)
-                return [dict(row) for row in cur.fetchall()]
-            
-            return self._safe_execute(_query, "查询订单失败")
+        return self._order_repo.get_orders(status, customer_id, date_from, date_to)
 
     def get_order_stats(self, date_from: str = None, date_to: str = None) -> Dict:
         """获取订单统计数据
@@ -997,33 +861,7 @@ class Database:
         Returns:
             统计数据字典
         """
-        with self._lock:
-            def _query():
-                cur = self.conn.cursor()
-                conds = []
-                params = []
-                
-                if date_from:
-                    conds.append("created_at >= ?")
-                    params.append(date_from)
-                if date_to:
-                    conds.append("created_at <= ?")
-                    params.append(date_to)
-                
-                where = " AND ".join(conds) if conds else "1=1"
-                cur.execute(f"""
-                    SELECT
-                        COUNT(*) as total_orders,
-                        SUM(quantity) as total_quantity,
-                        COALESCE(SUM(total_cost), 0) as total_cost,
-                        COALESCE(SUM(total_price), 0) as total_revenue,
-                        COALESCE(SUM(profit), 0) as total_profit
-                    FROM orders WHERE {where}
-                """, params)
-                row = cur.fetchone()
-                return dict(row) if row else {}
-            
-            return self._safe_execute(_query, "获取订单统计失败")
+        return self._order_repo.get_order_stats(date_from, date_to)
 
     def get_all_orders(self, date_from=None, date_to=None):
         """获取所有订单（用于导出）
@@ -1035,28 +873,7 @@ class Database:
         Returns:
             订单列表
         """
-        with self._lock:
-            def _query():
-                cur = self.conn.cursor()
-                sql = "SELECT * FROM orders"
-                params = []
-                
-                if date_from or date_to:
-                    sql += " WHERE "
-                    if date_from:
-                        sql += "created_at>=?"
-                        params.append(date_from)
-                    if date_to:
-                        if date_from:
-                            sql += " AND "
-                        sql += "created_at<=?"
-                        params.append(date_to + " 23:59:59")
-                
-                sql += " ORDER BY created_at DESC"
-                cur.execute(sql, params)
-                return [dict(row) for row in cur.fetchall()]
-            
-            return self._safe_execute(_query, "获取所有订单失败")
+        return self._order_repo.get_all_orders(date_from, date_to)
 
     # ===== 监控配置 =====
 
@@ -1213,206 +1030,145 @@ class Database:
     # ===== 各表专用CRUD（保持向后兼容）=====
 
     # ---- Papers ----
-    def add_paper(self, name: str, category: str = "", weight: int = 0, 
-                  size: str = "", price: float = 0, unit: str = "令", 
-                  supplier: str = "", stock: int = 0, remark: str = "", 
+    def add_paper(self, name: str, category: str = "", weight: int = 0,
+                  size: str = "", price: float = 0, unit: str = "令",
+                  supplier: str = "", stock: int = 0, remark: str = "",
                   is_active: int = 1) -> int:
-        """添加纸张"""
-        return self._safe_execute(
-            lambda: self.insert(
-                "papers", name=name, category=category, weight=weight,
-                size=size, unit_price=price, price_unit=unit,
-                supplier=supplier, stock=stock, remark=remark, is_active=is_active
-            ),
-            f"添加纸张 '{name}' 失败"
-        )
+        """添加纸张 → 委托给 PaperRepository"""
+        return self._paper_repo.add(name, category, weight, size, price, unit, supplier, stock, remark, is_active)
 
     def get_all_papers(self) -> List[Dict]:
-        """获取所有纸张（包括未激活）"""
-        return self.all_including_inactive("papers")
+        """获取所有纸张（包括未激活）→ 委托给 PaperRepository"""
+        return self._paper_repo.all()
 
-    def update_paper(self, pid: int, name: str, category: str = "", 
-                     weight: int = 0, size: str = "", price: float = 0, 
+    def update_paper(self, pid: int, name: str, category: str = "",
+                     weight: int = 0, size: str = "", price: float = 0,
                      is_active: int = 1):
-        """更新纸张"""
-        self._safe_execute(
-            lambda: self.update("papers", pid, name=name, category=category,
-                               weight=weight, size=size, unit_price=price, is_active=is_active),
-            f"更新纸张 {pid} 失败"
-        )
+        """更新纸张 → 委托给 PaperRepository"""
+        self._paper_repo.update(pid, name, category, weight, size, price, is_active)
 
     def delete_paper(self, pid: int):
-        """删除纸张（硬删除）"""
-        self.delete("papers", pid, soft=False)
+        """删除纸张（硬删除）→ 委托给 PaperRepository"""
+        self._paper_repo.delete(pid)
 
     # ---- Bindings ----
-    def add_binding(self, name: str, category: str = "", method: str = "", 
+    def add_binding(self, name: str, category: str = "", method: str = "",
                     price: float = 0, is_active: int = 1) -> int:
-        """添加装订方式"""
-        return self._safe_execute(
-            lambda: self.insert("bindings", name=name, category=category,
-                               method=method, unit_price=price, enabled=is_active),
-            f"添加装订方式 '{name}' 失败"
-        )
+        """添加装订方式 → 委托给 BindingRepository"""
+        return self._binding_repo.add(name, category, method, price, is_active)
 
     def get_all_bindings(self) -> List[Dict]:
-        """获取所有装订方式"""
-        return self.all_including_inactive("bindings")
+        """获取所有装订方式 → 委托给 BindingRepository"""
+        return self._binding_repo.all()
 
-    def update_binding(self, bid: int, name: str, category: str = "", 
+    def update_binding(self, bid: int, name: str, category: str = "",
                        method: str = "", price: float = 0, is_active: int = 1):
-        """更新装订方式"""
-        self._safe_execute(
-            lambda: self.update("bindings", bid, name=name, category=category,
-                               method=method, unit_price=price, enabled=is_active),
-            f"更新装订方式 {bid} 失败"
-        )
+        """更新装订方式 → 委托给 BindingRepository"""
+        self._binding_repo.update(bid, name, category, method, price, is_active)
 
     def delete_binding(self, bid: int):
-        """删除装订方式（硬删除）"""
-        self.delete("bindings", bid, soft=False)
+        """删除装订方式（硬删除）→ 委托给 BindingRepository"""
+        self._binding_repo.delete(bid)
 
     # ---- Processes ----
-    def add_process(self, name: str, category: str = "", price: float = 0, 
+    def add_process(self, name: str, category: str = "", price: float = 0,
                     keyword: str = "", is_active: int = 1) -> int:
-        """添加工艺"""
-        return self._safe_execute(
-            lambda: self.insert("processes", name=name, category=category,
-                               unit_price=price, keyword=keyword, is_active=is_active),
-            f"添加工艺 '{name}' 失败"
-        )
+        """添加工艺 → 委托给 ProcessRepository"""
+        return self._process_repo.add(name, category, price, keyword, is_active)
 
     def get_all_processes(self) -> List[Dict]:
-        """获取所有工艺"""
-        return self.all_including_inactive("processes")
+        """获取所有工艺 → 委托给 ProcessRepository"""
+        return self._process_repo.all()
 
-    def update_process(self, pid: int, name: str, category: str = "", 
+    def update_process(self, pid: int, name: str, category: str = "",
                        price: float = 0, keyword: str = "", is_active: int = 1):
-        """更新工艺"""
-        self._safe_execute(
-            lambda: self.update("processes", pid, name=name, category=category,
-                               unit_price=price, keyword=keyword, is_active=is_active),
-            f"更新工艺 {pid} 失败"
-        )
+        """更新工艺 → 委托给 ProcessRepository"""
+        self._process_repo.update(pid, name, category, price, keyword, is_active)
 
     def delete_process(self, pid: int):
-        """删除工艺（硬删除）"""
-        self.delete("processes", pid, soft=False)
+        """删除工艺（硬删除）→ 委托给 ProcessRepository"""
+        self._process_repo.delete(pid)
 
     # ---- Custom Processes ----
-    def add_custom_process(self, name: str, keyword: str = "", category: str = "", 
+    def add_custom_process(self, name: str, keyword: str = "", category: str = "",
                            price: float = 0, is_active: int = 1) -> int:
-        """添加自定义工艺"""
-        return self._safe_execute(
-            lambda: self.insert("processes_custom", name=name, keyword=keyword,
-                               category=category, unit_price=price, enabled=is_active),
-            f"添加自定义工艺 '{name}' 失败"
-        )
+        """添加自定义工艺 → 委托给 CustomProcessRepository"""
+        return self._custom_process_repo.add(name, keyword, category, price, is_active)
 
     def get_all_custom_processes(self) -> List[Dict]:
-        """获取所有自定义工艺"""
-        return self.all_including_inactive("processes_custom")
+        """获取所有自定义工艺 → 委托给 CustomProcessRepository"""
+        return self._custom_process_repo.all()
 
-    def update_custom_process(self, pid: int, name: str, keyword: str = "", 
+    def update_custom_process(self, pid: int, name: str, keyword: str = "",
                               category: str = "", price: float = 0, is_active: int = 1):
-        """更新自定义工艺"""
-        self._safe_execute(
-            lambda: self.update("processes_custom", pid, name=name, keyword=keyword,
-                               category=category, unit_price=price, enabled=is_active),
-            f"更新自定义工艺 {pid} 失败"
-        )
+        """更新自定义工艺 → 委托给 CustomProcessRepository"""
+        self._custom_process_repo.update(pid, name, keyword, category, price, is_active)
 
     def delete_custom_process(self, pid: int):
-        """删除自定义工艺（硬删除）"""
-        self.delete("processes_custom", pid, soft=False)
+        """删除自定义工艺（硬删除）→ 委托给 CustomProcessRepository"""
+        self._custom_process_repo.delete(pid)
 
     # ---- Custom Bindings ----
-    def add_custom_binding(self, name: str, keyword: str = "", category: str = "", 
+    def add_custom_binding(self, name: str, keyword: str = "", category: str = "",
                            method: str = "", price: float = 0, is_active: int = 1) -> int:
-        """添加自定义装订方式"""
-        return self._safe_execute(
-            lambda: self.insert("bindings_custom", name=name, keyword=keyword,
-                               category=category, method=method, unit_price=price, enabled=is_active),
-            f"添加自定义装订方式 '{name}' 失败"
-        )
+        """添加自定义装订方式 → 委托给 CustomBindingRepository"""
+        return self._custom_binding_repo.add(name, keyword, category, method, price, is_active)
 
     def get_all_custom_bindings(self) -> List[Dict]:
-        """获取所有自定义装订方式"""
-        return self.all_including_inactive("bindings_custom")
+        """获取所有自定义装订方式 → 委托给 CustomBindingRepository"""
+        return self._custom_binding_repo.all()
 
-    def update_custom_binding(self, bid: int, name: str, keyword: str = "", 
-                              category: str = "", method: str = "", 
+    def update_custom_binding(self, bid: int, name: str, keyword: str = "",
+                              category: str = "", method: str = "",
                               price: float = 0, is_active: int = 1):
-        """更新自定义装订方式"""
-        self._safe_execute(
-            lambda: self.update("bindings_custom", bid, name=name, keyword=keyword,
-                               category=category, method=method, unit_price=price, enabled=is_active),
-            f"更新自定义装订方式 {bid} 失败"
-        )
+        """更新自定义装订方式 → 委托给 CustomBindingRepository"""
+        self._custom_binding_repo.update(bid, name, keyword, category, method, price, is_active)
 
     def delete_custom_binding(self, bid: int):
-        """删除自定义装订方式（硬删除）"""
-        self.delete("bindings_custom", bid, soft=False)
+        """删除自定义装订方式（硬删除）→ 委托给 CustomBindingRepository"""
+        self._custom_binding_repo.delete(bid)
 
     # ---- Machines ----
-    def add_machine(self, name: str, category: str = "", max_sheets: str = "", 
+    def add_machine(self, name: str, category: str = "", max_sheets: str = "",
                     speed: str = "", price_per_hour: float = 0, is_active: int = 1) -> int:
-        """添加机型"""
-        return self._safe_execute(
-            lambda: self.insert("machines", name=name, category=category,
-                               max_sheet=max_sheets, speed=speed, unit_price=price_per_hour, is_active=is_active),
-            f"添加机型 '{name}' 失败"
-        )
+        """添加机型 → 委托给 MachineRepository"""
+        return self._machine_repo.add(name, category, max_sheets, speed, price_per_hour, is_active)
 
     def get_all_machines(self) -> List[Dict]:
-        """获取所有机型"""
-        return self.all_including_inactive("machines")
+        """获取所有机型 → 委托给 MachineRepository"""
+        return self._machine_repo.all()
 
-    def update_machine(self, mid: int, name: str, category: str = "", 
-                       max_sheets: str = "", speed: str = "", 
+    def update_machine(self, mid: int, name: str, category: str = "",
+                       max_sheets: str = "", speed: str = "",
                        price_per_hour: float = 0, is_active: int = 1):
-        """更新机型"""
-        self._safe_execute(
-            lambda: self.update("machines", mid, name=name, category=category,
-                               max_sheet=max_sheets, speed=speed, unit_price=price_per_hour, is_active=is_active),
-            f"更新机型 {mid} 失败"
-        )
+        """更新机型 → 委托给 MachineRepository"""
+        self._machine_repo.update(mid, name, category, max_sheets, speed, price_per_hour, is_active)
 
     def delete_machine(self, mid: int):
-        """删除机型（硬删除）"""
-        self.delete("machines", mid, soft=False)
+        """删除机型（硬删除）→ 委托给 MachineRepository"""
+        self._machine_repo.delete(mid)
 
     # ---- Customers ----
-    def add_customer(self, name: str, code: str = "", short_name: str = "", 
-                     tier: str = "B", contact: str = "", phone: str = "", 
+    def add_customer(self, name: str, code: str = "", short_name: str = "",
+                     tier: str = "B", contact: str = "", phone: str = "",
                      address: str = "", discount: float = 1.0, is_active: int = 1) -> int:
-        """添加客户"""
-        return self._safe_execute(
-            lambda: self.insert("customers", code=code, name=name, short_name=short_name,
-                               price_tier=tier, contact=contact, phone=phone,
-                               address=address, discount=discount, is_active=is_active),
-            f"添加客户 '{name}' 失败"
-        )
+        """添加客户 → 委托给 CustomerRepository"""
+        return self._customer_repo.add(name, code, short_name, tier, contact, phone, address, discount, is_active)
 
     def get_all_customers(self) -> List[Dict]:
-        """获取所有客户"""
-        return self.all_including_inactive("customers")
+        """获取所有客户 → 委托给 CustomerRepository"""
+        return self._customer_repo.all()
 
-    def update_customer(self, cid: int, name: str, code: str = "", 
-                        short_name: str = "", tier: str = "B", contact: str = "", 
-                        phone: str = "", address: str = "", discount: float = 1.0, 
+    def update_customer(self, cid: int, name: str, code: str = "",
+                        short_name: str = "", tier: str = "B", contact: str = "",
+                        phone: str = "", address: str = "", discount: float = 1.0,
                         is_active: int = 1):
-        """更新客户"""
-        self._safe_execute(
-            lambda: self.update("customers", cid, code=code, name=name, short_name=short_name,
-                               price_tier=tier, contact=contact, phone=phone,
-                               address=address, discount=discount, is_active=is_active),
-            f"更新客户 {cid} 失败"
-        )
+        """更新客户 → 委托给 CustomerRepository"""
+        self._customer_repo.update(cid, name, code, short_name, tier, contact, phone, address, discount, is_active)
 
     def delete_customer(self, cid: int):
-        """删除客户（硬删除）"""
-        self.delete("customers", cid, soft=False)
+        """删除客户（硬删除）→ 委托给 CustomerRepository"""
+        self._customer_repo.delete(cid)
 
     def close(self):
         """关闭数据库连接"""

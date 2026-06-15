@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+import logging
 """
 ui/dialogs/step_dialog.py - 处理步骤编辑对话框
 """
@@ -25,9 +26,16 @@ class EnhancedStepDialog(QDialog):
     """处理步骤编辑对话框 - 支持 py/xml/eal/callas 四种步骤类型"""
 
     def __init__(self, step_data: Dict = None, parent=None, **kwargs):
-        # rule_dialog 调用时可能传 step=xxx 或 db=xxx，统一处理
+        # 统一参数入口：仅接受 step_data 参数，不再通过 **kwargs 隐式接收 step
+        # 若旧调用方仍传 step=xxx，捕获并转为 step_data（向后兼容 + 废弃警告）
         if step_data is None and 'step' in kwargs:
+            import warnings
+            import logging
+            msg = "EnhancedStepDialog(step=...) is deprecated, use step_data=... instead"
+            warnings.warn(msg, DeprecationWarning, stacklevel=2)
+            logging.getLogger(__name__).warning(msg)
             step_data = kwargs.pop('step')
+        # 忽略 kwargs 中其他未知键（如调用方误传 db=xxx），防止静默行为歧义
         super().__init__(parent)
         self.step_data = step_data or {
             'name': '', 'enabled': True, 'type': 'py',
