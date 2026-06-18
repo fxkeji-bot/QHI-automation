@@ -1,3 +1,4 @@
 PyQt5>=5.15
 PyPDF2>=2.0
 py7zr>=0.20
+jsonschema>=4.17

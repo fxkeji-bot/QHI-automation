@@ -13,6 +13,54 @@ import platform
 from datetime import datetime
 from pathlib import Path
 
+# ═══════════════════════════════════════════════════════════
+# 全局异常捕获（必须位于所有 import 之前）
+# ═══════════════════════════════════════════════════════════
+_CRASH_LOG = Path(__file__).resolve().parent / "crash.log"
+_QT_LOG = Path(__file__).resolve().parent / "qt.log"
+_APP_LOG = Path(__file__).resolve().parent / "app.log"
+
+def global_exception_hook(exctype, value, tb):
+    """捕获未处理的 Python 异常，写入 crash.log"""
+    error_msg = ''.join(tb_module.format_exception(exctype, value, tb))
+    try:
+        with open(str(_CRASH_LOG), 'a', encoding='utf-8') as f:
+            f.write(f"\n{'='*80}\n")
+            f.write(f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"异常类型: {exctype.__name__}\n")
+            f.write(f"异常信息: {value}\n")
+            f.write(f"堆栈跟踪:\n{error_msg}\n")
+    except Exception:
+        pass  # 日志写入失败不阻断
+    # 调用系统默认钩子
+    sys.__excepthook__(exctype, value, tb)
+
+sys.excepthook = global_exception_hook
+
+from PyQt5.QtCore import QtMsgType, qInstallMessageHandler
+
+def qt_message_handler(mode, context, message):
+    """捕获 Qt 框架的消息（警告、错误、致命等）写入 qt.log"""
+    mode_map = {
+        QtMsgType.QtDebugMsg: "Debug",
+        QtMsgType.QtWarningMsg: "Warning",
+        QtMsgType.QtCriticalMsg: "Critical",
+        QtMsgType.QtFatalMsg: "Fatal",
+    }
+    mode_str = mode_map.get(mode, f"Unknown({mode})")
+    try:
+        with open(str(_QT_LOG), 'a', encoding='utf-8') as f:
+            f.write(f"[{mode_str}] {message}\n")
+    except Exception:
+        pass
+    # QtFatalMsg 仍然调用系统默认处理（触发 abort）
+    if mode == QtMsgType.QtFatalMsg:
+        try:
+            logger = logging.getLogger("qhi")
+            logger.critical(f"[QtFatal] {message}")
+        except Exception:
+            pass
+
 # Ensure project root is in path
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
@@ -25,6 +73,49 @@ from core.config import ConfigManager
 
 from ui.main_window import MainWindow
 
+# 版权保护模块
+from core.license_manager import LicenseManager, LicenseStatus
+
+# ── 工具函数（必须在模块级导入块之前定义）──
+def _load_app_version() -> str:
+    """从 version.json 加载应用版本号，不可用时返回默认值。
+    
+    统一版本号读取入口，确保日志输出、窗口标题、applicationVersion
+    三处使用同一版本号，避免硬编码不一致。
+    """
+    try:
+        version_json = ROOT / "resources" / "version.json"
+        if version_json.exists():
+            import json
+            with open(version_json, "r", encoding="utf-8") as f:
+                return json.load(f).get("version", "0.0.0")
+    except Exception:
+        pass
+    return "0.0.0"
+
+
+def _safe_import_classes(import_specs):
+    """批量安全导入类，避免重复 try/except ImportError 样板代码。
+    
+    Args:
+        import_specs: list of (module_path, [(class_name, alias), ...])
+            例: [("services.api_server", [("APIServer", "APIServer")])]
+    
+    Returns:
+        dict: {alias: imported_class_or_None}
+    """
+    result = {}
+    for module_path, class_specs in import_specs:
+        try:
+            mod = __import__(module_path, fromlist=[c[0] for c in class_specs])
+            for class_name, alias in class_specs:
+                result[alias] = getattr(mod, class_name, None)
+        except ImportError:
+            for _, alias in class_specs:
+                result[alias] = None
+    return result
+
+
 # ── 可扩展性模块 ──
 # i18n（全局翻译初始化）
 try:
@@ -34,45 +125,142 @@ try:
 except ImportError:
     _i18n = None
 
-# 插件管理器
-try:
-    from services.plugin_manager import PluginManager
-    from services.plugin_schema import PluginValidator
-except ImportError:
-    PluginManager = None
-    PluginValidator = None
+#  插件管理器、API、更新器、管线（通过 _safe_import_classes 批量安全导入）
+_imports = _safe_import_classes([
+    ("services.plugin_manager", [("PluginManager", "PluginManager")]),
+    ("services.plugin_schema", [("PluginValidator", "PluginValidator")]),
+    ("services.api_server", [("APIServer", "APIServer")]),
+    ("services.update_service", [("UpdateService", "UpdateService")]),
+    ("services.processing_pipeline", [("ProcessingPipeline", "ProcessingPipeline")]),
+])
+PluginManager = _imports["PluginManager"]
+PluginValidator = _imports["PluginValidator"]
+APIServer = _imports["APIServer"]
+UpdateService = _imports["UpdateService"]
+ProcessingPipeline = _imports["ProcessingPipeline"]
 
-# API 服务
-try:
-    from services.api_server import APIServer
-except ImportError:
-    APIServer = None
-
-# 自动更新
-try:
-    from services.update_service import UpdateService
-except ImportError:
-    UpdateService = None
-
-# 处理管线
-try:
-    from services.processing_pipeline import ProcessingPipeline
-except ImportError:
-    ProcessingPipeline = None
+qInstallMessageHandler(qt_message_handler)
 
 logger = get_logger("qhi")
+
+def init_file_logging():
+    """添加文件日志 handler 到 app.log（补充控制台日志）"""
+    try:
+        log = logging.getLogger("qhi")
+        fh = logging.FileHandler(str(_APP_LOG), encoding='utf-8', mode='a')
+        fh.setLevel(logging.INFO)
+        fh.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        ))
+        log.addHandler(fh)
+    except Exception as e:
+        print(f"文件日志初始化失败: {e}")
+
 
 def main():
     """主程序入口函数"""
     init_logging()
+    init_file_logging()
+    app_version = _load_app_version()
+
     logger.info("=" * 70)
-    logger.info("  QHI 拼版处理器 v35 - 数码印刷生产版（安全加固版）")
+    logger.info(f"  QHI 拼版处理器 v{app_version} - 数码印刷生产版（安全加固版）")
     logger.info(f"  启动时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info(f"  Python版本: {sys.version}")
     logger.info(f"  操作系统: {platform.system()} {platform.release()}")
     logger.info("=" * 70)
 
-    # ===== 数据库兼容性检查 =====
+    # ===== 版权保护检查 =====
+    logger.info("[版权保护] 开始授权检查")
+    _license_manager = None
+    try:
+        license_mgr = LicenseManager()
+        license_status = license_mgr.status
+        
+        # 创建 QApplication 用于显示授权对话框
+        temp_app = QApplication.instance() or QApplication(sys.argv)
+        
+        if license_status == LicenseStatus.VALID:
+            days = license_mgr.days_remaining
+            logger.info(f"[版权保护] 授权有效，剩余 {days} 天")
+        elif license_status == LicenseStatus.TRIAL:
+            days = license_mgr.days_remaining
+            launches = license_mgr._trial_info.launches_remaining if license_mgr._trial_info else 0
+            logger.info(f"[版权保护] 试用期，剩余 {days} 天 / {launches} 次启动")
+            
+            # 显示试用提示
+            QMessageBox.information(
+                None,
+                "试用期提示",
+                f"您正在使用试用版本\n\n"
+                f"剩余天数: {days} 天\n"
+                f"剩余启动次数: {launches} 次\n\n"
+                f"如需正式授权，请联系管理员获取授权码。\n"
+                f"机器码: {license_mgr.machine_code[:20]}..."
+            )
+        elif license_status == LicenseStatus.EXPIRED:
+            logger.warning("[版权保护] 授权已过期")
+            QMessageBox.critical(
+                None,
+                "授权已过期",
+                f"您的授权已过期，请联系管理员续费。\n\n"
+                f"机器码: {license_mgr.machine_code}\n\n"
+                f"如需激活，请运行:\n"
+                f"python core/license_manager.py activate <授权码>"
+            )
+            sys.exit(1)
+        elif license_status == LicenseStatus.TAMPERED:
+            logger.error("[版权保护] 授权文件被篡改")
+            QMessageBox.critical(
+                None,
+                "授权异常",
+                f"授权文件可能被篡改，请重新激活。\n\n"
+                f"机器码: {license_mgr.machine_code}\n\n"
+                f"如需激活，请运行:\n"
+                f"python core/license_manager.py activate <授权码>"
+            )
+            sys.exit(1)
+        elif license_status == LicenseStatus.MACHINE_MISMATCH:
+            logger.error("[版权保护] 机器码不匹配")
+            QMessageBox.critical(
+                None,
+                "授权不匹配",
+                f"授权码与当前设备不匹配。\n\n"
+                f"当前机器码: {license_mgr.machine_code}\n\n"
+                f"请联系管理员获取对应设备的授权码。"
+            )
+            sys.exit(1)
+        else:  # INVALID
+            logger.warning("[版权保护] 未找到有效授权")
+            reply = QMessageBox.question(
+                None,
+                "未激活",
+                f"软件未激活，将进入试用模式。\n\n"
+                f"试用限制: {LicenseConfig.TRIAL_DAYS} 天 / {LicenseConfig.TRIAL_MAXLaunches} 次启动\n\n"
+                f"如需激活，请运行:\n"
+                f"python core/license_manager.py activate <授权码>\n\n"
+                f"是否继续试用？",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            if reply == QMessageBox.No:
+                sys.exit(0)
+            
+            # 重新初始化以更新试用状态
+            license_mgr = LicenseManager()
+            logger.info(f"[版权保护] 进入试用模式，剩余 {license_mgr.days_remaining} 天")
+        
+        # 保存授权信息供主窗口使用
+        _license_manager = license_mgr
+        
+    except Exception as e:
+        logger.error(f"[版权保护] 授权检查异常: {e}")
+        # 授权检查失败不阻断程序（降级为试用模式）
+        _license_manager = None
+
+    # ===== 运行时日志 - 数据库兼容性检查开始 =====
+    logger.info("[运行时] 开始数据库兼容性检查")
     if DB_PATH.exists():
         logger.info(f"数据库路径: {DB_PATH}")
         logger.info(f"数据库大小: {DB_PATH.stat().st_size / 1024:.1f} KB")
@@ -111,7 +299,8 @@ def main():
     else:
         logger.info("数据库不存在，将自动创建")
 
-    # ===== 初始化可扩展性组件 =====
+    # ===== 运行时日志 - 开始初始化可扩展性组件 =====
+    logger.info("[运行时] 开始初始化可扩展性组件")
     # 1. 插件管理器（必须在创建窗口前加载，以便窗口直接使用）
     plugin_mgr = None
     if PluginManager is not None and PLUGIN_DIR.exists():
@@ -119,7 +308,7 @@ def main():
             plugin_mgr = PluginManager(PLUGIN_DIR)
             plugin_mgr.discover()
             plugin_mgr.load_all()
-            logger.info(f"插件管理器已初始化，发现 {len(plugin_mgr.plugins)} 个插件")
+            logger.info(f"插件管理器已初始化，发现 {len(plugin_mgr)} 个插件")
         except Exception as e:
             logger.warning(f"插件管理器初始化失败（非致命）: {e}")
 
@@ -140,17 +329,19 @@ def main():
     # 3. 自动更新检查（后台低优先级）
     if UpdateService is not None:
         try:
-            updater = UpdateService(auto_check=False)
-            updater.check_background()  # 异步检查，不弹窗
+            updater = UpdateService()
+            updater.check_for_updates()  # 异步后台检查，不弹窗
             logger.info("更新检查已在后台启动")
         except Exception as e:
             logger.warning(f"更新检查启动失败: {e}")
 
+    # ===== 运行时日志 - 创建 Qt 应用 =====
+    logger.info("[运行时] 开始创建 Qt 应用窗口")
     # ===== 创建应用 =====
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setApplicationName("QHI拼版处理器")
-    app.setApplicationVersion("35.0.0")
+    app.setApplicationVersion(app_version)
     app.setOrganizationName("QHI")
 
     # 设置全局样式
@@ -213,13 +404,13 @@ def main():
         }
     """)
 
-    # ===== 创建并显示主窗口 =====
-    logger.info("正在创建主窗口...")
+    # ===== 运行时日志 - 创建主窗口 =====
+    logger.info("[运行时] 正在创建主窗口...")
     try:
         window = MainWindow()
         window.show()
         logger.info("程序已启动")
-        _print_startup_info(plugin_mgr, api_server)
+        _print_startup_info(plugin_mgr=plugin_mgr, api_server=api_server, app_version=app_version, license_mgr=_license_manager)
         logger.info("-" * 70)
     except Exception as e:
         logger.error(f"创建主窗口失败: {e}")
@@ -235,6 +426,8 @@ def main():
         )
         sys.exit(1)
 
+    # ===== 运行时日志 - 进入事件循环 =====
+    logger.info("[运行时] 进入 Qt 事件循环")
     # ===== 运行事件循环 =====
     exit_code = app.exec_()
     
@@ -243,24 +436,36 @@ def main():
         api_server.stop()
         logger.info("API 服务已停止")
     
-    logger.info("程序正常退出")
+    logger.info("[运行时] 程序正常退出")
     sys.exit(exit_code)
 
 
-def _print_startup_info(plugin_mgr=None, api_server=None):
+def _print_startup_info(plugin_mgr=None, api_server=None, app_version="0.0.0", license_mgr=None):
     """输出模块加载完成信息（仅在 main() 中调用，避免 import 时执行）"""
-    i18n_status = "✅" if _i18n and _i18n.locale else "—"
-    plugin_count = len(plugin_mgr.plugins) if plugin_mgr else "—"
-    api_status = "✅" if api_server and api_server.running else "—"
-    update_status = "✅ 后台" if UpdateService is not None else "—"
-    pipeline_status = "✅" if ProcessingPipeline is not None else "—"
+    i18n_status = "[OK]" if _i18n and _i18n.locale else "--"
+    plugin_count = len(plugin_mgr) if plugin_mgr else "--"
+    api_status = "[OK]" if api_server and api_server.running else "--"
+    update_status = "[OK] 后台" if UpdateService is not None else "--"
+    pipeline_status = "[OK]" if ProcessingPipeline is not None else "--"
+    
+    # 授权状态
+    license_status = "--"
+    if license_mgr:
+        if license_mgr.status == LicenseStatus.VALID:
+            license_status = f"[OK] 有效 ({license_mgr.days_remaining}天)"
+        elif license_mgr.status == LicenseStatus.TRIAL:
+            license_status = f"[试用] ({license_mgr.days_remaining}天)"
+        else:
+            license_status = f"[{license_mgr.status.value}]"
+    
     logger.info("=" * 70)
-    logger.info("  QHI 拼版处理器 v35 所有模块加载完成")
+    logger.info(f"  QHI 拼版处理器 v{app_version} 所有模块加载完成")
     logger.info(f"  数据库路径: {DB_PATH}")
     logger.info(f"  配置文件: {ConfigManager.CONFIG_FILE}")
+    logger.info(f"  授权状态: {license_status}")
     logger.info(f"  i18n: {i18n_status} | 插件({plugin_count}) | API: {api_status} | 更新: {update_status} | 管线: {pipeline_status}")
-    logger.info(f"  PDF支持: {'✅ 是' if PDF_SUPPORT else '❌ 否（请安装: pip install PyPDF2）'}")
-    logger.info(f"  7Z支持: {'✅ 是' if PY7ZR_SUPPORT else '❌ 否（请安装: pip install py7zr）'}")
+    logger.info(f"  PDF支持: {'[OK] 是' if PDF_SUPPORT else '[X] 否（请安装: pip install PyPDF2）'}")
+    logger.info(f"  7Z支持: {'[OK] 是' if PY7ZR_SUPPORT else '[X] 否（请安装: pip install py7zr）'}")
     logger.info(f"  QHI路径: {QI_EXE}")
     logger.info(f"  WinRAR路径: {WINRAR_PATH}")
     logger.info("=" * 70)

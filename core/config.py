@@ -49,6 +49,37 @@ class ConfigManager:
         self.config = self._default_config()
         self.load()
 
+    def _resolve_output_dir(self) -> str:
+        """解析输出目录，优先 Desktop\QHI_FinalFiles，不可用时回退到文档目录
+        
+        使用英文目录名以确保在非中文系统上的兼容性。
+        首次调用时自动创建目录，避免硬编码路径不可用导致运行时错误。
+        
+        Returns:
+            有效的输出目录路径字符串
+        """
+        desktop_dir = Path.home() / "Desktop" / "QHI_FinalFiles"
+        try:
+            desktop_dir.mkdir(parents=True, exist_ok=True)
+            # 验证目录可写
+            test_file = desktop_dir / ".qhi_write_test"
+            test_file.touch()
+            test_file.unlink()
+            return str(desktop_dir)
+        except (OSError, PermissionError):
+            # Desktop 不可用，回退到用户文档目录
+            fallback = Path.home() / "Documents" / "QHI_FinalFiles"
+            try:
+                fallback.mkdir(parents=True, exist_ok=True)
+                logger.warning(f"Desktop 目录不可用，输出目录回退到: {fallback}")
+                return str(fallback)
+            except (OSError, PermissionError):
+                # 最后回退到用户主目录
+                last_resort = Path.home() / "QHI_FinalFiles"
+                last_resort.mkdir(parents=True, exist_ok=True)
+                logger.warning(f"Documents 目录也不可用，输出目录回退到: {last_resort}")
+                return str(last_resort)
+
     def _default_config(self) -> Dict:
         """返回默认配置
         
@@ -57,7 +88,7 @@ class ConfigManager:
         """
         return {
             'qhi_path': QI_EXE,
-            'output_dir': str(Path.home() / "Desktop" / "定稿文件"),
+            'output_dir': self._resolve_output_dir(),
             'rename_enabled': True,
             'rename_template': '{seq}-{paper}-{pages}P-{name}',
             'number_digits': 3,
@@ -177,7 +208,8 @@ class ConfigManager:
             jsonschema.validate(instance=data, schema=schema)
             return True, ""
         except ImportError:
-            return None  # jsonschema 未安装，使用手动验证
+            logger.warning("jsonschema 未安装，配置验证回退到手动模式。建议: pip install jsonschema")
+            return None
         except jsonschema.ValidationError as e:
             error_path = ".".join(str(p) for p in e.absolute_path) if e.absolute_path else "根节点"
             return False, f"配置验证失败 [{error_path}]: {e.message}"

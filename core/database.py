@@ -11,6 +11,16 @@ logger = get_logger(__name__)
 """
 core/database.py - SQLite Database Manager (Production Grade)
 Thread-safe connection pool, 14 tables, auto-migration, CRUD operations.
+
+@STATUS(v36.0.0) 瘦身已完成 — 各表专用 CRUD 已委托给 `core/repositories/` 子包:
+  - add_paper/get_all_papers/update_paper/delete_paper → PaperRepository
+  - add_binding/get_all_bindings/update_binding/delete_binding → BindingRepository
+  - add_process/get_all_processes/update_process/delete_process → ProcessRepository
+  - add_custom_process/... → CustomProcessRepository
+  - add_custom_binding/... → CustomBindingRepository
+  - add_machine/get_all_machines/... → MachineRepository
+  - add_customer/get_all_customers/... → CustomerRepository
+  Database 类保留委托方法作为统一入口，向上层提供向后兼容的 API。
 """
 import os, sqlite3, threading, json, time, re, uuid
 from typing import List, Dict, Optional, Any, Callable
@@ -364,6 +374,18 @@ class Database:
                 total_cost REAL,
                 duration_seconds INTEGER,
                 status TEXT,
+                error_msg TEXT,
+                started_at TEXT,
+                finished_at TEXT,
+                elapsed REAL,
+                output_path TEXT,
+                timestamp TEXT,
+                file_path TEXT,
+                paper TEXT,
+                machine TEXT,
+                total_price REAL,
+                profit REAL,
+                profit_margin REAL,
                 created_at TEXT DEFAULT (datetime('now','localtime'))
             )
         """)
@@ -378,6 +400,20 @@ class Database:
                 effective_date DATE,
                 created_at TEXT DEFAULT (datetime('now','localtime'))
             )
+        """)
+
+        # ── 性能索引 ──────────────────────────────────────────────
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_orders_status
+            ON orders(status)
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_orders_created_at
+            ON orders(created_at)
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_orders_customer_name
+            ON orders(customer_name)
         """)
 
         self.conn.commit()
@@ -410,7 +446,7 @@ class Database:
 
             # 修复1：action_type → type（兼容旧版本列名，SQLite 3.25+支持）
             if 'type' not in columns and 'action_type' in columns:
-                if sqlite_version >= (3, 25, 0):
+                if tuple(int(x) for x in sqlite3.sqlite_version.split('.')) >= (3, 25, 0):
                     try:
                         cur.execute("ALTER TABLE actions RENAME COLUMN action_type TO type")
                         fixes_applied.append("action_type -> type")
@@ -1177,6 +1213,19 @@ class Database:
             logger.info("数据库连接已关闭")
         except Exception as e:
             logger.error(f"关闭数据库连接失败: {e}")
+
+    def __del__(self):
+        """析构函数 - 确保数据库连接关闭"""
+        self.close()
+
+    def __enter__(self):
+        """上下文管理器入口"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """上下文管理器出口 - 自动关闭连接"""
+        self.close()
+        return False
 
 
 logger.info("第3部分加载完成（数据库管理器）")

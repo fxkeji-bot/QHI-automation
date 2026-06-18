@@ -118,6 +118,10 @@ class FileMetadata:
     recommended_machine: str = ""
     page_width_mm: float = 0.0
     page_height_mm: float = 0.0
+    
+    # 处理状态
+    status: str = ""
+    processed_at: str = ""
 
     @classmethod
     def from_dict(cls, d: dict) -> 'FileMetadata':
@@ -144,14 +148,17 @@ class MetadataManager:
     元数据以文件路径为键存储在内存中，通过 save() 持久化到 JSON 文件。
     """
 
-    def __init__(self, log_callback=None):
+    def __init__(self, log_callback=None, max_cache_size=500):
         """初始化元数据管理器
 
         Args:
             log_callback: 日志回调函数
+            max_cache_size: 缓存最大条目数（LRU淘汰策略），默认500
         """
         self.log = log_callback or print
-        self._metadata: dict = {}
+        from collections import OrderedDict
+        self._metadata: OrderedDict = OrderedDict()
+        self._max_cache_size = max_cache_size
 
     def create(self, file_path: str, info: Dict[str, Any] = None) -> FileMetadata:
         """为指定文件创建元数据条目
@@ -168,6 +175,8 @@ class MetadataManager:
         """
         key = str(file_path)
         if key in self._metadata:
+            # LRU：已有条目命中时移到末尾
+            self._metadata.move_to_end(key)
             return self._metadata[key]
 
         path = Path(file_path)
@@ -196,6 +205,10 @@ class MetadataManager:
             metadata.original_date = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
 
         self._metadata[key] = metadata
+        # LRU 淘汰：超出上限时移除最旧条目
+        if len(self._metadata) > self._max_cache_size:
+            oldest_key, _ = self._metadata.popitem(last=False)
+            self.log(f"缓存已满({self._max_cache_size})，淘汰最旧条目: {Path(oldest_key).name}")
         self.log(f"已创建元数据: {path.name}")
         return metadata
 
@@ -208,7 +221,23 @@ class MetadataManager:
         Returns:
             FileMetadata 实例或 None（如果不存在）
         """
-        return self._metadata.get(str(file_path))
+        key = str(file_path)
+        meta = self._metadata.get(key)
+        if meta is not None:
+            # LRU：命中时移到末尾
+            self._metadata.move_to_end(key)
+        return meta
+
+    def remove(self, file_path: str):
+        """移除指定文件的元数据缓存
+
+        Args:
+            file_path: 文件路径
+        """
+        key = str(file_path)
+        if key in self._metadata:
+            del self._metadata[key]
+            self.log(f"已移除元数据: {Path(key).name}")
 
     def save(self):
         """将元数据持久化到 JSON 文件"""
@@ -231,3 +260,80 @@ class MetadataManager:
             self.log(f"元数据已保存: {METADATA_PATH}")
         except Exception as e:
             self.log(f"保存元数据失败: {e}")
+
+
+class DataSourceManager:
+    """数据库连接管理器（支持 ODBC/SQL 查询）。
+
+    提供连接池缓存、SQL 查询执行和简单结果映射。
+    依赖 pyodbc，未安装时自动降级并返回友好错误。
+    """
+
+    def __init__(self):
+        self._connections: Dict[str, Any] = {}
+        self._pyodbc = None
+        try:
+            import pyodbc
+            self._pyodbc = pyodbc
+        except Exception as e:
+            logger.warning(f"pyodbc 未安装，ODBC 数据源不可用: {e}")
+
+    @property
+    def available(self) -> bool:
+        return self._pyodbc is not None
+
+    def connect(self, key: str, connection_string: str) -> Dict[str, Any]:
+        """建立并缓存 ODBC 连接。"""
+        if not self._pyodbc:
+            return {"success": False, "error": "pyodbc 未安装"}
+        try:
+            conn = self._pyodbc.connect(connection_string)
+            old = self._connections.get(key)
+            if old:
+                try:
+                    old.close()
+                except Exception:
+                    pass
+            self._connections[key] = conn
+            return {"success": True, "connection_key": key}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def execute(self, key: str, query: str, params: Optional[Tuple] = None) -> Dict[str, Any]:
+        """执行 SQL 查询并返回结果。"""
+        conn = self._connections.get(key)
+        if not conn:
+            return {"success": False, "error": f"未找到连接: {key}"}
+        try:
+            cursor = conn.cursor()
+            cursor.execute(query, params or ())
+            if query.strip().lower().startswith("select"):
+                columns = [desc[0] for desc in cursor.description] if cursor.description else []
+                rows = cursor.fetchall()
+                results = [dict(zip(columns, row)) for row in rows]
+                return {"success": True, "columns": columns, "rows": results, "count": len(results)}
+            else:
+                conn.commit()
+                return {"success": True, "affected_rows": cursor.rowcount}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def disconnect(self, key: str) -> bool:
+        """关闭指定连接。"""
+        conn = self._connections.pop(key, None)
+        if conn:
+            try:
+                conn.close()
+                return True
+            except Exception:
+                pass
+        return False
+
+    def disconnect_all(self) -> None:
+        """关闭所有连接。"""
+        for conn in self._connections.values():
+            try:
+                conn.close()
+            except Exception:
+                pass
+        self._connections.clear()
