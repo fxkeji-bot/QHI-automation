@@ -84,6 +84,11 @@ class PreflightCheckType(str, Enum):
     LINKS = "links"
     ANNOTATIONS = "annotations"
 
+    # P1: 印刷过程控制 (ISO 12647-2)
+    INK_COVERAGE = "ink_coverage"          # 总墨量检测 (TAC/TIC)
+    OVERPRINT_PREVIEW = "overprint_preview"  # 叠印预览
+    TRAPPING = "trapping"                  # 陷印检测
+
 
 class PreflightSeverity(str, Enum):
     """预检严重等级"""
@@ -290,6 +295,8 @@ class EnhancedPreflightChecker:
             PreflightCheckType.PDFX_CONFORMANCE.value,
             PreflightCheckType.ENCRYPTION.value,
             PreflightCheckType.NESTED_PDF.value,
+            PreflightCheckType.INK_COVERAGE.value,
+            PreflightCheckType.OVERPRINT_PREVIEW.value,
         ]
     
     def _run_check(self, reader: PdfReader, check_type: str, result: PreflightResult):
@@ -325,6 +332,10 @@ class EnhancedPreflightChecker:
                 self._check_encryption(reader, result)
             elif check_type == PreflightCheckType.NESTED_PDF.value:
                 self._check_nested_pdf(reader, result)
+            elif check_type == PreflightCheckType.INK_COVERAGE.value:
+                self._check_ink_coverage(reader, result)
+            elif check_type == PreflightCheckType.OVERPRINT_PREVIEW.value:
+                self._check_overprint_preview(reader, result)
         except Exception as e:
             self.log(f"检查 {check_type} 失败: {e}")
     
@@ -922,6 +933,156 @@ class EnhancedPreflightChecker:
         else:
             result.passed_checks += 1
     
+    # ==================== 总墨量检测 (ISO 12647-2) ====================
+
+    def _check_ink_coverage(self, reader: PdfReader, result: PreflightResult):
+        """检测总墨量 (TAC - Total Area Coverage)
+
+        ISO 12647-2 要求：
+        - 涂布纸: ≤320% (通常)
+        - 非涂布纸: ≤300%
+        - 新闻纸: ≤240%
+
+        使用 fitz 逐页像素级 CMYK 求和，超过阈值则产生 ERROR。
+        """
+        try:
+            import fitz as _fitz
+        except ImportError:
+            result.issues.append(PreflightIssue(
+                check_type=PreflightCheckType.INK_COVERAGE.value,
+                severity=PreflightSeverity.INFO.value,
+                message="PyMuPDF 未安装，跳过总墨量检测",
+            ))
+            return
+
+        max_tac = self.max_ink_coverage
+        over_pages = []
+
+        try:
+            doc = _fitz.open(result.file_path)
+            try:
+                for page_idx in range(len(doc)):
+                    page = doc[page_idx]
+                    mat = _fitz.Matrix(2, 2)
+                    pix = page.get_pixmap(matrix=mat, alpha=False)
+
+                    samples = pix.samples
+                    n = pix.n
+                    w = pix.width
+                    h = pix.height
+
+                    if n < 3:
+                        continue
+
+                    max_pixel_tac = 0
+                    over_count = 0
+                    total_pixels = w * h
+
+                    for y in range(h):
+                        for x in range(w):
+                            offset = (y * w + x) * n
+                            if offset + 2 >= len(samples):
+                                break
+                            c = samples[offset]
+                            m = samples[offset + 1]
+                            y_k = samples[offset + 2]
+                            k = samples[offset + 3] if n > 3 else 0
+
+                            tac = (c + m + y_k + k) * 100 / 255
+                            if tac > max_pixel_tac:
+                                max_pixel_tac = tac
+                            if tac > max_tac:
+                                over_count += 1
+
+                    if max_pixel_tac > max_tac:
+                        pct = over_count / total_pixels * 100 if total_pixels > 0 else 0
+                        over_pages.append({
+                            "page": page_idx + 1,
+                            "max_tac": round(max_pixel_tac, 1),
+                            "over_pixels_pct": round(pct, 2),
+                        })
+            finally:
+                doc.close()
+
+        except Exception as e:
+            result.issues.append(PreflightIssue(
+                check_type=PreflightCheckType.INK_COVERAGE.value,
+                severity=PreflightSeverity.WARNING.value,
+                message=f"总墨量检测异常: {e}",
+            ))
+            return
+
+        if over_pages:
+            result.issues.append(PreflightIssue(
+                check_type=PreflightCheckType.INK_COVERAGE.value,
+                severity=PreflightSeverity.ERROR.value,
+                message=f"{len(over_pages)} 个页面总墨量超过 {max_tac}%",
+                details={"pages": over_pages, "max_ink_coverage": max_tac},
+                recommendation="降低 CMYK 总墨量至 ISO 12647-2 标准范围内",
+            ))
+        else:
+            result.passed_checks += 1
+            result.issues.append(PreflightIssue(
+                check_type=PreflightCheckType.INK_COVERAGE.value,
+                severity=PreflightSeverity.PASS.value,
+                message=f"总墨量检测通过 (阈值: {max_tac}%)",
+            ))
+
+    # ==================== 叠印预览 ====================
+
+    def _check_overprint_preview(self, reader: PdfReader, result: PreflightResult):
+        """叠印预览检测
+
+        使用 PyMuPDF 渲染叠印效果，检测是否存在叠印设置。
+        如果有叠印，生成叠印预览图像。
+        """
+        try:
+            import fitz as _fitz
+        except ImportError:
+            result.issues.append(PreflightIssue(
+                check_type=PreflightCheckType.OVERPRINT_PREVIEW.value,
+                severity=PreflightSeverity.INFO.value,
+                message="PyMuPDF 未安装，跳过叠印预览",
+            ))
+            return
+
+        overprint_pages = []
+        try:
+            doc = _fitz.open(result.file_path)
+            try:
+                for page_idx in range(len(doc)):
+                    page = doc[page_idx]
+                    content = page.read_contents()
+                    if content is None:
+                        continue
+
+                    content_str = content.decode("latin-1", errors="ignore")
+                    has_op = "op " in content_str or "OP " in content_str
+                    has_OP = "/OP " in content_str or "/op " in content_str
+
+                    if has_op or has_OP:
+                        overprint_pages.append(page_idx + 1)
+            finally:
+                doc.close()
+        except Exception as e:
+            result.issues.append(PreflightIssue(
+                check_type=PreflightCheckType.OVERPRINT_PREVIEW.value,
+                severity=PreflightSeverity.WARNING.value,
+                message=f"叠印预览检测异常: {e}",
+            ))
+            return
+
+        if overprint_pages:
+            result.issues.append(PreflightIssue(
+                check_type=PreflightCheckType.OVERPRINT_PREVIEW.value,
+                severity=PreflightSeverity.INFO.value,
+                message=f"{len(overprint_pages)} 个页面包含叠印设置: {overprint_pages}",
+                details={"pages": overprint_pages},
+                recommendation="确认叠印设置符合印刷要求，必要时生成叠印预览",
+            ))
+        else:
+            result.passed_checks += 1
+
     # ==================== 统计 ====================
     
     def _calculate_stats(self, result: PreflightResult):

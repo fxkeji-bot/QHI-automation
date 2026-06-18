@@ -172,6 +172,83 @@ class SettingsTab(QWidget):
         device_layout.addRow("", device_info)
         scroll_layout.addWidget(device_group)
 
+        # ===== 印前标记设置 =====
+        marks_group = QGroupBox("印前标记设置")
+        marks_layout = QFormLayout(marks_group)
+
+        self._crop_marks_enabled = QCheckBox("启用裁切标记 (Crop Marks)")
+        self._crop_marks_enabled.setChecked(
+            self.config_mgr.get('crop_marks_enabled', False)
+        )
+        marks_layout.addRow("", self._crop_marks_enabled)
+
+        self._crop_marks_style = QComboBox()
+        self._crop_marks_style.addItem("角线+中线 (标准)", "both")
+        self._crop_marks_style.addItem("仅角线", "corner")
+        self._crop_marks_style.addItem("完整标记", "full")
+        current_style = self.config_mgr.get('crop_marks_style', 'both')
+        for i in range(self._crop_marks_style.count()):
+            if self._crop_marks_style.itemData(i) == current_style:
+                self._crop_marks_style.setCurrentIndex(i)
+                break
+        marks_layout.addRow("裁切标记样式:", self._crop_marks_style)
+
+        self._reg_marks_enabled = QCheckBox("启用套准标记 (Registration Marks)")
+        self._reg_marks_enabled.setChecked(
+            self.config_mgr.get('reg_marks_enabled', False)
+        )
+        marks_layout.addRow("", self._reg_marks_enabled)
+
+        self._trapping_enabled = QCheckBox("启用陷印 (Trapping)")
+        self._trapping_enabled.setChecked(
+            self.config_mgr.get('trapping_enabled', False)
+        )
+        marks_layout.addRow("", self._trapping_enabled)
+
+        self._trap_width_spin = QSpinBox()
+        self._trap_width_spin.setRange(5, 30)
+        self._trap_width_spin.setValue(
+            int(self.config_mgr.get('trap_width_mm', 10))
+        )
+        self._trap_width_spin.setSuffix(" ×0.01mm")
+        marks_layout.addRow("陷印宽度:", self._trap_width_spin)
+
+        scroll_layout.addWidget(marks_group)
+
+        # ===== 预检设置 =====
+        preflight_group = QGroupBox("预检设置")
+        preflight_layout = QFormLayout(preflight_group)
+
+        self._ink_coverage_check = QCheckBox("总墨量检测 (TAC)")
+        self._ink_coverage_check.setChecked(
+            self.config_mgr.get('ink_coverage_check', True)
+        )
+        preflight_layout.addRow("", self._ink_coverage_check)
+
+        self._max_ink_coverage_spin = QSpinBox()
+        self._max_ink_coverage_spin.setRange(200, 400)
+        self._max_ink_coverage_spin.setValue(
+            int(self.config_mgr.get('max_ink_coverage', 320))
+        )
+        self._max_ink_coverage_spin.setSuffix("%")
+        preflight_layout.addRow("最大总墨量:", self._max_ink_coverage_spin)
+
+        self._gwg_profile_combo = QComboBox()
+        self._gwg_profile_combo.addItem("不启用", "")
+        self._gwg_profile_combo.addItem("GWG 广告", "advertising")
+        self._gwg_profile_combo.addItem("GWG 杂志", "magazine")
+        self._gwg_profile_combo.addItem("GWG 包装", "packaging")
+        self._gwg_profile_combo.addItem("GWG 报纸", "newspaper")
+        self._gwg_profile_combo.addItem("GWG 通用", "general")
+        current_gwg = self.config_mgr.get('gwg_profile', '')
+        for i in range(self._gwg_profile_combo.count()):
+            if self._gwg_profile_combo.itemData(i) == current_gwg:
+                self._gwg_profile_combo.setCurrentIndex(i)
+                break
+        preflight_layout.addRow("GWG 预检剖面:", self._gwg_profile_combo)
+
+        scroll_layout.addWidget(preflight_group)
+
         # ===== 数据维护 =====
         db_group = QGroupBox("数据维护")
         db_layout = QHBoxLayout(db_group)
@@ -210,7 +287,14 @@ class SettingsTab(QWidget):
             "• 智能信息提取 + 设备自动推荐<br>"
             "• 8步全流程自动化处理<br>"
             "• 16种规则条件类型<br>"
-            "• 监控目录自动发现<br><br>"
+            "• 监控目录自动发现<br>"
+            "• 裁切标记 / 套准标记自动生成<br>"
+            "• 透明度拼合引擎 (PDF/X-1a)<br>"
+            "• 总墨量检测 (ISO 12647-2)<br>"
+            "• 陷印引擎 (Spread/Choke)<br>"
+            "• GWG 2020 预检规范 (5种剖面)<br>"
+            "• JDF/JMF CIP4 标准集成<br>"
+            "• JMF 实时推送 (WebSocket)<br><br>"
             f"<b>系统信息:</b><br>"
             f"• Python版本: {sys.version.split()[0]}<br>"
             f"• PyQt5版本: {PYQT_VERSION_STR}<br>"
