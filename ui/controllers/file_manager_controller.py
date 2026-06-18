@@ -19,8 +19,26 @@ from datetime import datetime
 from PyQt5.QtWidgets import (
     QFileDialog, QMessageBox, QApplication,
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QDragEnterEvent, QDropEvent
+
+
+class _ScanWorker(QThread):
+    """后台线程：扫描文件夹中的 PDF 文件"""
+    progress = pyqtSignal(int, str)   # count, current_file
+    finished = pyqtSignal(list)       # list of str file paths
+
+    def __init__(self, folder: str, parent=None):
+        super().__init__(parent)
+        self._folder = folder
+
+    def run(self):
+        files = []
+        for f in Path(self._folder).rglob("*.pdf"):
+            fp = str(f)
+            files.append(fp)
+            self.progress.emit(len(files), f.name)
+        self.finished.emit(files)
 
 
 class FileManagerController:
@@ -46,30 +64,57 @@ class FileManagerController:
             mw, "选择PDF文件", "", "PDF文件 (*.pdf);;所有文件 (*.*)"
         )
         if files:
-            added = 0
-            for f in files:
-                if f not in mw.selected_files:
+            existing = set(mw.selected_files)
+            new_files = [f for f in files if f not in existing]
+            mw.file_list.setUpdatesEnabled(False)
+            try:
+                for f in new_files:
                     mw.selected_files.append(f)
                     mw.file_list.addItem(Path(f).name)
-                    mw.metadata_mgr.create(f)
-                    added += 1
-            mw.log(f"已添加 {added} 个文件")
+            finally:
+                mw.file_list.setUpdatesEnabled(True)
+
+            for f in new_files:
+                mw.metadata_mgr.create(f)
+
+            mw.log(f"已添加 {len(new_files)} 个文件")
             self._update_file_count()
 
     def add_folder(self):
-        """添加文件夹中的所有PDF"""
+        """添加文件夹中的所有PDF（后台线程扫描，不阻塞 UI）"""
         mw = self._mw
         folder = QFileDialog.getExistingDirectory(mw, "选择文件夹", "")
-        if folder:
-            count = 0
-            for f in Path(folder).rglob("*.pdf"):
-                if str(f) not in mw.selected_files:
-                    mw.selected_files.append(str(f))
-                    mw.file_list.addItem(f.name)
-                    mw.metadata_mgr.create(str(f))
-                    count += 1
-            mw.log(f"从文件夹添加了 {count} 个PDF文件")
-            self._update_file_count()
+        if not folder:
+            return
+
+        self._scan_worker = _ScanWorker(folder)
+        self._scan_worker.progress.connect(
+            lambda cnt, name: mw.log(f"  扫描中... {cnt} 个文件 [{name}]"))
+        self._scan_worker.finished.connect(self._on_folder_scan_finished)
+        self._scan_worker.start()
+
+    def _on_folder_scan_finished(self, files: list):
+        """后台扫描完成回调：批量添加文件到列表"""
+        mw = self._mw
+        existing = set(mw.selected_files)
+        new_files = [fp for fp in files if fp not in existing]
+        if not new_files:
+            mw.log("文件夹中没有新PDF文件")
+            return
+
+        mw.file_list.setUpdatesEnabled(False)
+        try:
+            for fp in new_files:
+                mw.selected_files.append(fp)
+                mw.file_list.addItem(Path(fp).name)
+        finally:
+            mw.file_list.setUpdatesEnabled(True)
+
+        for fp in new_files:
+            mw.metadata_mgr.create(fp)
+
+        mw.log(f"从文件夹添加了 {len(new_files)} 个PDF文件")
+        self._update_file_count()
 
     def clear_files(self):
         """清空文件列表"""
@@ -150,10 +195,9 @@ class FileManagerController:
 
             try:
                 import fitz
-                doc = fitz.open(fp)
-                info_lines.append(f"页数: {doc.page_count} 页")
-                info_lines.append(f"尺寸: {doc[0].rect.width:.0f}×{doc[0].rect.height:.0f} pt")
-                doc.close()
+                with fitz.open(fp) as doc:
+                    info_lines.append(f"页数: {doc.page_count} 页")
+                    info_lines.append(f"尺寸: {doc[0].rect.width:.0f}×{doc[0].rect.height:.0f} pt")
             except Exception:
                 pass
 
@@ -202,14 +246,20 @@ class FileManagerController:
                         files.append(str(pdf))
 
         if files:
-            added = 0
-            for f in files:
-                if f not in mw.selected_files:
+            existing = set(mw.selected_files)
+            new_files = [f for f in files if f not in existing]
+            mw.file_list.setUpdatesEnabled(False)
+            try:
+                for f in new_files:
                     mw.selected_files.append(f)
                     mw.file_list.addItem(Path(f).name)
-                    mw.metadata_mgr.create(f)
-                    added += 1
-            mw.log(f"拖拽添加了 {added} 个文件")
+            finally:
+                mw.file_list.setUpdatesEnabled(True)
+
+            for f in new_files:
+                mw.metadata_mgr.create(f)
+
+            mw.log(f"拖拽添加了 {len(new_files)} 个文件")
             self._update_file_count()
         else:
             mw.log("拖拽的文件中没有PDF文件")

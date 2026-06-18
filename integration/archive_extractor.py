@@ -13,7 +13,7 @@ from pathlib import Path
 try:
     import py7zr
     PY7ZR_SUPPORT = True
-except ImportError:
+except Exception:
     py7zr = None
     PY7ZR_SUPPORT = False
 

@@ -27,17 +27,43 @@ class TestRuleEngine(unittest.TestCase):
         """创建模拟 FileMetadata"""
         from models.metadata import FileMetadata
         defaults = {
-            "file_path": "/test/sample.pdf",
-            "file_name": "sample.pdf",
-            "page_count": 10,
-            "file_size_mb": 5.0,
-            "paper_name": "157g铜版纸",
+            "original_path": "/test/sample.pdf",
+            "original_name": "sample.pdf",
+            "original_page_count": 10,
+            "current_page_count": 10,
+            "original_size_mb": 5.0,
+            "current_size": 5 * 1024 * 1024,
             "binding_type": "骑马钉",
-            "machine": "HP12000",
-            "status": "new",
+            "recommended_machine": "HP12000",
+            "paper_info": {"full_name": "157g铜版纸"},
         }
+        # Map test convenience keys to actual FileMetadata fields
+        key_map = {
+            "file_path": "original_path",
+            "file_name": "original_name",
+            "page_count": "current_page_count",
+            "file_size_mb": "original_size_mb",
+            "paper_name": "paper_info",
+            "machine": "recommended_machine",
+        }
+        for old_key, new_key in key_map.items():
+            if old_key in overrides and new_key not in overrides:
+                val = overrides.pop(old_key)
+                if new_key == "paper_info":
+                    overrides[new_key] = {"full_name": val}
+                elif new_key == "original_size_mb":
+                    overrides[new_key] = val
+                    overrides["current_size"] = int(val * 1024 * 1024)
+                elif new_key == "current_page_count":
+                    overrides[new_key] = val
+                    overrides["original_page_count"] = val
+                else:
+                    overrides[new_key] = val
         defaults.update(overrides)
-        return FileMetadata(**defaults)
+        # Filter out keys not in FileMetadata fields
+        valid_keys = set(FileMetadata.__dataclass_fields__.keys())
+        filtered = {k: v for k, v in defaults.items() if k in valid_keys}
+        return FileMetadata(**filtered)
 
     def _make_rule(self, condition_type="always", condition_value=""):
         """创建模拟规则"""
@@ -253,8 +279,8 @@ class TestRuleEngine(unittest.TestCase):
             self._make_rule("page_equals", "100"),
         ]
         metadata = self._make_metadata(page_count=10)
-        matched, detail = self.engine.match_any(
-            Path("/test/a.pdf"), metadata, rules
+        matched, detail = self.engine.match_rule(
+            Path("/test/a.pdf"), rules
         )
         self.assertIsNotNone(matched)
         self.assertEqual(matched["condition_type"], "always")
@@ -265,16 +291,16 @@ class TestRuleEngine(unittest.TestCase):
             self._make_rule("page_equals", "999"),
         ]
         metadata = self._make_metadata(page_count=10)
-        matched, detail = self.engine.match_any(
-            Path("/test/a.pdf"), metadata, rules
+        matched, detail = self.engine.match_rule(
+            Path("/test/a.pdf"), rules
         )
         self.assertIsNone(matched)
 
     def test_match_any_empty_rules(self):
         """match_any 空规则列表应返回 None"""
         metadata = self._make_metadata()
-        matched, detail = self.engine.match_any(
-            Path("/test/a.pdf"), metadata, []
+        matched, detail = self.engine.match_rule(
+            Path("/test/a.pdf"), []
         )
         self.assertIsNone(matched)
 

@@ -21,7 +21,7 @@ class PricingService:
     
     def get_machine_for_page(self, page_w: float, page_h: float) -> List[str]:
         """Get suitable machines for page dimensions."""
-        return self.engine.get_machine_for_page_size(self.engine.machines, page_w, page_h)
+        return self.engine.get_machine_for_page_size(page_w, page_h)
     
     def get_paper_cost(self, paper_name: str, page_w: float, page_h: float) -> Dict:
         """Calculate per-page paper cost."""

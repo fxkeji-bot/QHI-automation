@@ -79,16 +79,16 @@ class TestDatabase(unittest.TestCase):
     def test_crud_machines(self):
         """Machines 表插入、查询、更新、删除"""
         rid = self.db.insert("machines", name="HP Indigo 12000",
-                             print_format="B2", speed_iph=4600,
-                             color_support=1, status="active")
+                             category="PRNT", speed=4600,
+                             color_count=6, is_active=1)
         self.assertIsNotNone(rid)
 
         rows = self.db.search("machines", keyword="Indigo")
         self.assertTrue(len(rows) > 0)
 
-        self.db.update("machines", rid, status="maintenance")
+        self.db.update("machines", rid, remark="maintenance")
         rows = self.db.search("machines", keyword="Indigo")
-        self.assertEqual(rows[0]["status"], "maintenance")
+        self.assertEqual(rows[0]["remark"], "maintenance")
 
         self.db.delete("machines", rid, soft=False)
 
@@ -97,9 +97,9 @@ class TestDatabase(unittest.TestCase):
         """Processes 表插入、查询、更新、删除"""
         rid = self.db.insert("processes",
                              name="覆膜",
-                             category="postpress",
+                             category="SURF",
                              unit_price=2.50,
-                             unit="per_sheet")
+                             price_unit="元/㎡")
         self.assertIsNotNone(rid)
 
         rows = self.db.search("processes", keyword="覆膜")
@@ -115,27 +115,37 @@ class TestDatabase(unittest.TestCase):
     def test_crud_orders(self):
         """Orders 表插入、更新、删除"""
         rid = self.db.insert("orders",
+                             order_no="ORD-001",
                              customer_name="测试客户",
-                             product_name="画册",
+                             file_name="画册.pdf",
                              quantity=500,
-                             status="pending")
+                             status="待处理")
         self.assertIsNotNone(rid)
 
-        self.db.update("orders", rid, status="in_progress")
-        rows = self.db.search("orders", keyword="测试客户")
-        self.assertEqual(rows[0]["status"], "in_progress")
+        self.db.update("orders", rid, status="生产中")
+        # orders 表没有 name 列，无法用 search(keyword=)，使用 all() 过滤
+        all_rows = self.db.all_including_inactive("orders")
+        found = [o for o in all_rows if o['id'] == rid]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]["status"], "生产中")
 
         self.db.delete("orders", rid, soft=False)
 
     # ── 软删除测试 ────────────────────────────────────────
     def test_soft_delete(self):
-        """软删除后数据仍可通过 search 查到"""
+        """软删除后数据仍可通过 all_including_inactive 查到"""
         rid = self.db.insert("papers", name="SoftDeleteTest", weight=150)
         self.assertIsNotNone(rid)
 
         self.db.delete("papers", rid, soft=True)
-        rows = self.db.search("papers", keyword="SoftDeleteTest")
-        self.assertTrue(len(rows) > 0)
+        # search() 过滤了 is_active=1，软删除的数据不可达
+        rows_active = self.db.search("papers", keyword="SoftDeleteTest")
+        self.assertEqual(len(rows_active), 0)
+
+        # 但 all_including_inactive 包含所有数据
+        all_rows = self.db.all_including_inactive("papers")
+        matches = [r for r in all_rows if r['id'] == rid]
+        self.assertEqual(len(matches), 1, "软删除后记录应仍在库中")
 
         # 清理（硬删除）
         self.db.delete("papers", rid, soft=False)

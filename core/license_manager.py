@@ -37,10 +37,23 @@ logger = get_logger(__name__)
 
 # ==================== 配置 ====================
 
+def _load_app_version() -> str:
+    """从 version.json 加载应用版本号"""
+    try:
+        version_json = Path(__file__).resolve().parent.parent / "resources" / "version.json"
+        if version_json.exists():
+            import json
+            with open(version_json, "r", encoding="utf-8") as f:
+                return json.load(f).get("version", "0.0.0")
+    except Exception:
+        pass
+    return "0.0.0"
+
+
 class LicenseConfig:
     """授权配置"""
     APP_NAME = "QHI Processor"
-    APP_VERSION = "1.2.0"
+    APP_VERSION = _load_app_version()
     
     # 密钥配置（生产环境应使用RSA非对称加密）
     LICENSE_SECRET = "QHI2026@SecureLicenseKey#Production"

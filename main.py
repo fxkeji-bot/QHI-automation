@@ -10,6 +10,7 @@ import logging
 from utils.logger import init_logging, get_logger
 import sys, os, sqlite3, traceback as tb_module
 import platform
+import atexit
 from datetime import datetime
 from pathlib import Path
 
@@ -140,6 +141,16 @@ UpdateService = _imports["UpdateService"]
 ProcessingPipeline = _imports["ProcessingPipeline"]
 
 qInstallMessageHandler(qt_message_handler)
+
+def _cleanup_on_exit():
+    """应用退出时清理数据库连接池"""
+    try:
+        from core.connection_pool import close_pool
+        close_pool()
+    except Exception:
+        pass
+
+atexit.register(_cleanup_on_exit)
 
 logger = get_logger("qhi")
 

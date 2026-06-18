@@ -252,13 +252,13 @@ class SimulatedAnnealingOptimizer:
             最优排版结果
         """
         engine = GreedyLayoutEngine(paper)
-        current_state = copy.deepcopy(orders)
+        current_state = list(orders)  # 浅拷贝（OrderRect 为 dataclass，交换引用即可）
         current_result = engine.layout(current_state)
 
         if not current_result.placed_rects:
             return current_result
 
-        best_state = copy.deepcopy(current_state)
+        best_state = copy.deepcopy(current_state)  # 最优解保留深拷贝
         best_result = current_result
         best_util = current_result.utilization
 
@@ -276,7 +276,7 @@ class SimulatedAnnealingOptimizer:
                 current_state = new_state
                 current_result = new_result
                 if new_util > best_util:
-                    best_state = copy.deepcopy(new_state)
+                    best_state = copy.deepcopy(new_state)  # 仅最佳解深拷贝
                     best_result = new_result
                     best_util = new_util
 
@@ -287,18 +287,18 @@ class SimulatedAnnealingOptimizer:
         return best_result
 
     def _neighbor(self, orders: List[OrderRect]) -> List[OrderRect]:
-        """生成邻域解：随机交换两个订单或翻转一个订单方向"""
-        new_orders = copy.deepcopy(orders)
+        """生成邻域解：交换两个订单或翻转一个订单方向（浅拷贝+交换引用）"""
+        new_orders = list(orders)  # 浅拷贝：仅复制列表结构，元素共享引用
         n = len(new_orders)
         if n < 2:
             return new_orders
 
         if random.random() < 0.5:
-            # 交换两个订单
+            # 交换两个订单（仅交换引用，零深拷贝成本）
             i, j = random.sample(range(n), 2)
             new_orders[i], new_orders[j] = new_orders[j], new_orders[i]
         else:
-            # 随机翻转一个订单
+            # 随机翻转一个订单（rotated() 返回新实例）
             i = random.randrange(n)
             if new_orders[i].width_mm != new_orders[i].height_mm:
                 new_orders[i] = new_orders[i].rotated()

@@ -21,6 +21,40 @@ class VarSource(str, Enum):
     USER_INPUT = "user_input"
     RULE_BASED = "rule_based"
     CONSTANT = "constant"
+    JOB = "job"
+    STATE = "state"
+    SWITCH = "switch"
+    CALCULATION = "calculation"
+    METADATA = "metadata"
+    DATABASE = "database"
+
+
+class VariableGroup(str, Enum):
+    """变量分组（Switch 架构）"""
+    FILE = "文件信息"
+    PAPER = "纸张信息"
+    SIZE = "尺寸信息"
+    BINDING = "装订信息"
+    PROCESS = "工艺信息"
+    CUSTOMER = "客户信息"
+    PRODUCTION = "生产信息"
+    COST = "成本"
+    JOB = "JOB"
+    STATE = "State"
+    SWITCH = "Switch"
+    CALCULATION = "Calculation"
+    METADATA = "Metadata"
+    DATABASE = "Database"
+    PRIVATE = "Private"
+    GENERAL = "General"
+
+
+class VariableScope(str, Enum):
+    """变量作用域"""
+    GLOBAL = "global"
+    JOB = "job"
+    PRIVATE = "private"
+    LOCAL = "local"
 
 
 class ActionType(str, Enum):
@@ -29,6 +63,13 @@ class ActionType(str, Enum):
     PY = "py"         # Python 插件脚本
     EAL = "eal"       # PitStop EAL 动作列表
     CALLAS = "callas" # callas pdfToolbox 流程
+    RENAME = "rename"                 # 重命名文件
+    SPLIT_PDF = "split_pdf"         # 分割 PDF
+    MERGE_PDF = "merge_pdf"         # 合并 PDF
+    INJECT_TOOL = "inject_tool"     # 注入工具/脚本
+    HOLD = "hold"                   # 保持/暂停作业
+    COMBINE_WORK = "combine_work"   # 组合工作
+    WORK_CROPPER = "work_cropper"   # 工作裁剪器
 
 
 class BindingType(str, Enum):

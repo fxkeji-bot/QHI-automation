@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "qhi-processor"
+version = "4.0.0"
+description = "QHI拼版处理器 - 数码印刷智能印前处理系统"
+readme = "README.md"
+license = {text = "Proprietary"}
+requires-python = ">=3.9"
+authors = [
+    {name = "QHI Team"}
+]
+keywords = ["printing", "imposition", "preflight", "PDF", "digital-printing"]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Manufacturing",
+    "License :: Other/Proprietary License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+    "Topic :: Printing",
+]
+
+dependencies = [
+    "PyQt5>=5.15",
+    "PyPDF2>=2.0",
+    "py7zr>=0.20",
+    "jsonschema>=4.17",
+    "PyMuPDF>=1.23.0",
+]
+
+[project.optional-dependencies]
+scripting = ["js2py>=0.74"]
+vdp = ["openpyxl>=3.1"]
+color = ["Pillow>=10.0"]
+barcode = ["qrcode[pil]>=7.4"]
+odbc = ["pyodbc>=5.0"]
+monitor = ["psutil>=5.9"]
+dev = [
+    "pytest>=7.0",
+    "memory-profiler>=0.61",
+]
+
+[project.scripts]
+qhi-processor = "main:main"
+
+[tool.setuptools.packages.find]
+include = ["core*", "services*", "ui*", "models*", "utils*", "integration*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+ignore = ["E501", "B008"]

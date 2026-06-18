@@ -43,10 +43,30 @@ class APIConfig:
     """API配置"""
     HOST = "127.0.0.1"
     PORT = 18900
-    SECRET_KEY = os.environ.get("QHI_API_SECRET", "qhi-default-secret-key-change-in-production")
+    _DEFAULT_SECRET = "qhi-default-secret-key-change-in-production"
+    _cached_secret: Optional[str] = None
     JWT_EXPIRY_HOURS = 24
     RATE_LIMIT_REQUESTS = 100  # 每分钟最大请求数
     RATE_LIMIT_WINDOW = 60     # 速率限制窗口（秒）
+    
+    @classmethod
+    def get_secret_key(cls) -> str:
+        """获取API密钥，未设置环境变量时生成随机密钥并发出警告"""
+        if cls._cached_secret is not None:
+            return cls._cached_secret
+        secret = os.environ.get("QHI_API_SECRET", "")
+        if not secret or secret == cls._DEFAULT_SECRET:
+            import secrets
+            generated = secrets.token_hex(32)
+            logger.warning(
+                "API密钥未设置或使用默认值！已生成临时随机密钥。"
+                "为确保生产安全，请设置环境变量 QHI_API_SECRET。"
+                "命令: set QHI_API_SECRET=your-secret-key"
+            )
+            if not secret:
+                secret = generated
+        cls._cached_secret = secret
+        return secret
 
 
 # ==================== JWT认证 ====================
@@ -57,7 +77,7 @@ class JWTAuth:
     @staticmethod
     def encode(payload: Dict, secret: str = None, expiry_hours: int = 24) -> str:
         """编码JWT令牌"""
-        secret = secret or APIConfig.SECRET_KEY
+        secret = secret or APIConfig.get_secret_key()
         
         # Header
         header = {"alg": "HS256", "typ": "JWT"}
@@ -81,7 +101,7 @@ class JWTAuth:
     @staticmethod
     def decode(token: str, secret: str = None) -> Optional[Dict]:
         """解码JWT令牌"""
-        secret = secret or APIConfig.SECRET_KEY
+        secret = secret or APIConfig.get_secret_key()
         
         try:
             parts = token.split(".")

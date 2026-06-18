@@ -26,7 +26,7 @@ from models.constants import PT_TO_MM, PDF_SUPPORT
 
 try:
     from PyPDF2 import PdfReader
-except ImportError:
+except Exception:
     PdfReader = None
 
 PAPER_MAPPINGS = [

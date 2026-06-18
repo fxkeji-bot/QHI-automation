@@ -33,7 +33,7 @@ try:
     from PyPDF2 import PdfReader, PdfWriter
     from PyPDF2.generic import ArrayObject, DictionaryObject, NameObject
     PDF_SUPPORT = True
-except ImportError:
+except Exception:
     PDF_SUPPORT = False
 
 

@@ -227,9 +227,8 @@ class DropProcessingZone(QGroupBox):
         """快速获取 PDF 页数（无导入则返回空字符串）"""
         try:
             import fitz
-            doc = fitz.open(path)
-            count = doc.page_count
-            doc.close()
+            with fitz.open(path) as doc:
+                count = doc.page_count
             # 同时获取文件大小
             mb = os.path.getsize(path) / 1024 / 1024
             return f"{count}页 · {mb:.1f}MB"

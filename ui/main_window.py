@@ -64,6 +64,18 @@ except ImportError:
     FITZ_SUPPORT = False
 
 
+def _load_app_version() -> str:
+    """从 version.json 加载应用版本号"""
+    try:
+        version_json = Path(__file__).resolve().parent.parent / "resources" / "version.json"
+        if version_json.exists():
+            with open(version_json, "r", encoding="utf-8") as f:
+                return json.load(f).get("version", "0.0.0")
+    except Exception:
+        pass
+    return "0.0.0"
+
+
 class MainWindow(QMainWindow):  # noqa: F405
     """QHI拼版处理器主窗口
 
@@ -86,7 +98,7 @@ class MainWindow(QMainWindow):  # noqa: F405
         """初始化主窗口"""
         super().__init__()
 
-        self.setWindowTitle("QHI拼版处理器 v35 - 数码印刷生产版")
+        self.setWindowTitle(f"QHI拼版处理器 v{_load_app_version()} - 数码印刷生产版")
         self.setMinimumSize(1280, 800)
 
         logger.info("=" * 50)
@@ -260,15 +272,23 @@ class MainWindow(QMainWindow):  # noqa: F405
 
     def _save_settings(self):
         """保存设置（settings_tab_controller 触发）"""
+        # 安全检查：设置 Tab 可能尚未构建
+        if not hasattr(self, 'qhi_edit') or not self.qhi_edit:
+            self.config_mgr.save()
+            self.log("设置已保存（配置无变化）")
+            QMessageBox.information(self, "成功", "设置已保存")
+            return
+
         self.config_mgr.config['qhi_path'] = self.qhi_edit.text()
         self.config_mgr.config['rename_enabled'] = self.rename_enabled.isChecked()
         self.config_mgr.config['rename_template'] = self.rename_template.text()
         self.config_mgr.config['number_digits'] = self.number_digits.value()
         self.config_mgr.config['number_start'] = self.number_start.value()
 
-        machine_idx = self.default_machine.currentIndex()
-        if machine_idx >= 0:
-            self.config_mgr.config['default_machine'] = self.default_machine.itemData(machine_idx)
+        if hasattr(self, 'default_machine') and self.default_machine:
+            machine_idx = self.default_machine.currentIndex()
+            if machine_idx >= 0:
+                self.config_mgr.config['default_machine'] = self.default_machine.itemData(machine_idx)
 
         self.config_mgr.save()
         self.log("设置已保存")

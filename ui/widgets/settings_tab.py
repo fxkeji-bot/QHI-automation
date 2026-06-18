@@ -4,7 +4,8 @@
 
 from __future__ import annotations
 
-import sys, platform
+import sys, platform, json
+from pathlib import Path
 from typing import Optional
 
 from PyQt5.QtWidgets import (
@@ -21,6 +22,18 @@ try:
     from PyQt5.Qt import PYQT_VERSION_STR
 except ImportError:
     PYQT_VERSION_STR = "unknown"
+
+
+def _load_app_version() -> str:
+    """从 version.json 加载应用版本号"""
+    try:
+        version_json = Path(__file__).resolve().parent.parent.parent / "resources" / "version.json"
+        if version_json.exists():
+            with open(version_json, "r", encoding="utf-8") as f:
+                return json.load(f).get("version", "0.0.0")
+    except Exception:
+        pass
+    return "0.0.0"
 
 
 class SettingsTab(QWidget):
@@ -189,7 +202,7 @@ class SettingsTab(QWidget):
         about_layout = QVBoxLayout(about_group)
 
         about_text = QLabel(
-            "<b>QHI 拼版处理器 v35 - 数码印刷生产版</b><br><br>"
+            f"<b>QHI 拼版处理器 v{_load_app_version()} - 数码印刷生产版</b><br><br>"
             "<b>功能特性:</b><br>"
             "• 数码印刷单P计价 + Click计费模式<br>"
             "• 支持 HP12000 / HP7900 / 奥西 三台数码设备<br>"

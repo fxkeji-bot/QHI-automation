@@ -25,6 +25,8 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 from threading import Thread
 
+from services.flow_entry import FlowEntryManager, MetadataInjector
+
 _parent = Path(__file__).resolve().parent.parent
 if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
@@ -75,6 +77,7 @@ class _APIHandler(BaseHTTPRequestHandler):
     pipeline = None      # 由外部注入
     db = None
     plugin_manager = None
+    flow_entry = None    # 由外部注入（FlowEntryManager）
 
     def log_message(self, format, *args):
         pass  # 静默日志；如需调试可取消注释
@@ -252,6 +255,53 @@ class _APIHandler(BaseHTTPRequestHandler):
         else:
             self._json_response(404, {"error": "plugin_not_found", "plugin_id": plugin_id})
 
+    def _handle_flow_submit(self):
+        """POST /api/v1/flow/submit - 手动提交文件"""
+        data = self._read_body()
+        files = data.get("file_paths", [])
+        if not files:
+            self._json_response(400, {"error": "missing_file_paths"})
+            return
+        if not self.flow_entry:
+            self._json_response(503, {"error": "flow_entry_not_available"})
+            return
+        submission = self.flow_entry.submit_manual(
+            files,
+            metadata=data.get("metadata", {}),
+        )
+        self._json_response(202, {
+            "status": "accepted",
+            "job_id": submission.job_id,
+            "source": submission.source,
+            "file_count": len(submission.file_paths),
+        })
+
+    def _handle_flow_webhook(self):
+        """POST /api/v1/flow/webhook - Webhook 接收"""
+        data = self._read_body()
+        if not self.flow_entry:
+            self._json_response(503, {"error": "flow_entry_not_available"})
+            return
+        handler = self.flow_entry.get_webhook_handler()
+        handler(self, data)
+
+    def _handle_flow_metadata(self):
+        """POST /api/v1/flow/metadata - XML/JSON 元数据注入"""
+        data = self._read_body()
+        payload = data.get("payload", "")
+        job_id = data.get("job_id", "")
+        fmt = data.get("format", "auto")
+        if not payload:
+            self._json_response(400, {"error": "missing_payload"})
+            return
+        meta = MetadataInjector.parse_xml(payload) if fmt.lower() == "xml" else MetadataInjector.parse_json(payload)
+        self._json_response(200, {
+            "job_id": job_id,
+            "format": "xml" if fmt.lower() == "xml" or payload.strip().startswith("<") else "json",
+            "metadata": meta,
+            "count": len(meta),
+        })
+
 
 # ── 注册路由 ─────────────────────────────────────────────────
 _router = _APIHandler.router
@@ -265,6 +315,9 @@ _router.add("POST", "/api/v1/process",       _APIHandler._handle_submit_process)
 _router.add("GET",  "/api/v1/plugins",       _APIHandler._handle_list_plugins)
 _router.add("POST", "/api/v1/plugins/{id}/enable",  _APIHandler._handle_toggle_plugin)
 _router.add("POST", "/api/v1/plugins/{id}/disable", _APIHandler._handle_toggle_plugin)
+_router.add("POST", "/api/v1/flow/submit",   _APIHandler._handle_flow_submit)
+_router.add("POST", "/api/v1/flow/webhook",  _APIHandler._handle_flow_webhook)
+_router.add("POST", "/api/v1/flow/metadata", _APIHandler._handle_flow_metadata)
 
 
 # ── API 服务主类 ─────────────────────────────────────────────
@@ -291,11 +344,13 @@ class APIServer:
         db=None,
         pipeline=None,
         plugin_manager=None,
+        flow_entry=None,
     ):
         """注入依赖（在 start 前调用）"""
         _APIHandler.db = db
         _APIHandler.pipeline = pipeline
         _APIHandler.plugin_manager = plugin_manager
+        _APIHandler.flow_entry = flow_entry
 
     def start(self):
         """启动 HTTP 服务（后台线程）"""
@@ -314,6 +369,11 @@ class APIServer:
         self._running = False
         if self._thread:
             self._thread.join(timeout=2)
+
+    @property
+    def running(self) -> bool:
+        """返回服务是否正在运行"""
+        return self._running
 
     @property
     def url(self) -> str:

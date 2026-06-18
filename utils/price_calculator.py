@@ -55,7 +55,7 @@ class DigitalPricingEngine:
         """
         suitable = []
         
-        for model, spec in machines.items():
+        for model, spec in self.machines.items():
             if not spec.is_active:
                 continue
             

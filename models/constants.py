@@ -102,16 +102,18 @@ ACTIVE_FIELD_MAP = {
 }
 
 # Feature flags (checked once at module load)
+# 注意：冰冻环境（PyInstaller）下 cffi→pycparser 初始化可能失败，
+# 故捕获 Exception 而非仅 ImportError
 try:
-    from PyPDF2 import PdfReader  # noqa: F401
+    import fitz  # noqa: F401  — 替换 PyPDF2，fitz 已是项目硬依赖
     PDF_SUPPORT = True
-except ImportError:
+except Exception:
     PDF_SUPPORT = False
 
 try:
     import py7zr  # noqa: F401
     PY7ZR_SUPPORT = True
-except ImportError:
+except Exception:
     PY7ZR_SUPPORT = False
 
 # ==================== 文件命名模板 ====================

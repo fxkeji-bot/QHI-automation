@@ -72,9 +72,8 @@ class BatchRenameDialog(QDialog):
             # 尝试获取页数
             try:
                 import fitz
-                doc = fitz.open(fp)
-                info["pages"] = doc.page_count
-                doc.close()
+                with fitz.open(fp) as doc:
+                    info["pages"] = doc.page_count
             except Exception:
                 pass
             self._file_infos.append(info)

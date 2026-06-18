@@ -14,6 +14,7 @@ services/processing_pipeline.py — 异步处理管线引擎
 """
 
 import os, sys, time, traceback
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Any, Callable
@@ -25,6 +26,8 @@ if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
 from PyQt5.QtCore import QObject, QThreadPool, QRunnable, pyqtSignal, pyqtSlot, QMutex, QMutexLocker
+
+logger = logging.getLogger("qhi.pipeline")
 
 from models.enums import WorkflowState
 from models.constants import PLUGIN_DIR
@@ -96,6 +99,7 @@ class _PipeWorker(QRunnable):
         rule_engine,        # RuleEngine 实例
         smart_processor,    # SmartProcessor 工厂
         log_callback: Callable,
+        plugin_mgr=None,    # PluginManager 实例（可选）
     ):
         super().__init__()
         self.item = item
@@ -105,7 +109,9 @@ class _PipeWorker(QRunnable):
         self.rule_engine = rule_engine
         self.smart_processor = smart_processor
         self.log = log_callback
+        self.plugin_mgr = plugin_mgr
         self._cancelled = False
+        self._preflight_cache: Dict[str, dict] = {}  # 路径 → 预检结果缓存
 
     def cancel(self):
         self._cancelled = True
@@ -113,6 +119,9 @@ class _PipeWorker(QRunnable):
     def run(self):
         self.item.started_at = time.time()
         try:
+            # ON_NEW_FILE 钩子：文件开始处理
+            self._invoke_hook("on_new_file", file_path=self.item.file_path)
+
             self._execute_stage(PipeStage.PREFLIGHT, self._do_preflight)
             if self._cancelled:
                 return
@@ -158,13 +167,19 @@ class _PipeWorker(QRunnable):
         if not fp.lower().endswith('.pdf'):
             raise ValueError(f"非 PDF 文件: {fp}")
 
+        # 缓存命中：直接复用之前的预检结果
+        if fp in self._preflight_cache:
+            cached = self._preflight_cache[fp]
+            self.item.page_count = cached["page_count"]
+            self.log(f"  预检(缓存): {Path(fp).name} ({cached['page_count']}页)")
+            return
+
         # 基础页数检测
         page_ct = 0
         try:
             import fitz
-            doc = fitz.open(fp)
-            page_ct = doc.page_count
-            doc.close()
+            with fitz.open(fp) as doc:
+                page_ct = doc.page_count
         except Exception:
             pass
 
@@ -203,6 +218,10 @@ class _PipeWorker(QRunnable):
         else:
             self.log(f"  预检通过: {Path(fp).name} ({page_ct}页)")
 
+        # 写入预检缓存
+        self.item.page_count = page_ct
+        self._preflight_cache[fp] = {"page_count": page_ct}
+
         # 严重错误阻断进入拼版阶段
         if preflight_errors:
             setattr(self.item, '_preflight_blocked', True)
@@ -212,6 +231,10 @@ class _PipeWorker(QRunnable):
 
         # 更新 workflow_state
         self.item.workflow_state = WorkflowState.REVIEWING.value
+
+        # ON_PREFLIGHT 插件钩子
+        self._invoke_hook("on_preflight", file_path=self.item.file_path,
+                          warnings=preflight_warnings, errors=preflight_errors)
 
     def _do_gang_layout(self):
         """AI合版排版：基于贪心+模拟退火的矩形装箱优化"""
@@ -224,13 +247,12 @@ class _PipeWorker(QRunnable):
             if page_info is None:
                 try:
                     import fitz
-                    doc = fitz.open(fp)
-                    pages = []
-                    for i in range(doc.page_count):
-                        rect = doc[i].rect
-                        pages.append({"page_number": i + 1, "width_mm": round(rect.width * 0.3528, 1), 
-                                      "height_mm": round(rect.height * 0.3528, 1)})
-                    doc.close()
+                    with fitz.open(fp) as doc:
+                        pages = []
+                        for i in range(doc.page_count):
+                            rect = doc[i].rect
+                            pages.append({"page_number": i + 1, "width_mm": round(rect.width * 0.3528, 1), 
+                                          "height_mm": round(rect.height * 0.3528, 1)})
                     page_info = pages
                     setattr(self.item, '_page_info', page_info)
                 except Exception:
@@ -275,6 +297,8 @@ class _PipeWorker(QRunnable):
             self.log(f"  规则匹配: {Path(fp).name} → {matched} 条规则")
             # 附加到 item 的扩展字段
             setattr(self.item, '_matched_rules', rules or [])
+            # ON_RULE_MATCH 插件钩子
+            self._invoke_hook("on_rule_match", file_path=fp, matched_rules=rules or [])
         except Exception as e:
             self.log(f"  规则匹配失败: {e}")
 
@@ -282,6 +306,8 @@ class _PipeWorker(QRunnable):
         """拼版处理：调用 SmartProcessor 执行"""
         fp = self.item.file_path
         self.item.workflow_state = WorkflowState.PRODUCING.value
+        # ON_IMPOSE 插件钩子
+        self._invoke_hook("on_impose", file_path=fp, output_dir=self.config.output_dir)
         try:
             # SmartProcessor 工厂式调用
             if self.smart_processor:
@@ -299,6 +325,10 @@ class _PipeWorker(QRunnable):
     def _do_postprocess(self):
         """后处理：裁切标记、出血检查、合版利用率上报"""
         self.item.workflow_state = WorkflowState.QC.value
+
+        # ON_POSTPROCESS 插件钩子
+        self._invoke_hook("on_postprocess", file_path=self.item.file_path,
+                          result_path=self.item.result_path)
 
         # 上报合版排版利用率到看板
         gang_layout = getattr(self.item, '_gang_layout', None)
@@ -318,6 +348,29 @@ class _PipeWorker(QRunnable):
         self.item.progress_pct = 100
         result = self.item.result_path or self.item.file_path
         self.log(f"  输出完成: {Path(result).name} ({self.item.elapsed:.1f}s)")
+
+        # ON_OUTPUT 插件钩子
+        self._invoke_hook("on_output", file_path=self.item.file_path,
+                          result_path=result, elapsed=self.item.elapsed)
+
+    def _invoke_hook(self, hook_name: str, **kwargs):
+        """调用插件管理器上指定钩子
+
+        Args:
+            hook_name: 钩子名称（如 "on_preflight"）
+            **kwargs: 传递给钩子函数的参数
+        """
+        if not self.plugin_mgr:
+            return
+        try:
+            from services.plugin_manager import PluginHook
+            hook = PluginHook(hook_name)
+            results = self.plugin_mgr.invoke_hook(hook, **kwargs)
+            for r in results:
+                if not r.success:
+                    self.log(f"  插件 {r.plugin_id} 钩子 {hook_name} 失败: {r.error}")
+        except Exception as e:
+            self.log(f"  插件钩子调度异常: {e}")
 
     def _record_production_log(self, success: bool = True, error: str = ""):
         """写入生产记录表"""
@@ -365,6 +418,7 @@ class ProcessingPipeline(QObject):
         rule_engine=None,
         smart_processor_factory: Callable = None,
         log_callback: Callable = None,
+        plugin_mgr=None,
     ):
         super().__init__()
         self.db = db
@@ -372,6 +426,7 @@ class ProcessingPipeline(QObject):
         self.rule_engine = rule_engine
         self.smart_processor_factory = smart_processor_factory
         self.log_callback = log_callback or print
+        self.plugin_mgr = plugin_mgr
 
         self._pool: Optional[QThreadPool] = None
         self._items: List[PipeItem] = []
@@ -424,22 +479,26 @@ class ProcessingPipeline(QObject):
                 rule_engine=self.rule_engine,
                 smart_processor=self.smart_processor_factory,
                 log_callback=self._wrap_log,
+                plugin_mgr=self.plugin_mgr,
             )
             self._workers.append(worker)
             self._pool.start(worker)
 
+        logger.info(f"[处理开始] 管线启动: {total} 个文件, {max_workers} 线程, 输出目录: {self._config.output_dir}")
         self.log_callback(f"管线启动: {total} 个文件, {max_workers} 线程")
 
     def pause(self):
         """暂停管线（正在处理的会完成当前文件）"""
         with QMutexLocker(self._mutex):
             self._paused = True
+        logger.info(f"[处理控制] 管线已暂停 (已处理: {self.get_status()['done']})")
         self.log_callback("⏸ 管线已暂停")
 
     def resume(self):
         """恢复管线"""
         with QMutexLocker(self._mutex):
             self._paused = False
+        logger.info("[处理控制] 管线已恢复")
         self.log_callback("▶ 管线已恢复")
 
     def cancel(self):
@@ -449,7 +508,22 @@ class ProcessingPipeline(QObject):
         for w in self._workers:
             w.cancel()
         self._pool.clear()
+        self._cleanup_workers()
+        logger.info("[处理控制] 管线已取消")
         self.log_callback("⏹ 管线已取消")
+
+    def cleanup(self):
+        """清理管线资源（所有 worker 完成后调用）
+
+        清空 worker 和 item 引用列表，释放内存。
+        调用方应在确认所有 worker 完成（或取消）后调用。
+        """
+        self._cleanup_workers()
+
+    def _cleanup_workers(self):
+        """内部清理：清空 worker 和 item 引用"""
+        self._workers.clear()
+        self._items.clear()
 
     def get_status(self) -> Dict:
         """获取管线当前状态"""

@@ -25,13 +25,13 @@ class TestPricingEngine(unittest.TestCase):
     
     def test_machine_recommendation(self):
         """Test machine recommendation for page sizes."""
-        machines = self.engine.get_machine_for_page_size(self.engine.machines, 210, 297)
+        machines = self.engine.get_machine_for_page_size(210, 297)
         self.assertTrue(len(machines) > 0)
         self.assertIn('HP12000', machines)
     
     def test_paper_cost_calculation(self):
         """Test paper cost per page calculation."""
-        result = self.engine.paper_cost_per_page('157g铜版纸', 210, 297)
+        result = self.engine.calculate_paper_cost_per_page('157g铜版纸', 210, 297)
         self.assertIn('paper_cost_per_page', result)
     
     def test_full_calculation(self):

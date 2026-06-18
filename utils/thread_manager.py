@@ -16,16 +16,27 @@ _parent = Path(__file__).resolve().parent.parent
 if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
-from integration.smart_processor import SmartProcessor
 
 class ProcessingThread(QThread):
-    """后台处理线程"""
+    """后台处理线程
+
+    SmartProcessor 通过 processor_factory 参数注入，避免 utils 层直接依赖 integration 层。
+    processor_factory 签名: callable(config, db, metadata_mgr, var_mgr, log_callback) -> processor
+    """
     progress_updated = pyqtSignal(int, str, int, int)
     file_done = pyqtSignal(str, bool, str)
     finished = pyqtSignal(int, int)
     error_occurred = pyqtSignal(str)
 
-    def __init__(self, config, db, metadata_mgr, var_mgr, files, output_base, log_callback):
+    def __init__(self, config, db, metadata_mgr, var_mgr, files, output_base, log_callback,
+                 processor_factory=None):
+        """初始化处理线程
+
+        Args:
+            processor_factory: 处理器工厂函数，签名为
+                callable(config, db, metadata_mgr, var_mgr, log_callback) -> processor
+                若不传入则尝试回退导入 SmartProcessor
+        """
         super().__init__()
         self.config = config
         self.db = db
@@ -34,10 +45,26 @@ class ProcessingThread(QThread):
         self.files = files
         self.output_base = output_base
         self.log_callback = log_callback
+        self._processor_factory = processor_factory
         self._cancelled = False
 
+    def _get_processor(self):
+        """获取处理器实例（优先使用工厂注入，回退直接导入）"""
+        if self._processor_factory:
+            return self._processor_factory(
+                self.config, self.db, self.metadata_mgr, self.var_mgr, self.log_callback
+            )
+        # 回退：直接导入（保留向后兼容）
+        try:
+            from integration.smart_processor import SmartProcessor
+            return SmartProcessor(
+                self.config, self.db, self.metadata_mgr, self.var_mgr, self.log_callback
+            )
+        except ImportError:
+            raise RuntimeError("SmartProcessor 不可用：未注入 processor_factory 且模块导入失败")
+
     def run(self):
-        processor = SmartProcessor(self.config, self.db, self.metadata_mgr, self.var_mgr, self.log_callback)
+        processor = self._get_processor()
         total = len(self.files)
         success = 0
         fail = 0
@@ -66,6 +93,20 @@ class ProcessingThread(QThread):
 
     def cancel(self):
         self._cancelled = True
+
+    def cleanup(self):
+        """清理线程资源（在 finished 信号处理中调用）
+
+        断开所有信号连接并安排 Qt 事件循环清理 C++ 层对象。
+        """
+        try:
+            self.progress_updated.disconnect()
+            self.file_done.disconnect()
+            self.finished.disconnect()
+            self.error_occurred.disconnect()
+        except TypeError:
+            pass
+        self.deleteLater()
 
 
 # ==================== 数据导入导出 ====================

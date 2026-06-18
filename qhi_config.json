@@ -1,6 +1,6 @@
 {
   "qhi_path": "C:\\Program Files (x86)\\Quite\\Quite Hot Imposing 5\\qi_applycommands.exe",
-  "output_dir": "C:\\Users\\diy\\Desktop\\定稿文件",
+  "output_dir": "C:\\Users\\diy\\Desktop\\QHI_FinalFiles",
   "rename_enabled": true,
   "rename_template": "{seq}-{paper}-{pages}P-{name}",
   "number_digits": 3,
@@ -44,5 +44,6 @@
     "window_width": 1280,
     "window_height": 800,
     "log_font_size": 12
-  }
+  },
+  "test_key": "test_value"
 }

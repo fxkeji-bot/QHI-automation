@@ -37,6 +37,7 @@ from models.constants import DB_PATH, VALID_TABLES, ACTIVE_FIELD_MAP, PLUGIN_DIR
 
 from core.codec_manager import auto_generate_codes
 from core.seed_manager import seed_database
+from core.connection_pool import ConnectionPool, get_pool
 from core.order_repository import OrderRepository
 from core.repositories.material_repository import PaperRepository, ProcessRepository, BindingRepository
 from core.repositories.config_repository import MachineRepository, CustomerRepository
@@ -50,35 +51,40 @@ class Database:
     2. 提供通用CRUD操作
     3. 自动修复旧版本表结构
     4. 预置默认数据
-    5. 线程安全的数据访问
+    5. 线程安全的数据访问（使用连接池）
     6. 表名白名单验证（防SQL注入）
     7. 专用查询方法（纸张、工艺、客户等）
     8. 安全执行包装（错误处理和日志）
     """
     
-    def __init__(self, db_path: str = None, error_callback: Callable = None):
+    def __init__(self, db_path: str = None, error_callback: Callable = None, use_pool: bool = False):
         """初始化数据库连接
         
         Args:
             db_path: 数据库文件路径，None则使用默认路径
             error_callback: 错误回调函数
+            use_pool: 是否使用连接池（默认False，向后兼容；高并发场景可设为True）
         """
         self.db_path = db_path or str(DB_PATH)
+        self.use_pool = use_pool
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        
-        # check_same_thread=False 允许多线程访问
-        self.conn = sqlite3.connect(self.db_path, check_same_thread=False, isolation_level='IMMEDIATE')
-        self.conn.row_factory = sqlite3.Row  # 使用Row对象，支持字典式访问
-        self._lock = threading.RLock()  # 使用可重入锁
         
         # 错误回调
         self.error_callback = error_callback or logger.warning
         
-        # 初始化表结构和数据
-        self._create_tables()
-        self._fix_tables()
-        seed_database(self.conn, logger)
-
+        if use_pool:
+            # 使用连接池
+            self._pool = get_pool(self.db_path)
+            # 初始化时使用一个连接来创建表和种子数据
+            with self._pool.get_connection() as conn:
+                self._init_tables_and_data(conn)
+        else:
+            # 传统单连接模式（向后兼容）
+            self._conn = sqlite3.connect(self.db_path, check_same_thread=False, isolation_level='IMMEDIATE')
+            self._conn.row_factory = sqlite3.Row
+            self._lock = threading.RLock()
+            self._init_tables_and_data(self._conn)
+        
         # 订单仓储（从上帝类拆分）
         self._order_repo = OrderRepository(self)
         self._paper_repo = PaperRepository(self)
@@ -88,6 +94,41 @@ class Database:
         self._custom_binding_repo = CustomBindingRepository(self)
         self._machine_repo = MachineRepository(self)
         self._customer_repo = CustomerRepository(self)
+    
+    @property
+    def conn(self):
+        """获取数据库连接（向后兼容）"""
+        if self.use_pool:
+            return self._pool._acquire().conn
+        return self._conn
+    
+    @conn.setter
+    def conn(self, value):
+        """设置数据库连接（向后兼容）"""
+        if not self.use_pool:
+            self._conn = value
+    
+    def _init_tables_and_data(self, conn: sqlite3.Connection):
+        """初始化表结构和种子数据"""
+        self._create_tables(conn)
+        self._fix_tables(conn)
+        seed_database(conn, logger)
+    
+    def _get_conn(self) -> sqlite3.Connection:
+        """获取数据库连接（内部方法）"""
+        if self.use_pool:
+            return self._pool._acquire().conn
+        else:
+            return self.conn
+    
+    def _release_conn(self, conn: sqlite3.Connection):
+        """释放数据库连接（内部方法）"""
+        if self.use_pool:
+            # 查找对应的 PooledConnection 并释放
+            for pooled in self._pool._all_connections:
+                if pooled.conn is conn:
+                    self._pool._release(pooled)
+                    break
 
     def _safe_execute(self, operation: Callable, error_msg: str = "数据库操作失败"):
         """安全执行数据库操作（带错误处理和日志）
@@ -122,7 +163,7 @@ class Database:
             self.error_callback(error)
             raise RuntimeError(error) from e
 
-    def _create_tables(self):
+    def _create_tables(self, conn: sqlite3.Connection = None):
         """创建所有数据库表
         
         包括14张表：
@@ -141,7 +182,7 @@ class Database:
         13. production_logs - 生产记录
         14. price_history - 价格历史
         """
-        cur = self.conn.cursor()
+        cur = (conn or self.conn).cursor()
 
         # 1. 纸张库
         cur.execute("""
@@ -402,24 +443,36 @@ class Database:
             )
         """)
 
-        # ── 性能索引 ──────────────────────────────────────────────
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_orders_status
-            ON orders(status)
-        """)
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_orders_created_at
-            ON orders(created_at)
-        """)
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_orders_customer_name
-            ON orders(customer_name)
-        """)
+        # ── 性能索引（用 try/except 保护，兼容旧版数据库缺少列的情况）──
+        _idx_statements = [
+            "CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)",
+            "CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_orders_customer_name ON orders(customer_name)",
+            "CREATE INDEX IF NOT EXISTS idx_orders_order_no ON orders(order_no)",
+            "CREATE INDEX IF NOT EXISTS idx_orders_status_date ON orders(status, created_at DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_prodlog_order_id ON production_logs(order_id)",
+            "CREATE INDEX IF NOT EXISTS idx_prodlog_status ON production_logs(status)",
+            "CREATE INDEX IF NOT EXISTS idx_prodlog_finished_at ON production_logs(finished_at)",
+            "CREATE INDEX IF NOT EXISTS idx_prices_item ON prices(item_type, item_id)",
+            "CREATE INDEX IF NOT EXISTS idx_prices_tier ON prices(customer_tier)",
+            "CREATE INDEX IF NOT EXISTS idx_pricehist_item ON price_history(item_type, item_id)",
+            "CREATE INDEX IF NOT EXISTS idx_papers_category ON papers(category)",
+            "CREATE INDEX IF NOT EXISTS idx_papers_weight ON papers(weight)",
+            "CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)",
+            "CREATE INDEX IF NOT EXISTS idx_processes_category ON processes(category)",
+            "CREATE INDEX IF NOT EXISTS idx_actions_type ON actions(type)",
+            "CREATE INDEX IF NOT EXISTS idx_actions_active ON actions(is_active)",
+        ]
+        for stmt in _idx_statements:
+            try:
+                cur.execute(stmt)
+            except sqlite3.OperationalError:
+                pass  # 列不存在时跳过，由 _fix_tables 补建后下次启动生效
 
         self.conn.commit()
         logger.info("数据库表结构初始化完成")
 
-    def _fix_tables(self):
+    def _fix_tables(self, conn: sqlite3.Connection = None):
         """自动修复表结构（兼容旧版本数据库）
         
         处理以下兼容性问题：
@@ -431,7 +484,7 @@ class Database:
         6. 缺少 code 列（数据字典编码）
         7. 为 orders 表添加 workflow_state 列（工序状态机）
         """
-        cur = self.conn.cursor()
+        cur = (conn or self.conn).cursor()
         try:
             # 检查 actions 表是否存在
             cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='actions'")
@@ -516,6 +569,21 @@ class Database:
             except sqlite3.OperationalError:
                 pass
 
+            # 修复8：确保 production_logs 表有完整列（兼容旧版本）
+            prodlog_columns = [
+                ('output_path', 'TEXT'),
+                ('file_path', 'TEXT'),
+                ('paper', 'TEXT'),
+                ('machine', 'TEXT'),
+                ('total_price', 'REAL'),
+                ('profit', 'REAL'),
+                ('profit_margin', 'REAL'),
+                ('finished_at', 'TEXT'),
+                ('elapsed', 'REAL'),
+            ]
+            for col, col_type in prodlog_columns:
+                self._add_column_if_missing(cur, 'production_logs', col, col_type)
+
             if fixes_applied:
                 self.conn.commit()
                 logger.info(f"数据库修复完成: {', '.join(fixes_applied)}")
@@ -523,8 +591,18 @@ class Database:
         except Exception as e:
             logger.info(f"数据库修复过程出错: {e}")
 
+    _VALID_COL_TYPES = frozenset({
+        'TEXT', 'TEXT UNIQUE', 'TEXT NOT NULL', 'TEXT DEFAULT',
+        'INTEGER', 'INTEGER DEFAULT', 'INTEGER NOT NULL',
+        'REAL', 'REAL DEFAULT', 'REAL NOT NULL',
+        'DATE', 'DATE DEFAULT',
+    })
+
     def _add_column_if_missing(self, cur, table: str, column: str, col_type: str):
         """如果表中缺少指定列则添加"""
+        if col_type not in self._VALID_COL_TYPES:
+            logger.warning(f"不安全的列类型 '{col_type}'，跳过添加 {table}.{column}")
+            return
         try:
             cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,))
             if not cur.fetchone():
@@ -1209,8 +1287,11 @@ class Database:
     def close(self):
         """关闭数据库连接"""
         try:
-            self.conn.close()
-            logger.info("数据库连接已关闭")
+            if self.use_pool:
+                logger.info("数据库连接池模式，连接由池管理")
+            else:
+                self._conn.close()
+                logger.info("数据库连接已关闭")
         except Exception as e:
             logger.error(f"关闭数据库连接失败: {e}")
 

@@ -21,7 +21,7 @@ from enum import Enum
 try:
     from PyPDF2 import PdfReader, PdfWriter
     PDF_SUPPORT = True
-except ImportError:
+except Exception:
     PDF_SUPPORT = False
 
 # pt → mm 转换系数

@@ -7,7 +7,7 @@ Supports 15+ condition types for intelligent workflow routing.
 from __future__ import annotations
 
 import logging
-import re, os, time
+import re, os, time, fnmatch, ast
 
 from utils.logger import get_logger
 
@@ -23,6 +23,7 @@ if str(_parent) not in sys.path:
 
 from models.metadata import FileMetadata
 from utils.file_utils import InfoExtractor
+from services.variable_service import VariableManager
 
 class RuleEngine:
     """规则引擎
@@ -60,6 +61,19 @@ class RuleEngine:
         self.var_mgr = var_mgr
         self.log = log_callback or print
 
+    def _resolve_value(self, raw_value: str, metadata: FileMetadata) -> str:
+        """解析条件值中的变量占位符 {var}。
+
+        仅当 var_mgr 为真实 VariableManager 实例时执行替换；
+        其他情况（如测试中的 MagicMock）返回原字符串，避免类型污染。
+        """
+        if not isinstance(self.var_mgr, VariableManager) or not raw_value:
+            return raw_value
+        try:
+            return self.var_mgr.resolve_template(raw_value)
+        except Exception:
+            return raw_value
+
     def check_condition(self, file_path: Path, rule: Dict, metadata: FileMetadata) -> Tuple[bool, str]:
         """检查单个规则条件是否匹配
         
@@ -72,7 +86,7 @@ class RuleEngine:
             (是否匹配, 详细信息) 元组
         """
         cond_type = rule.get('condition_type', 'always')
-        cond_value = rule.get('condition_value', '').strip()
+        cond_value = self._resolve_value(rule.get('condition_value', '').strip(), metadata)
 
         # ---- 无条件匹配 ----
         if cond_type == 'always':
@@ -213,7 +227,86 @@ class RuleEngine:
                 return True, f"设备匹配: {metadata.recommended_machine}"
             return False, f"设备 '{metadata.recommended_machine}' 不包含 '{cond_value}'"
 
+        # ---- 文件类型/扩展名 ----
+        elif cond_type == 'file_type':
+            if not cond_value:
+                return False, "条件值为空"
+            ext = file_path.suffix.lower().lstrip('.')
+            patterns = [p.strip().lower().lstrip('.') for p in cond_value.split(',') if p.strip()]
+            if ext in patterns:
+                return True, f"文件类型匹配: {ext}"
+            return False, f"文件类型 '{ext}' 不匹配 {patterns}"
+
+        # ---- 文件名模式（glob） ----
+        elif cond_type == 'file_pattern':
+            if not cond_value:
+                return False, "条件值为空"
+            patterns = [p.strip() for p in cond_value.split(',') if p.strip()]
+            matched = [p for p in patterns if fnmatch.fnmatch(file_path.name, p)]
+            if matched:
+                return True, f"文件名模式匹配: {', '.join(matched)}"
+            return False, f"文件名不匹配任何模式"
+
+        # ---- 正则表达式 ----
+        elif cond_type == 'regex':
+            if not cond_value:
+                return False, "正则表达式为空"
+            try:
+                pattern = re.compile(cond_value)
+            except re.error as e:
+                return False, f"正则表达式无效: {e}"
+            text = file_path.name
+            if pattern.search(text):
+                return True, f"正则匹配成功: {cond_value}"
+            return False, f"正则不匹配: {cond_value}"
+
+        # ---- 脚本表达式 ----
+        elif cond_type == 'script_expression':
+            if not cond_value:
+                return False, "脚本表达式为空"
+            try:
+                ok = self._eval_script_expression(cond_value, file_path, metadata)
+                if ok:
+                    return True, f"脚本表达式成立: {cond_value}"
+                return False, f"脚本表达式不成立: {cond_value}"
+            except Exception as e:
+                return False, f"脚本表达式求值失败: {e}"
+
         return False, f"未知条件类型: {cond_type}"
+
+    def _eval_script_expression(self, expr: str, file_path: Path, metadata: FileMetadata) -> bool:
+        """安全求值脚本表达式条件。
+
+        可用变量：file_path, file_name, file_ext, page_count, size_mb,
+        binding, paper, machine, 以及 var_mgr 中的变量值。
+        仅返回布尔值。
+        """
+        env: Dict[str, Any] = {"__builtins__": {}}
+        # 1) 先加载 var_mgr 快照（可能含空默认值）
+        if isinstance(self.var_mgr, VariableManager):
+            env.update(self.var_mgr.get_values_snapshot())
+        # 2) 再用 metadata 实际值覆盖（确保数值类型正确，不被空字符串污染）
+        env["file_path"] = str(file_path)
+        env["file_name"] = file_path.name
+        env["file_ext"] = file_path.suffix.lower().lstrip('.')
+        _pc = metadata.current_page_count
+        env["page_count"] = int(_pc) if isinstance(_pc, (int, float)) else (int(_pc) if isinstance(_pc, str) and _pc.isdigit() else 0)
+        _sz = metadata.current_size
+        _sz_num = float(_sz) if isinstance(_sz, (int, float)) else (float(_sz) if isinstance(_sz, str) and _sz.replace('.','',1).isdigit() else 0)
+        env["size_mb"] = round(_sz_num / (1024 * 1024), 2) if _sz_num > 0 else 0.0
+        env["binding"] = metadata.binding_type or ""
+        env["paper"] = metadata.paper_info.get("full_name", "") or ""
+        env["machine"] = metadata.recommended_machine or ""
+
+        try:
+            node = ast.parse(expr, mode="eval")
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Name) and sub.id not in env:
+                    raise ValueError(f"脚本表达式中禁止使用的名称: {sub.id}")
+            compiled = compile(node, filename="<rule_script>", mode="eval")
+            return bool(eval(compiled, env))
+        except Exception as e:
+            raise ValueError(f"脚本表达式执行失败: {e}") from e
 
     def match_rule(self, file_path: Path, rules: List[Dict]) -> Tuple[Optional[Dict], str]:
         """匹配规则
@@ -257,6 +350,76 @@ class RuleEngine:
         self.log(f"  未匹配到任何规则，将使用默认处理")
         return None, "未匹配到任何规则"
 
+    def match_any(self, file_path: Path, metadata: FileMetadata, rules: List[Dict]) -> Optional[Dict]:
+        """匹配任意规则（返回第一个匹配的规则）
+        
+        Args:
+            file_path: 文件路径
+            metadata: 文件元数据
+            rules: 规则列表
+        
+        Returns:
+            匹配的规则字典，无匹配返回 None
+        """
+        self.log(f"开始规则匹配: {file_path.name}")
+        self.log(f"  文件信息: {metadata.current_page_count}页, "
+                f"纸张: {metadata.paper_info.get('full_name', '未知')}, "
+                f"装订: {metadata.binding_type or '未指定'}, "
+                f"设备: {metadata.recommended_machine}")
+
+        for i, rule in enumerate(rules):
+            if not rule.get('enabled', True):
+                self.log(f"  规则 [{i}] '{rule.get('name', '未命名')}' - 已禁用，跳过")
+                continue
+
+            matched, info = self.check_condition(file_path, rule, metadata)
+
+            if info and not matched:
+                self.log(f"  规则 [{i}] '{rule.get('name', '未命名')}' - 不匹配: {info}")
+            
+            if matched:
+                self.log(f"  ✅ 匹配规则 [{i}]: {rule.get('name', '未命名')} - {info}")
+                return rule
+
+        self.log(f"  未匹配到任何规则")
+        return None
+
+    def find_matching_rules(self, file_path: str, metadata: FileMetadata = None, rules: List[Dict] = None) -> List[Dict]:
+        """查找所有匹配的规则
+        
+        Args:
+            file_path: 文件路径
+            metadata: 文件元数据（可选，为 None 时自动获取）
+            rules: 规则列表（可选，为 None 时返回空列表）
+        
+        Returns:
+            所有匹配的规则列表
+        """
+        file_path = Path(file_path)
+        if metadata is None:
+            metadata = self.metadata_mgr.get(str(file_path))
+            if not metadata:
+                metadata = self._create_metadata(file_path)
+        
+        self.log(f"查找所有匹配规则: {file_path.name}")
+        matched_rules = []
+        
+        if rules is None:
+            self.log("  未提供规则列表，返回空")
+            return matched_rules
+        
+        for i, rule in enumerate(rules):
+            if not rule.get('enabled', True):
+                continue
+            
+            matched, info = self.check_condition(file_path, rule, metadata)
+            if matched:
+                self.log(f"  ✅ 匹配规则 [{i}]: {rule.get('name', '未命名')} - {info}")
+                matched_rules.append(rule)
+        
+        self.log(f"  共匹配 {len(matched_rules)} 条规则")
+        return matched_rules
+
     def _create_metadata(self, file_path: Path) -> FileMetadata:
         """为文件创建元数据（当元数据管理器中不存在时）"""
         info = InfoExtractor.extract_all(str(file_path))
@@ -290,3 +453,136 @@ class RuleEngine:
 
 
 # ==================== 智能处理器 ====================
+
+
+# ═══════════════════════════════════════════════════════════════
+# Switch 路由节点与信号灯机制
+# ═══════════════════════════════════════════════════════════════
+
+from dataclasses import dataclass, field
+
+
+@dataclass
+class SwitchRoutingNode:
+    """Switch 路由节点定义（一个输入、多个条件分支输出）。"""
+    id: str
+    name: str = ""
+    branches: List[Dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "branches": self.branches,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "SwitchRoutingNode":
+        return cls(
+            id=d.get("id", ""),
+            name=d.get("name", ""),
+            branches=list(d.get("branches", [])),
+        )
+
+
+@dataclass
+class FlowSignal:
+    """流程间信号（信号灯）。"""
+    name: str
+    payload: Dict[str, Any] = field(default_factory=dict)
+    emitted_at: str = ""
+
+    def __post_init__(self):
+        if not self.emitted_at:
+            self.emitted_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+class SignalBus:
+    """轻量级流程信号总线，支持订阅/发布/消费。
+
+    用于在不同 Switch 流程/路由节点之间传递信号，例如：
+    - 前置流程完成通知
+    - 错误/重试信号
+    - 状态变更广播
+    """
+
+    def __init__(self):
+        self._signals: List[FlowSignal] = []
+        self._subscribers: Dict[str, List[Callable[[FlowSignal], None]]] = {}
+
+    def emit(self, name: str, payload: Optional[Dict[str, Any]] = None) -> FlowSignal:
+        """发送信号。"""
+        signal = FlowSignal(name=name, payload=payload or {})
+        self._signals.append(signal)
+        for cb in self._subscribers.get(name, []):
+            try:
+                cb(signal)
+            except Exception as e:
+                logger.warning(f"信号订阅者执行失败: {e}")
+        return signal
+
+    def subscribe(self, name: str, callback: Callable[[FlowSignal], None]) -> None:
+        """订阅指定名称的信号。"""
+        self._subscribers.setdefault(name, []).append(callback)
+
+    def unsubscribe(self, name: str, callback: Callable[[FlowSignal], None]) -> None:
+        """取消订阅。"""
+        subs = self._subscribers.get(name, [])
+        if callback in subs:
+            subs.remove(callback)
+
+    def get_signals(self, name: Optional[str] = None) -> List[FlowSignal]:
+        """获取已发送的信号；指定名称时过滤。"""
+        if name is None:
+            return list(self._signals)
+        return [s for s in self._signals if s.name == name]
+
+    def consume(self, name: Optional[str] = None) -> List[FlowSignal]:
+        """消费并移除信号。"""
+        if name is None:
+            consumed = list(self._signals)
+            self._signals.clear()
+            return consumed
+        consumed = [s for s in self._signals if s.name == name]
+        self._signals = [s for s in self._signals if s.name != name]
+        return consumed
+
+    def clear(self) -> None:
+        """清空所有信号与订阅者。"""
+        self._signals.clear()
+        self._subscribers.clear()
+
+
+class RoutingEngine:
+    """Switch 路由引擎。
+
+    对给定文件和元数据，评估一个 SwitchRoutingNode 的所有分支，
+    返回命中的分支名称列表。
+    """
+
+    def __init__(self, rule_engine: RuleEngine):
+        self.rule_engine = rule_engine
+
+    def route(
+        self,
+        file_path: Path,
+        metadata: FileMetadata,
+        routing_node: SwitchRoutingNode,
+    ) -> List[Dict[str, Any]]:
+        """评估路由节点，返回所有命中的分支配置列表（保持定义顺序）。"""
+        matched: List[Dict[str, Any]] = []
+        for branch in routing_node.branches:
+            if not branch.get("enabled", True):
+                continue
+            rule = {
+                "condition_type": branch.get("condition_type", "always"),
+                "condition_value": branch.get("condition_value", ""),
+                "name": branch.get("name", ""),
+                "enabled": True,
+            }
+            ok, info = self.rule_engine.check_condition(file_path, rule, metadata)
+            if ok:
+                branch_copy = dict(branch)
+                branch_copy["match_info"] = info
+                matched.append(branch_copy)
+        return matched

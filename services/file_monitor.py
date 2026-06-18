@@ -8,9 +8,12 @@ FIXES APPLIED:
 - Bug #2: Exact directory name matching, depth-limited scanning
 """
 import os, time, traceback as tb_module
+import logging
 from typing import List, Dict, Tuple, Optional, Set
 from pathlib import Path
 from datetime import datetime, timedelta
+
+logger = logging.getLogger("qhi.file_monitor")
 
 from PyQt5.QtCore import QThread, pyqtSignal, Qt
 from PyQt5.QtWidgets import (
@@ -24,7 +27,9 @@ _parent = Path(__file__).resolve().parent.parent
 if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
-from ui.dialogs.monitor_dialog import MonitorDirDialog
+# MonitorDirDialog 通过工厂函数注入，避免服务层直接依赖 UI 层
+# 调用方需在 MonitorPanel 构造时传入 dialog_factory 参数
+_MonitorDirDialogFactory = None
 
 
 def find_order_directories(root_path: str, days_back: int = 2, customer: str = "9705-小风") -> List[Path]:
@@ -33,6 +38,7 @@ def find_order_directories(root_path: str, days_back: int = 2, customer: str = "
     目录结构要求：
     root_path/YYYY-MM-DD/{customer}/GDxxx.../
     """
+    logger.info(f"[文件操作] 扫描订单目录: {root_path}, 回溯 {days_back} 天, 客户 {customer}")
     order_dirs = []
     today = datetime.now()
     for i in range(days_back):
@@ -43,6 +49,7 @@ def find_order_directories(root_path: str, days_back: int = 2, customer: str = "
         for item in client_dir.iterdir():
             if item.is_dir() and item.name.startswith("GD"):
                 order_dirs.append(item)
+    logger.info(f"[文件操作] 找到 {len(order_dirs)} 个订单目录")
     return order_dirs
 
 
@@ -151,8 +158,10 @@ def is_directory_stable(directory: Path, stable_minutes: int = 10, max_depth: in
     time_diff = (time.time() - max_mtime) / 60
     
     if time_diff >= stable_minutes:
+        logger.info(f"[文件操作] 目录已稳定: {directory.name}, {time_diff:.1f}min, {file_count}个文件")
         return True, f"稳定 {time_diff:.1f} 分钟（检查了{file_count}个文件）"
     else:
+        logger.info(f"[文件操作] 目录不稳定: {directory.name}, {time_diff:.1f}min < {stable_minutes}min, {file_count}个文件")
         return False, f"不稳定（{time_diff:.1f}分钟 < {stable_minutes}分钟阈值，{file_count}个文件）"
 
 
@@ -332,9 +341,17 @@ class MonitorWorker(QThread):
 class MonitorPanel(QWidget):
     """监控目录管理面板"""
 
-    def __init__(self, main_window):
+    def __init__(self, main_window, dialog_factory=None):
+        """初始化监控面板
+
+        Args:
+            main_window: 主窗口实例
+            dialog_factory: 可选，MonitorDirDialog 工厂函数 callable(parent, config, customers) -> QDialog
+                           传入此参数可避免服务层直接依赖 UI 层
+        """
         super().__init__()
         self.main_window = main_window
+        self._dialog_factory = dialog_factory
         self.monitor_configs = self._load_configs()
         self.worker = None
         self._init_ui()
@@ -424,9 +441,23 @@ class MonitorPanel(QWidget):
             pass
         return []
 
+    def _make_dialog(self, config=None):
+        """创建监控目录对话框（通过工厂注入或回退直接导入）"""
+        customers = self._get_customers()
+        if self._dialog_factory:
+            return self._dialog_factory(self, config, customers)
+        # 回退：直接导入（保留向后兼容，但违反分层架构）
+        try:
+            from ui.dialogs.monitor_dialog import MonitorDirDialog
+            if config:
+                return MonitorDirDialog(config, parent=self, customers=customers)
+            return MonitorDirDialog(parent=self, customers=customers)
+        except ImportError:
+            return None
+
     def _add_dir(self):
-        dialog = MonitorDirDialog(parent=self, customers=self._get_customers())
-        if dialog.exec() == QDialog.Accepted:
+        dialog = self._make_dialog()
+        if dialog and dialog.exec() == QDialog.Accepted:
             self.monitor_configs.append(dialog.get_config())
             self._save_configs()
             self._refresh_table()
@@ -435,8 +466,8 @@ class MonitorPanel(QWidget):
         row = self.table.currentRow()
         if row < 0:
             return
-        dialog = MonitorDirDialog(self.monitor_configs[row], parent=self, customers=self._get_customers())
-        if dialog.exec() == QDialog.Accepted:
+        dialog = self._make_dialog(self.monitor_configs[row])
+        if dialog and dialog.exec() == QDialog.Accepted:
             self.monitor_configs[row] = dialog.get_config()
             self._save_configs()
             self._refresh_table()
@@ -475,8 +506,21 @@ class MonitorPanel(QWidget):
         self.stop_btn.setEnabled(True)
 
     def _stop(self):
-        if self.worker and self.worker.isRunning():
-            self.worker.stop()
+        if self.worker:
+            if self.worker.isRunning():
+                self.worker.stop()
+                if not self.worker.wait(5000):
+                    self._on_log("⚠️ 监控线程未响应，强制终止")
+                    self.worker.terminate()
+                    self.worker.wait(1000)
+            # 断开信号连接，释放引用
+            try:
+                self.worker.log_signal.disconnect(self._on_log)
+                self.worker.order_found.disconnect(self._on_found)
+            except TypeError:
+                pass
+            # 通知 Qt 事件循环清理线程资源
+            self.worker.deleteLater()
             self.worker = None
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)

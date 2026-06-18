@@ -53,17 +53,23 @@ class ProcessingController:
             QMessageBox.critical(mw, "错误", f"无法创建输出目录:\n{e}")
             return
 
-        # 保存当前设置到配置
-        mw.config_mgr.config['qhi_path'] = mw.qhi_edit.text()
-        mw.config_mgr.config['rename_enabled'] = mw.rename_enabled.isChecked()
-        mw.config_mgr.config['rename_template'] = mw.rename_template.text()
-        mw.config_mgr.config['number_digits'] = mw.number_digits.value()
-        mw.config_mgr.config['number_start'] = mw.number_start.value()
+        # 保存当前设置到配置（安全读取，设置 Tab 可能尚未构建）
+        if hasattr(mw, 'qhi_edit') and mw.qhi_edit:
+            mw.config_mgr.config['qhi_path'] = mw.qhi_edit.text()
+        if hasattr(mw, 'rename_enabled') and mw.rename_enabled:
+            mw.config_mgr.config['rename_enabled'] = mw.rename_enabled.isChecked()
+        if hasattr(mw, 'rename_template') and mw.rename_template:
+            mw.config_mgr.config['rename_template'] = mw.rename_template.text()
+        if hasattr(mw, 'number_digits') and mw.number_digits:
+            mw.config_mgr.config['number_digits'] = mw.number_digits.value()
+        if hasattr(mw, 'number_start') and mw.number_start:
+            mw.config_mgr.config['number_start'] = mw.number_start.value()
         mw.config_mgr.config['output_dir'] = output_base
 
-        machine_idx = mw.default_machine.currentIndex()
-        if machine_idx >= 0:
-            mw.config_mgr.config['default_machine'] = mw.default_machine.itemData(machine_idx)
+        if hasattr(mw, 'default_machine') and mw.default_machine:
+            machine_idx = mw.default_machine.currentIndex()
+            if machine_idx >= 0:
+                mw.config_mgr.config['default_machine'] = mw.default_machine.itemData(machine_idx)
 
         mw.config_mgr.save()
 
@@ -81,13 +87,13 @@ class ProcessingController:
         mw.log(f" 默认设备: {mw.config_mgr.get('default_machine', 'HP12000')}")
         mw.log(f"{'=' * 60}")
 
-        # 断开旧线程的信号连接
+        # 断开旧线程的信号连接（精确断开，避免影响其他对象的连接）
         if mw.process_thread and mw.process_thread.isRunning():
             try:
-                mw.process_thread.progress_updated.disconnect()
-                mw.process_thread.file_done.disconnect()
-                mw.process_thread.finished.disconnect()
-                mw.process_thread.error_occurred.disconnect()
+                mw.process_thread.progress_updated.disconnect(mw.progress_updated.emit)
+                mw.process_thread.file_done.disconnect(mw.file_done.emit)
+                mw.process_thread.finished.disconnect(mw.finished.emit)
+                mw.process_thread.error_occurred.disconnect(mw._on_processing_error)
             except TypeError:
                 pass
 
@@ -183,6 +189,9 @@ class ProcessingController:
                 f"请查看处理日志了解详情。"
             )
 
+        # 清理线程资源：断开信号 + 安排 Qt 事件循环释放 C++ 对象
+        if mw.process_thread:
+            mw.process_thread.cleanup()
         mw.process_thread = None
 
     def on_processing_error(self, error_msg: str):

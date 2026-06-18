@@ -99,6 +99,15 @@ class PluginManager:
         self._log = log_callback or print
         self._plugins: Dict[str, PluginInfo] = {}
 
+    def __len__(self) -> int:
+        """返回已加载插件数量"""
+        return len(self._plugins)
+
+    @property
+    def plugins(self) -> List[PluginInfo]:
+        """返回所有已加载插件的列表（兼容旧代码）"""
+        return list(self._plugins.values())
+
     # ── 发现 ──────────────────────────────────────────────────
     def discover(self) -> List[PluginManifest]:
         """扫描插件目录，返回所有有效 manifest"""

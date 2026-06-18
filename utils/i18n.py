@@ -89,6 +89,13 @@ class I18nEngine:
         self._translations.clear()
 
     # ── 核心翻译方法 ──────────────────────────────────────────
+    def t(self, key: str, **kwargs) -> str:
+        """翻译键 — tr() 的便捷别名
+
+        与 tr() 完全等价，专用于键值翻译场景。
+        """
+        return self.tr(key, **kwargs)
+
     def tr(self, key: str, **kwargs) -> str:
         """翻译字符串，支持模板变量替换
 

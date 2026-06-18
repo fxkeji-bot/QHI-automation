@@ -315,3 +315,74 @@ class PitStopService:
                 report["errors"].append(str(e))
 
         return report
+
+    def run_with_variables(
+        self,
+        input_pdf: str,
+        action_list: str,
+        output_pdf: str = None,
+        variables: Optional[Dict[str, str]] = None,
+    ) -> Tuple[bool, Dict]:
+        """运行 Action List 并注入变量（PitStop 变量集）。"""
+        output_pdf = output_pdf or self._default_output(input_pdf)
+        variables = variables or {}
+        evs_path = ""
+        if variables:
+            evs_path = os.path.join(
+                os.path.dirname(output_pdf) or ".",
+                f"pitstop_vars_{datetime.now().strftime('%Y%m%d%H%M%S')}.evs",
+            )
+            try:
+                self._write_evs(evs_path, variables)
+            except Exception as e:
+                return False, {"status": "error", "errors": [f"生成 EVS 失败: {e}"]}
+
+        ok, log = self.run_action_list(input_pdf, action_list, output_pdf)
+        if evs_path and os.path.exists(evs_path):
+            try:
+                os.unlink(evs_path)
+            except OSError:
+                pass
+        if variables:
+            log["variables_injected"] = list(variables.keys())
+        return ok, log
+
+    @staticmethod
+    def _write_evs(path: str, variables: Dict[str, str]) -> None:
+        """生成 PitStop EVS 变量文件。"""
+        from xml.etree.ElementTree import Element, SubElement, tostring
+        root = Element("PitStopEVS")
+        root.set("version", "1.0")
+        for name, value in variables.items():
+            var_el = SubElement(root, "Variable")
+            SubElement(var_el, "Name").text = name
+            SubElement(var_el, "Value").text = str(value)
+            SubElement(var_el, "Type").text = "String"
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(tostring(root, encoding="unicode"))
+
+    def batch_process(
+        self,
+        files: List[str],
+        action_list: str,
+        output_dir: str,
+        variables_provider=None,
+    ) -> List[Dict]:
+        """批量处理多个 PDF 文件。"""
+        results: List[Dict] = []
+        out_dir = Path(output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for fp in files:
+            base = Path(fp).stem
+            output_pdf = str(out_dir / f"{base}_pitstop.pdf")
+            variables = {}
+            if variables_provider:
+                variables = variables_provider(fp) or {}
+            ok, log = self.run_with_variables(fp, action_list, output_pdf, variables)
+            results.append({
+                "input": fp,
+                "output": output_pdf,
+                "success": ok,
+                "log": log,
+            })
+        return results

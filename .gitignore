@@ -49,3 +49,20 @@ temp/
 
 # Output
 output/
+
+# Debug / temp files
+_debug_fromdict*.py
+test_*.txt
+test_*.json
+test_err.txt
+test_out.txt
+test_output.txt
+test_stderr.txt
+test_stdout.txt
+app.log
+qt.log
+crash.log
+variables_*.evs
+workbuddy/
+.workbuddy/
+.pytest_cache/

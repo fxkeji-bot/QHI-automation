@@ -24,12 +24,13 @@ if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
 from PyQt5.QtWidgets import (
-    QGraphicsView, QGraphicsScene, QGraphicsItem, QGraphicsPathItem,
-    QGraphicsRectItem, QGraphicsTextItem, QGraphicsEllipseItem,
+    QGraphicsView, QGraphicsScene, QGraphicsItem, QGraphicsObject,
+    QGraphicsPathItem, QGraphicsRectItem, QGraphicsTextItem,
+    QGraphicsEllipseItem,
     QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QMenu,
     QAction, QLabel, QSplitter, QTextEdit, QListWidget,
     QListWidgetItem, QGroupBox, QFormLayout, QComboBox,
-    QDoubleSpinBox, QSpinBox, QLineEdit,
+    QDoubleSpinBox, QSpinBox, QLineEdit, QProgressBar,
 )
 from PyQt5.QtCore import (
     Qt, QRectF, QPointF, QLineF, QTimer, pyqtSignal, QSizeF,
@@ -42,8 +43,32 @@ from PyQt5.QtGui import (
 
 from utils.i18n import I18nEngine
 
-# 模块级 i18n 实例
-_i18n = I18nEngine.instance()
+
+class _LazyI18nProxy:
+    """延迟加载 i18n 代理——首次调用 .tr()/.t() 时才实例化单例，降低模块导入时的耦合度。"""
+    __slots__ = ('_instance',)
+
+    def __init__(self):
+        self._instance = None
+
+    @property
+    def locale(self):
+        return self._instance.locale if self._instance else None
+
+    def _ensure(self):
+        if self._instance is None:
+            self._instance = I18nEngine.instance()
+        return self._instance
+
+    def tr(self, text: str) -> str:
+        return self._ensure().tr(text)
+
+    def t(self, key: str) -> str:
+        return self._ensure().t(key)
+
+
+# 模块级 i18n（延迟代理，兼容所有现有 _i18n.tr() / _i18n.t() 调用）
+_i18n = _LazyI18nProxy()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -79,6 +104,7 @@ class NodeType(Enum):
     GROUP = auto()
     START = auto()
     END = auto()
+    ROUTER = auto()
 
 
 @dataclass
@@ -96,6 +122,8 @@ class NodeData:
     # 动作节点特有
     action_type: str = ""          # e.g. "rename", "impose", "export"
     action_params: Dict[str, Any] = field(default_factory=dict)
+    # 路由节点特有
+    router_branches: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -154,7 +182,7 @@ class PortItem(QGraphicsEllipseItem):
         self._update_brush()
 
 
-class RuleNodeItem(QGraphicsRectItem):
+class RuleNodeItem(QGraphicsObject):
     """规则编辑节点"""
     WIDTH = 180
     HEIGHT = 60
@@ -166,9 +194,10 @@ class RuleNodeItem(QGraphicsRectItem):
     node_deleted = pyqtSignal(str)
 
     def __init__(self, data: NodeData):
+        super().__init__()
         self.data = data
         w, h = self.WIDTH, self.HEIGHT
-        super().__init__(QRectF(0, 0, w, h))
+        self._rect = QRectF(0, 0, w, h)
         self.setPos(data.x, data.y)
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
@@ -183,7 +212,14 @@ class RuleNodeItem(QGraphicsRectItem):
 
         self._init_ports()
         self._init_text()
-        self._update_style()
+
+    def boundingRect(self):
+        return self._rect
+
+    def shape(self):
+        path = QPainterPath()
+        path.addRoundedRect(self._rect, self.CORNER_RADIUS, self.CORNER_RADIUS)
+        return path
 
     def _init_ports(self):
         w, h = self.WIDTH, self.HEIGHT
@@ -213,7 +249,7 @@ class RuleNodeItem(QGraphicsRectItem):
         if sub:
             self._sub_text = QGraphicsTextItem(sub, self)
             self._sub_text.setDefaultTextColor(Colors.TEXT_SECONDARY)
-            font2 = QFont("Microsoft YaHei", 7.5)
+            font2 = QFont("Microsoft YaHei", 8)
             self._sub_text.setFont(font2)
             self._sub_text.setPos(8, 24)
             # 截断过长文本
@@ -221,6 +257,14 @@ class RuleNodeItem(QGraphicsRectItem):
                 self._sub_text.setPlainText(sub[:20] + "...")
 
     def _update_style(self):
+        # QGraphicsObject has no setPen/setBrush; style is handled in paint()
+        self.update()
+
+    def paint(self, painter: QPainter, option, widget=None):
+        """自绘圆角矩形节点"""
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # 根据 selection/hover 设置样式
         if self.isSelected():
             border = Colors.BORDER_SELECTED
             border_w = 2.5
@@ -240,18 +284,27 @@ class RuleNodeItem(QGraphicsRectItem):
         else:
             bg = Colors.BG_NODE
 
-        pen = QPen(border, border_w)
-        self.setPen(pen)
-        self.setBrush(QBrush(bg))
+        # 圆角路径
+        r = self.CORNER_RADIUS
+        rect = self._rect
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(rect.x(), rect.y(),
+                                    rect.width(), rect.height()),
+                              r, r)
+        painter.setPen(QPen(border, border_w))
+        painter.setBrush(QBrush(bg))
+        painter.drawPath(path)
 
     def hoverEnterEvent(self, event):
         self._hover = True
         self._update_style()
+        self.update()  # 触发重绘
         super().hoverEnterEvent(event)
 
     def hoverLeaveEvent(self, event):
         self._hover = False
         self._update_style()
+        self.update()
         super().hoverLeaveEvent(event)
 
     def itemChange(self, change, value):
@@ -268,10 +321,15 @@ class RuleNodeItem(QGraphicsRectItem):
             self.data.x = pos.x()
             self.data.y = pos.y()
             self.node_moved.emit(self.data.id, pos.x(), pos.y())
+        elif change == QGraphicsItem.ItemSelectedHasChanged:
+            self.update()  # 选中状态变化时重绘
         return super().itemChange(change, value)
 
     def contextMenuEvent(self, event):
-        menu = QMenu()
+        parent_widget = None
+        if self.scene() and self.scene().views():
+            parent_widget = self.scene().views()[0]
+        menu = QMenu(parent_widget)
         act_delete = QAction(_i18n.tr("删除节点"), menu)
         act_delete.triggered.connect(lambda: self.node_deleted.emit(self.data.id))
         menu.addAction(act_delete)
@@ -300,6 +358,79 @@ class RuleNodeItem(QGraphicsRectItem):
         return self._ports[1]
 
 
+class SwitchRouterNodeItem(RuleNodeItem):
+    """Switch 路由节点：一个输入，多个输出端口。
+
+    输出端口数量由 router_branches 数量决定；每个输出对应一个条件分支。
+    """
+
+    WIDTH = 200
+    HEIGHT = 60
+    PORT_SPACING = 24
+
+    def __init__(self, data: NodeData):
+        # 根据分支数量动态调整高度
+        self._output_count = max(len(data.router_branches), 1)
+        super().__init__(data)
+        self._rect = QRectF(0, 0, self.WIDTH, self._dynamic_height())
+
+    def _dynamic_height(self) -> float:
+        return max(self.HEIGHT, 30 + self._output_count * self.PORT_SPACING)
+
+    def _init_ports(self):
+        w = self.WIDTH
+        h = self._dynamic_height()
+        # 输入端口（左侧中间）
+        in_port = PortItem(self, 0, True, self.data.type)
+        in_port.setPos(0, h / 2)
+        self._ports.append(in_port)
+
+        # 多个输出端口（右侧均匀分布）
+        for i in range(self._output_count):
+            y = (i + 1) * h / (self._output_count + 1)
+            out_port = PortItem(self, i + 1, False, self.data.type)
+            out_port.setPos(w, y)
+            self._ports.append(out_port)
+
+    def _init_text(self):
+        super()._init_text()
+        if self.data.type == NodeType.ROUTER and self.router_branches:
+            sub = f"{len(self.router_branches)} branches"
+            if self._sub_text:
+                self._sub_text.setPlainText(sub)
+            else:
+                self._sub_text = QGraphicsTextItem(sub, self)
+                self._sub_text.setDefaultTextColor(Colors.TEXT_SECONDARY)
+                font = QFont("Microsoft YaHei", 8)
+                self._sub_text.setFont(font)
+                self._sub_text.setPos(8, 24)
+
+    @property
+    def router_branches(self) -> List[Dict[str, Any]]:
+        return self.data.router_branches or []
+
+    @property
+    def output_ports(self) -> List[PortItem]:
+        return self._ports[1:]
+
+    def paint(self, painter: QPainter, option, widget=None):
+        painter.setRenderHint(QPainter.Antialiasing)
+        if self.isSelected():
+            border = Colors.BORDER_SELECTED
+            border_w = 2.5
+        elif self._hover:
+            border = Colors.BORDER_SELECTED
+            border_w = 2.0
+        else:
+            border = Colors.BORDER
+            border_w = 1.5
+        bg = Colors.PORT_HOVER
+        path = QPainterPath()
+        path.addRoundedRect(self._rect, self.CORNER_RADIUS, self.CORNER_RADIUS)
+        painter.setPen(QPen(border, border_w))
+        painter.setBrush(QBrush(bg))
+        painter.drawPath(path)
+
 class ConnectionPathItem(QGraphicsPathItem):
     """贝塞尔连接线"""
     _ARROW_SIZE = 8.0
@@ -310,11 +441,20 @@ class ConnectionPathItem(QGraphicsPathItem):
         self.conn_data = conn_data
         self._source = source_point
         self._target = target_point
+        self._arrow_item: Optional[QGraphicsPathItem] = None
         self.setZValue(3)
         self.setFlag(QGraphicsItem.ItemIsSelectable, False)
         self._build_path()
 
     def _build_path(self):
+        # 删除旧箭头：QGraphicsPathItem 无 removeItem 方法，需通过 scene 或 setParentItem(None)
+        if self._arrow_item is not None:
+            old = self._arrow_item
+            self._arrow_item = None
+            old.setParentItem(None)
+            if old.scene():
+                old.scene().removeItem(old)
+
         path = QPainterPath()
         path.moveTo(self._source)
 
@@ -351,7 +491,8 @@ class ConnectionPathItem(QGraphicsPathItem):
         arrow_path.addPolygon(arrow)
         arrow_item.setPath(arrow_path)
         arrow_item.setBrush(QBrush(Colors.CONNECTOR_ARROW))
-        arrow_item.setPen(Qt.NoPen)
+        arrow_item.setPen(QPen(Qt.NoPen))
+        self._arrow_item = arrow_item
 
     @staticmethod
     def _bezier_point(p0, p1, p2, p3, t):
@@ -387,12 +528,15 @@ class RuleEditScene(QGraphicsScene):
         super().__init__(parent)
         self._nodes: Dict[str, RuleNodeItem] = {}
         self._connections: Dict[str, ConnectionPathItem] = {}
+        self._node_to_connections: Dict[str, Set[str]] = {}  # node_id → {conn_id} 邻接索引
         self._conn_counter = 0
         self._node_counter = 0
         self._drag_source_node: Optional[str] = None
         self._drag_source_port: int = 0
         self._temp_line: Optional[QGraphicsPathItem] = None
         self._dragging_connection = False
+        self._grid_pixmap: Optional[QPixmap] = None
+        self._grid_pixmap_size: int = 0
 
         self.setSceneRect(QRectF(-2000, -2000, 4000, 4000))
 
@@ -400,25 +544,35 @@ class RuleEditScene(QGraphicsScene):
     def drawBackground(self, painter: QPainter, rect: QRectF):
         painter.fillRect(rect, Colors.GRID_BG)
 
-        # 网格线
+        visible_size = max(int(rect.width()), int(rect.height()))
+        if self._grid_pixmap is None or self._grid_pixmap_size < visible_size:
+            self._build_grid_pixmap(visible_size)
+
+        if self._grid_pixmap:
+            painter.drawPixmap(rect.topLeft(), self._grid_pixmap,
+                             QRectF(0, 0, rect.width(), rect.height()))
+
+    def _build_grid_pixmap(self, size: int):
+        pix_size = max(size, 800)
+        self._grid_pixmap = QPixmap(pix_size, pix_size)
+        self._grid_pixmap.fill(Qt.transparent)
+        p = QPainter(self._grid_pixmap)
         pen = QPen(Colors.GRID_LINE, 0.5)
         pen.setCosmetic(True)
-        painter.setPen(pen)
-
-        left = int(rect.left()) - (int(rect.left()) % self.GRID_SIZE)
-        top = int(rect.top()) - (int(rect.top()) % self.GRID_SIZE)
-
-        lines = []
-        for x in range(left, int(rect.right()), self.GRID_SIZE):
-            lines.append(QLineF(x, rect.top(), x, rect.bottom()))
-        for y in range(top, int(rect.bottom()), self.GRID_SIZE):
-            lines.append(QLineF(rect.left(), y, rect.right(), y))
-
-        painter.drawLines(lines)
+        p.setPen(pen)
+        for x in range(0, pix_size, self.GRID_SIZE):
+            p.drawLine(x, 0, x, pix_size)
+        for y in range(0, pix_size, self.GRID_SIZE):
+            p.drawLine(0, y, pix_size, y)
+        p.end()
+        self._grid_pixmap_size = pix_size
 
     # ── 节点管理 ──────────────────────────────────────────────
     def add_node(self, data: NodeData) -> RuleNodeItem:
-        node = RuleNodeItem(data)
+        if data.type == NodeType.ROUTER:
+            node = SwitchRouterNodeItem(data)
+        else:
+            node = RuleNodeItem(data)
         self.addItem(node)
         self._nodes[data.id] = node
 
@@ -430,6 +584,16 @@ class RuleEditScene(QGraphicsScene):
     def remove_node(self, node_id: str):
         node = self._nodes.pop(node_id, None)
         if node:
+            # 断开信号，防止 C++ 对象删除后残留连接阻止 GC
+            try:
+                node.node_moved.disconnect()
+            except TypeError:
+                pass
+            try:
+                node.node_deleted.disconnect()
+            except TypeError:
+                pass
+
             # 移除相关连接
             for cid in list(self._connections.keys()):
                 conn = self._connections[cid]
@@ -447,7 +611,8 @@ class RuleEditScene(QGraphicsScene):
         return list(self._nodes.keys())
 
     # ── 连接管理 ──────────────────────────────────────────────
-    def add_connection(self, source_id: str, target_id: str) -> Optional[str]:
+    def add_connection(self, source_id: str, target_id: str,
+                       source_port: int = 1, target_port: int = 0) -> Optional[str]:
         src_node = self._nodes.get(source_id)
         tgt_node = self._nodes.get(target_id)
         if not src_node or not tgt_node:
@@ -459,17 +624,25 @@ class RuleEditScene(QGraphicsScene):
             id=cid,
             source_node_id=source_id,
             target_node_id=target_id,
+            source_port=source_port,
+            target_port=target_port,
         )
-        src_pt = src_node.get_port_center(1)   # output
-        tgt_pt = tgt_node.get_port_center(0)   # input
+        src_pt = src_node.get_port_center(source_port)
+        tgt_pt = tgt_node.get_port_center(target_port)
 
         conn = ConnectionPathItem(src_pt, tgt_pt, data)
         self.addItem(conn)
         self._connections[cid] = conn
 
+        # 更新邻接索引
+        self._node_to_connections.setdefault(source_id, set()).add(cid)
+        self._node_to_connections.setdefault(target_id, set()).add(cid)
+
         # 标记端口已连接
-        src_node.output_port.set_connected(True)
-        tgt_node.input_port.set_connected(True)
+        if source_port < len(src_node._ports):
+            src_node._ports[source_port].set_connected(True)
+        if target_port < len(tgt_node._ports):
+            tgt_node._ports[target_port].set_connected(True)
 
         self.rule_modified.emit()
         return cid
@@ -477,11 +650,20 @@ class RuleEditScene(QGraphicsScene):
     def remove_connection(self, conn_id: str):
         conn = self._connections.pop(conn_id, None)
         if conn:
+            # 从邻接索引中清除
+            sid = conn.conn_data.source_node_id
+            tid = conn.conn_data.target_node_id
+            for nid in (sid, tid):
+                if nid in self._node_to_connections:
+                    self._node_to_connections[nid].discard(conn_id)
+                    if not self._node_to_connections[nid]:
+                        del self._node_to_connections[nid]
+
             # 解除端口标记
-            src = self._nodes.get(conn.conn_data.source_node_id)
+            src = self._nodes.get(sid)
             if src:
                 src.output_port.set_connected(False)
-            tgt = self._nodes.get(conn.conn_data.target_node_id)
+            tgt = self._nodes.get(tid)
             if tgt:
                 tgt.input_port.set_connected(False)
 
@@ -499,6 +681,7 @@ class RuleEditScene(QGraphicsScene):
 
             if self._temp_line:
                 self.removeItem(self._temp_line)
+                self._temp_line = None
             self._temp_line = QGraphicsPathItem()
             self._temp_line.setPen(QPen(Colors.CONNECTOR_LINE, 2.0, Qt.DashLine))
             self._temp_line.setZValue(2)
@@ -538,8 +721,9 @@ class RuleEditScene(QGraphicsScene):
             if isinstance(item, PortItem) and item.is_input and item.parentItem():
                 target_id = item.parentItem().data.id
                 if self._drag_source_node and target_id != self._drag_source_node:
-                    self.connection_requested.emit(
-                        self._drag_source_node, target_id
+                    self.add_connection(
+                        self._drag_source_node, target_id,
+                        self._drag_source_port, item.port_index,
                     )
 
             self._drag_source_node = None
@@ -549,24 +733,18 @@ class RuleEditScene(QGraphicsScene):
         super().mouseReleaseEvent(event)
 
     def _on_node_moved(self, node_id, x, y):
-        # 更新所有连接线
-        for cid, conn in self._connections.items():
-            if conn.conn_data.source_node_id == node_id:
-                src = self._nodes.get(conn.conn_data.source_node_id)
-                tgt = self._nodes.get(conn.conn_data.target_node_id)
-                if src and tgt:
-                    conn.update_endpoints(
-                        src.get_port_center(1),
-                        tgt.get_port_center(0),
-                    )
-            elif conn.conn_data.target_node_id == node_id:
-                src = self._nodes.get(conn.conn_data.source_node_id)
-                tgt = self._nodes.get(conn.conn_data.target_node_id)
-                if src and tgt:
-                    conn.update_endpoints(
-                        src.get_port_center(1),
-                        tgt.get_port_center(0),
-                    )
+        # 只更新与当前节点相关的连接线（O(k)，k 为相关连接数）
+        for cid in self._node_to_connections.get(node_id, ()):
+            conn = self._connections.get(cid)
+            if conn is None:
+                continue
+            src = self._nodes.get(conn.conn_data.source_node_id)
+            tgt = self._nodes.get(conn.conn_data.target_node_id)
+            if src and tgt:
+                conn.update_endpoints(
+                    src.get_port_center(conn.conn_data.source_port),
+                    tgt.get_port_center(conn.conn_data.target_port),
+                )
 
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() == Qt.Key_Delete or event.key() == Qt.Key_Backspace:
@@ -592,6 +770,7 @@ class RuleEditScene(QGraphicsScene):
                 "condition_value": n.data.condition_value,
                 "action_type": n.data.action_type,
                 "action_params": n.data.action_params,
+                "router_branches": n.data.router_branches,
             })
         connections = []
         for c in self._connections.values():
@@ -603,9 +782,10 @@ class RuleEditScene(QGraphicsScene):
         return {"nodes": nodes, "connections": connections}
 
     def from_dict(self, d: dict):
-        self.clear()
+        # 先清 Python 引用再清 C++ scene，避免 clear() 后 dict 内残留悬空指针
         self._nodes.clear()
         self._connections.clear()
+        self.clear()
         self._conn_counter = 0
         self._node_counter = 0
 
@@ -621,10 +801,15 @@ class RuleEditScene(QGraphicsScene):
                 condition_value=nd.get("condition_value", ""),
                 action_type=nd.get("action_type", ""),
                 action_params=nd.get("action_params", {}),
+                router_branches=nd.get("router_branches", []),
             )
             self.add_node(ndata)
-            self._node_counter = max(self._node_counter,
-                                     int(nd["id"].replace("node_", "") or 0))
+            # 安全解析数字后缀，支持 node_1、node_2 等格式
+            try:
+                num = int(nd["id"].replace("node_", ""))
+                self._node_counter = max(self._node_counter, num)
+            except ValueError:
+                pass
 
         for cd in d.get("connections", []):
             self.add_connection(cd["source"], cd["target"])
@@ -632,6 +817,62 @@ class RuleEditScene(QGraphicsScene):
     def new_node_id(self) -> str:
         self._node_counter += 1
         return f"node_{self._node_counter}"
+
+
+# ═══════════════════════════════════════════════════════════════
+# 自定义QGraphicsView：中键平移，左键保持交互
+# ═══════════════════════════════════════════════════════════════
+class _RuleEditView(QGraphicsView):
+    """
+    支持中键拖拽平移视图，左键事件完全交给 Scene 处理（连线拖拽、节点选择）。
+    滚轮缩放由 Scene/Editor 控制。
+    """
+
+    def __init__(self, scene, parent=None):
+        super().__init__(scene, parent)
+        self._panning = False
+        self._pan_start = QPointF()
+        self._pan_viewport_start = QPointF()
+
+    def mousePressEvent(self, event: QMouseEvent):
+        if event.button() == Qt.MiddleButton:
+            self._panning = True
+            self._pan_start = event.pos()
+            self._pan_viewport_start = QPointF(self.horizontalScrollBar().value(),
+                                                self.verticalScrollBar().value())
+            self.setCursor(Qt.ClosedHandCursor)
+            event.accept()
+            return
+        # 左键/右键 → 让 scene 处理
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent):
+        if self._panning:
+            delta = event.pos() - self._pan_start
+            self.horizontalScrollBar().setValue(
+                int(self._pan_viewport_start.x() - delta.x()))
+            self.verticalScrollBar().setValue(
+                int(self._pan_viewport_start.y() - delta.y()))
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        if event.button() == Qt.MiddleButton and self._panning:
+            self._panning = False
+            self.setCursor(Qt.OpenHandCursor)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def wheelEvent(self, event: QWheelEvent):
+        """缩放"""
+        factor = 1.15
+        if event.angleDelta().y() > 0:
+            self.scale(factor, factor)
+        else:
+            self.scale(1 / factor, 1 / factor)
+        event.accept()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -648,18 +889,225 @@ class VisualRuleEditor(QWidget):
         self.setWindowTitle(_i18n.tr("可视化规则编辑器"))
         self.resize(1100, 720)
 
+        self.setStyleSheet("""
+            /* ═══ 全局 ─────────────────────────────────── */
+            VisualRuleEditor {
+                background-color: #11111b;
+                color: #cdd6f4;
+                font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+                font-size: 13px;
+            }
+            /* ═══ QPushButton ─────────────────────────── */
+            QPushButton {
+                background-color: #45475a;
+                border: 1px solid #585b70;
+                border-radius: 4px;
+                padding: 5px 14px;
+                color: #cdd6f4;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #585b70;
+                border-color: #89b4fa;
+            }
+            QPushButton:pressed {
+                background-color: #313244;
+            }
+            /* ═══ QGroupBox ────────────────────────────── */
+            QGroupBox {
+                border: 1px solid #45475a;
+                margin-top: 14px;
+                padding: 14px 8px 8px 8px;
+                background-color: #1e1e2e;
+                color: #cdd6f4;
+                font-weight: bold;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 12px;
+                top: 0px;
+                padding: 0 6px;
+                color: #89b4fa;
+            }
+            /* ═══ QListWidget ──────────────────────────── */
+            QListWidget {
+                background-color: #313244;
+                border: 1px solid #45475a;
+                border-radius: 4px;
+                color: #cdd6f4;
+                outline: none;
+                padding: 2px;
+            }
+            QListWidget::item {
+                padding: 5px 8px;
+                border-radius: 3px;
+                margin: 1px 0;
+            }
+            QListWidget::item:hover {
+                background-color: #45475a;
+            }
+            QListWidget::item:selected {
+                background-color: #585b70;
+                color: #cba6f7;
+            }
+            /* ═══ QComboBox ────────────────────────────── */
+            QComboBox {
+                background-color: #313244;
+                border: 1px solid #45475a;
+                border-radius: 4px;
+                padding: 4px 8px;
+                color: #cdd6f4;
+                min-height: 22px;
+            }
+            QComboBox:hover {
+                border-color: #89b4fa;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 20px;
+                border-left: 1px solid #45475a;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #313244;
+                border: 1px solid #45475a;
+                color: #cdd6f4;
+                selection-background-color: #585b70;
+                selection-color: #cba6f7;
+                outline: none;
+            }
+            /* ═══ QLineEdit ────────────────────────────── */
+            QLineEdit {
+                background-color: #313244;
+                border: 1px solid #45475a;
+                border-radius: 4px;
+                padding: 4px 8px;
+                color: #cdd6f4;
+                selection-background-color: #cba6f7;
+                selection-color: #1e1e2e;
+            }
+            QLineEdit:focus {
+                border-color: #89b4fa;
+            }
+            /* ═══ QLabel ────────────────────────────────── */
+            QLabel {
+                color: #cdd6f4;
+                background: transparent;
+            }
+            /* ═══ QTextEdit / QPlainTextEdit ───────────── */
+            QTextEdit {
+                background-color: #313244;
+                border: 1px solid #45475a;
+                border-radius: 4px;
+                padding: 4px 6px;
+                color: #cdd6f4;
+                selection-background-color: #cba6f7;
+                selection-color: #1e1e2e;
+            }
+            QTextEdit:focus {
+                border-color: #89b4fa;
+            }
+            /* ═══ QProgressBar ─────────────────────────── */
+            QProgressBar {
+                background-color: #313244;
+                border: 1px solid #45475a;
+                border-radius: 3px;
+                text-align: center;
+                color: #cdd6f4;
+                font-size: 11px;
+            }
+            QProgressBar::chunk {
+                background-color: #a6e3a1;
+                border-radius: 2px;
+            }
+            /* ═══ QScrollBar ───────────────────────────── */
+            QScrollBar:vertical {
+                background: #1e1e2e;
+                width: 8px;
+                margin: 0;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background: #45475a;
+                min-height: 30px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #585b70;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0;
+            }
+            QScrollBar:horizontal {
+                background: #1e1e2e;
+                height: 8px;
+                margin: 0;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:horizontal {
+                background: #45475a;
+                min-width: 30px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background: #585b70;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                width: 0;
+            }
+            /* ═══ QSplitter ────────────────────────────── */
+            QSplitter::handle {
+                background-color: #45475a;
+                width: 2px;
+                margin: 0 2px;
+            }
+            /* ═══ QToolTip ─────────────────────────────── */
+            QToolTip {
+                background-color: #313244;
+                border: 1px solid #45475a;
+                color: #cdd6f4;
+                padding: 4px;
+                border-radius: 4px;
+            }
+        """)
+
         self._init_ui()
         self._init_palette()
 
     def _init_ui(self):
-        main_layout = QHBoxLayout(self)
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(4)
 
-        # ── 左侧：节点面板 ────────────────────────────────────
+        # ═══ 顶部工具栏 ═══════════════════════════════════════
+        toolbar = QHBoxLayout()
+        toolbar.addWidget(QLabel(_i18n.tr("规则名称:")))
+        self._name_input = QLineEdit("Untitled")
+        self._name_input.setFixedWidth(150)
+        toolbar.addWidget(self._name_input)
+        toolbar.addSpacing(16)
+        btn_add_cond = QPushButton(_i18n.tr("+ 条件"))
+        btn_add_cond.clicked.connect(self._on_add_condition_clicked)
+        toolbar.addWidget(btn_add_cond)
+        btn_add_act = QPushButton(_i18n.tr("+ 动作"))
+        btn_add_act.clicked.connect(self._on_add_action_clicked)
+        toolbar.addWidget(btn_add_act)
+        toolbar.addStretch()
+        btn_save = QPushButton(_i18n.tr("保存规则"))
+        btn_save.clicked.connect(self._save_rule)
+        toolbar.addWidget(btn_save)
+        main_layout.addLayout(toolbar)
+
+        # ═══ 中间内容区（三栏） ═══════════════════════════════
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(4)
+
+        # ── 左栏：节点面板 ────────────────────────────────────
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
-        left_panel.setFixedWidth(200)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_panel.setFixedWidth(220)
 
-        # 条件节点
         cond_group = QGroupBox(_i18n.tr("条件节点"))
         cond_layout = QVBoxLayout(cond_group)
         self._cond_list = QListWidget()
@@ -667,7 +1115,6 @@ class VisualRuleEditor(QWidget):
         cond_layout.addWidget(self._cond_list)
         left_layout.addWidget(cond_group)
 
-        # 动作节点
         act_group = QGroupBox(_i18n.tr("动作节点"))
         act_layout = QVBoxLayout(act_group)
         self._act_list = QListWidget()
@@ -675,110 +1122,279 @@ class VisualRuleEditor(QWidget):
         act_layout.addWidget(self._act_list)
         left_layout.addWidget(act_group)
 
-        # 属性面板
         prop_group = QGroupBox(_i18n.tr("节点属性"))
         prop_layout = QFormLayout(prop_group)
         self._prop_label = QLabel("")
         self._prop_cond_type = QComboBox()
+        self._prop_cond_type.addItems(["", "always", "file_ext", "page_count",
+                                        "file_size", "color_mode", "contains_text",
+                                        "customer", "paper_type"])
         self._prop_cond_op = QComboBox()
+        self._prop_cond_op.addItems(["==", "!=", ">", "<", ">=", "<=", "in", "contains"])
         self._prop_cond_val = QLineEdit()
+        self._prop_cond_val.setPlaceholderText("例如: .pdf, 8, A3, CMYK")
         self._prop_action_type = QComboBox()
+        self._prop_action_type.addItems(["", "rename", "output_format", "impose",
+                                          "add_page_num", "crop_marks", "move_file",
+                                          "send_notify"])
+        self._prop_cond_type.currentTextChanged.connect(self._sync_prop_to_node)
+        self._prop_cond_op.currentTextChanged.connect(self._sync_prop_to_node)
+        self._prop_cond_val.textChanged.connect(self._sync_prop_to_node)
+        self._prop_action_type.currentTextChanged.connect(self._sync_prop_to_node)
         prop_layout.addRow(QLabel(_i18n.tr("标签:")), self._prop_label)
         prop_layout.addRow(QLabel(_i18n.tr("条件类型:")), self._prop_cond_type)
         prop_layout.addRow(QLabel(_i18n.tr("运算符:")), self._prop_cond_op)
         prop_layout.addRow(QLabel(_i18n.tr("值:")), self._prop_cond_val)
         prop_layout.addRow(QLabel(_i18n.tr("动作类型:")), self._prop_action_type)
         left_layout.addWidget(prop_group)
+        self._selected_node_id: Optional[str] = None
+
+        # 即时处理区
+        file_group = QGroupBox(_i18n.tr("即时处理区"))
+        file_form = QFormLayout(file_group)
+        self._info_filename = QLabel("—")
+        self._info_filename.setWordWrap(True)
+        self._info_filesize = QLabel("—")
+        self._info_pagecount = QLabel("—")
+        self._info_colormode = QLabel("—")
+        self._info_papertype = QLabel("—")
+        self._info_status = QLabel(_i18n.tr("待处理"))
+        self._info_status.setStyleSheet("color: #a6e3a1; font-weight: bold;")
+        file_form.addRow(_i18n.tr("文件名:"), self._info_filename)
+        file_form.addRow(_i18n.tr("大小:"), self._info_filesize)
+        file_form.addRow(_i18n.tr("页数:"), self._info_pagecount)
+        file_form.addRow(_i18n.tr("色彩:"), self._info_colormode)
+        file_form.addRow(_i18n.tr("纸张:"), self._info_papertype)
+        file_form.addRow(_i18n.tr("状态:"), self._info_status)
+        left_layout.addWidget(file_group)
 
         left_layout.addStretch()
-        main_layout.addWidget(left_panel)
+        content_layout.addWidget(left_panel)
 
-        # ── 中间：视图 ────────────────────────────────────────
+        # ── 右栏：图形视图 ────────────────────────────────────
         self._scene = RuleEditScene()
-        self._view = QGraphicsView(self._scene)
+        self._view = _RuleEditView(self._scene)
         self._view.setRenderHint(QPainter.Antialiasing)
-        self._view.setDragMode(QGraphicsView.ScrollHandDrag)
+        self._view.setDragMode(QGraphicsView.NoDrag)
+        self._view.setInteractive(True)
         self._view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._view.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self._view.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
         self._view.setViewportUpdateMode(QGraphicsView.SmartViewportUpdate)
-        main_layout.addWidget(self._view, 1)
+        self._view.setRenderHint(QPainter.SmoothPixmapTransform)
+        content_layout.addWidget(self._view, 1)
 
-        # 工具栏（顶部浮动）
-        self._toolbar = QHBoxLayout()
-        self._toolbar.addWidget(QLabel(_i18n.tr("规则名称:")))
-        self._name_input = QLineEdit("Untitled")
-        self._name_input.setFixedWidth(150)
-        self._toolbar.addWidget(self._name_input)
-        self._toolbar.addStretch()
-        btn_add_cond = QPushButton(_i18n.tr("+ 条件"))
-        btn_add_cond.clicked.connect(lambda: self._add_node(NodeType.CONDITION))
-        self._toolbar.addWidget(btn_add_cond)
-        btn_add_act = QPushButton(_i18n.tr("+ 动作"))
-        btn_add_act.clicked.connect(lambda: self._add_node(NodeType.ACTION))
-        self._toolbar.addWidget(btn_add_act)
-        self._toolbar.addStretch()
-        btn_save = QPushButton(_i18n.tr("保存规则"))
-        btn_save.clicked.connect(self._save_rule)
-        self._toolbar.addWidget(btn_save)
+        main_layout.addLayout(content_layout, 1)
 
-        # 嵌套布局
-        right_wrapper = QVBoxLayout()
-        right_wrapper.addLayout(self._toolbar)
-        right_wrapper.addWidget(self._view)
-        main_layout.addLayout(right_wrapper, 1)
+        # ═══ 底部操作栏 ═══════════════════════════════════════
+        bottom_layout = QHBoxLayout()
+        bottom_layout.setSpacing(4)
 
-        # 信号
+        # 处理规则区
+        rule_group = QGroupBox(_i18n.tr("处理规则区"))
+        rule_group_layout = QVBoxLayout(rule_group)
+        self._rule_display = QTextEdit()
+        self._rule_display.setReadOnly(True)
+        self._rule_display.setMaximumHeight(90)
+        self._rule_display.setPlaceholderText(_i18n.tr("当前未加载规则"))
+        rule_group_layout.addWidget(self._rule_display)
+        bottom_layout.addWidget(rule_group, 2)
+
+        # 处理日志 / 进度
+        log_group = QGroupBox(_i18n.tr("处理日志"))
+        log_group_layout = QVBoxLayout(log_group)
+        self._log_view = QTextEdit()
+        self._log_view.setReadOnly(True)
+        self._log_view.setMaximumHeight(60)
+        self._log_view.setPlaceholderText(_i18n.tr("等待处理…"))
+        log_group_layout.addWidget(self._log_view)
+        self._progress_bar = QProgressBar()
+        self._progress_bar.setMaximumHeight(18)
+        self._progress_bar.setVisible(False)
+        log_group_layout.addWidget(self._progress_bar)
+        bottom_layout.addWidget(log_group, 3)
+
+        # 操作按钮
+        btn_group = QWidget()
+        btn_group_layout = QVBoxLayout(btn_group)
+        btn_group_layout.setSpacing(6)
+        self._btn_start = QPushButton(_i18n.tr("开始处理"))
+        self._btn_start.setMinimumHeight(36)
+        self._btn_start.setStyleSheet(
+            "QPushButton { background-color: #a6e3a1; color: #1e1e2e; "
+            "font-weight: bold; border-radius: 4px; }"
+            "QPushButton:hover { background-color: #94d89f; }"
+            "QPushButton:disabled { background-color: #45475a; color: #6c7086; }")
+        self._btn_start.clicked.connect(self._on_start_processing)
+        btn_group_layout.addWidget(self._btn_start)
+        self._btn_cancel = QPushButton(_i18n.tr("取消处理"))
+        self._btn_cancel.setMinimumHeight(36)
+        self._btn_cancel.setEnabled(False)
+        self._btn_cancel.setStyleSheet(
+            "QPushButton { background-color: #f38ba8; color: #1e1e2e; "
+            "font-weight: bold; border-radius: 4px; }"
+            "QPushButton:hover { background-color: #e07a95; }"
+            "QPushButton:disabled { background-color: #45475a; color: #6c7086; }")
+        self._btn_cancel.clicked.connect(self._on_cancel_processing)
+        btn_group_layout.addWidget(self._btn_cancel)
+        bottom_layout.addWidget(btn_group, 1)
+
+        main_layout.addLayout(bottom_layout)
+
+        # ── 信号 ──────────────────────────────────────────────
         self._scene.node_selected.connect(self._on_node_selected)
         self._scene.connection_requested.connect(self._scene.add_connection)
+        self._scene.rule_modified.connect(self._on_rule_graph_modified)
 
     def _init_palette(self):
         """初始化可选节点面板"""
         conditions = [
-            (_i18n.t("file_extension"), "file_ext"),
-            (_i18n.t("page_count"), "page_count"),
-            (_i18n.t("file_size"), "file_size"),
-            (_i18n.t("color_mode"), "color_mode"),
-            (_i18n.t("contains_text"), "contains_text"),
-            (_i18n.t("customer_name"), "customer"),
-            (_i18n.t("paper_type"), "paper_type"),
+            ("文件扩展名", "file_ext"),
+            ("页数", "page_count"),
+            ("文件大小", "file_size"),
+            ("色彩模式", "color_mode"),
+            ("包含文本", "contains_text"),
+            ("客户名称", "customer"),
+            ("纸张类型", "paper_type"),
         ]
         for label, ctype in conditions:
-            item = QListWidgetItem(_i18n.tr(label))
+            item = QListWidgetItem(label)
             item.setData(Qt.UserRole, {"type": "condition", "condition_type": ctype})
             self._cond_list.addItem(item)
-        self._cond_list.itemDoubleClicked.connect(
-            lambda i: self._add_condition_node(i.data(Qt.UserRole)["condition_type"])
-        )
+        self._cond_list.itemDoubleClicked.connect(self._on_cond_double_clicked)
 
         actions = [
-            (_i18n.t("rename"), "rename"),
-            (_i18n.t("output_format"), "output_format"),
-            (_i18n.t("impose"), "impose"),
-            (_i18n.t("add_page_number"), "add_page_num"),
-            (_i18n.t("crop_marks"), "crop_marks"),
-            (_i18n.t("move_file"), "move_file"),
-            (_i18n.t("send_notification"), "send_notify"),
+            ("重命名", "rename"),
+            ("输出格式", "output_format"),
+            ("拼版", "impose"),
+            ("添加页码", "add_page_num"),
+            ("裁切标记", "crop_marks"),
+            ("移动文件", "move_file"),
+            ("发送通知", "send_notify"),
         ]
         for label, atype in actions:
-            item = QListWidgetItem(_i18n.tr(label))
+            item = QListWidgetItem(label)
             item.setData(Qt.UserRole, {"type": "action", "action_type": atype})
             self._act_list.addItem(item)
-        self._act_list.itemDoubleClicked.connect(
-            lambda i: self._add_action_node(i.data(Qt.UserRole)["action_type"])
-        )
+        self._act_list.itemDoubleClicked.connect(self._on_act_double_clicked)
+
+    # ── 即时处理区 ────────────────────────────────────────────
+    def update_file_info(self, info: dict):
+        """更新即时处理区的文件元数据。info 可含 filename/filesize/pagecount/colormode/papertype/status"""
+        if "filename" in info:
+            self._info_filename.setText(info["filename"])
+        if "filesize" in info:
+            self._info_filesize.setText(info["filesize"])
+        if "pagecount" in info:
+            self._info_pagecount.setText(str(info["pagecount"]))
+        if "colormode" in info:
+            self._info_colormode.setText(info["colormode"])
+        if "papertype" in info:
+            self._info_papertype.setText(info["papertype"])
+        if "status" in info:
+            self._info_status.setText(info["status"])
+            color = {"待处理": "#a6e3a1", "处理中": "#f9e2af", "已完成": "#89b4fa", "失败": "#f38ba8"}.get(
+                info["status"], "#cdd6f4")
+            self._info_status.setStyleSheet(f"color: {color}; font-weight: bold;")
+
+    def clear_file_info(self):
+        """清空即时处理区"""
+        self._info_filename.setText("—")
+        self._info_filesize.setText("—")
+        self._info_pagecount.setText("—")
+        self._info_colormode.setText("—")
+        self._info_papertype.setText("—")
+        self._info_status.setText(_i18n.tr("待处理"))
+        self._info_status.setStyleSheet("color: #a6e3a1; font-weight: bold;")
+
+    # ── 处理控制 ──────────────────────────────────────────────
+    processing_started = pyqtSignal()
+    processing_cancelled = pyqtSignal()
+
+    def _on_start_processing(self):
+        self._btn_start.setEnabled(False)
+        self._btn_cancel.setEnabled(True)
+        self._progress_bar.setVisible(True)
+        self._progress_bar.setValue(0)
+        self._log_view.clear()
+        self._log(_i18n.tr("处理已启动…"))
+        self._info_status.setText(_i18n.tr("处理中"))
+        self._info_status.setStyleSheet("color: #f9e2af; font-weight: bold;")
+        self.processing_started.emit()
+
+    def _on_cancel_processing(self):
+        self._btn_start.setEnabled(True)
+        self._btn_cancel.setEnabled(False)
+        self._progress_bar.setVisible(False)
+        self._log(_i18n.tr("处理已取消"))
+        self._info_status.setText(_i18n.tr("待处理"))
+        self._info_status.setStyleSheet("color: #a6e3a1; font-weight: bold;")
+        self.processing_cancelled.emit()
+
+    def processing_finished(self, success: bool = True, message: str = ""):
+        """外部调用：标记处理结束"""
+        self._btn_start.setEnabled(True)
+        self._btn_cancel.setEnabled(False)
+        self._progress_bar.setVisible(False)
+        if success:
+            self._log(_i18n.tr("处理完成") if not message else message)
+            self._info_status.setText(_i18n.tr("已完成"))
+            self._info_status.setStyleSheet("color: #89b4fa; font-weight: bold;")
+        else:
+            self._log(_i18n.tr("处理失败") if not message else message)
+            self._info_status.setText(_i18n.tr("失败"))
+            self._info_status.setStyleSheet("color: #f38ba8; font-weight: bold;")
+
+    def _log(self, msg: str):
+        """追加一行日志"""
+        self._log_view.append(msg)
+
+    def _set_progress(self, value: int, text: str = ""):
+        """更新进度条"""
+        self._progress_bar.setValue(value)
+        if text:
+            self._progress_bar.setFormat(text)
+
+    # ── 规则图修改同步 ────────────────────────────────────────
+    def _on_rule_graph_modified(self):
+        """当场景节点/连接变动时，刷新底部处理规则区摘要"""
+        data = self._scene.to_dict()
+        nodes = data.get("nodes", [])
+        conns = data.get("connections", [])
+        if not nodes:
+            self._rule_display.setPlainText(_i18n.tr("当前未加载规则"))
+            return
+        lines = []
+        for nd in nodes:
+            if nd["type"] == "CONDITION":
+                lines.append(
+                    f"IF {nd.get('condition_type','?')} {nd.get('condition_op','==')} "
+                    f"{nd.get('condition_value','?')}")
+            elif nd["type"] == "ACTION":
+                lines.append(f"THEN {nd.get('action_type','?')}")
+            elif nd["type"] == "ROUTER":
+                branches = nd.get('router_branches', [])
+                lines.append(f"ROUTER [{len(branches)} branches]")
+        lines.append(f"— {len(nodes)} 节点, {len(conns)} 条连线")
+        self._rule_display.setPlainText("\n".join(lines))
 
     # ── 节点操作 ──────────────────────────────────────────────
-    def _add_node(self, ntype: NodeType):
-        nid = self._scene.new_node_id()
-        center = self._view.mapToScene(self._view.viewport().rect().center())
-        ndata = NodeData(
-            id=nid, type=ntype,
-            label=f"New {ntype.name}",
-            x=center.x(), y=center.y(),
-        )
-        self._scene.add_node(ndata)
+    def _on_add_condition_clicked(self, _checked: bool = False):
+        """工具栏「+ 条件」按钮 slot，用显式方法替代 lambda 避免闭包引用循环"""
+        self._add_condition_node("always")
+
+    def _on_add_action_clicked(self, _checked: bool = False):
+        """工具栏「+ 动作」按钮 slot，用显式方法替代 lambda 避免闭包引用循环"""
+        self._add_action_node("rename")
+
+    def _on_cond_double_clicked(self, item: QListWidgetItem):
+        """条件列表双击 slot，用显式方法替代 lambda 避免闭包引用循环"""
+        self._add_condition_node(item.data(Qt.UserRole)["condition_type"])
+
+    def _on_act_double_clicked(self, item: QListWidgetItem):
+        """动作列表双击 slot，用显式方法替代 lambda 避免闭包引用循环"""
+        self._add_action_node(item.data(Qt.UserRole)["action_type"])
 
     def _add_condition_node(self, ctype: str):
         nid = self._scene.new_node_id()
@@ -802,9 +1418,39 @@ class VisualRuleEditor(QWidget):
         )
         self._scene.add_node(ndata)
 
-    def _on_node_selected(self, node_id: str):
+    def _sync_prop_to_node(self):
+        """将属性面板的 ComboBox/LineEdit 值写回当前选中节点"""
+        node_id = self._selected_node_id
+        if not node_id:
+            return
         node = self._scene.get_node(node_id)
         if not node:
+            return
+        node.data.condition_type = self._prop_cond_type.currentText()
+        node.data.condition_op = self._prop_cond_op.currentText()
+        node.data.condition_value = self._prop_cond_val.text()
+        node.data.action_type = self._prop_action_type.currentText()
+
+        # 根据类型更新显示标签
+        if node.data.type == NodeType.CONDITION and node.data.condition_type:
+            node.data.label = f"条件: {node.data.condition_type}"
+        elif node.data.type == NodeType.ACTION and node.data.action_type:
+            node.data.label = f"动作: {node.data.action_type}"
+        self._prop_label.setText(node.data.label)
+        self._scene.rule_modified.emit()
+
+    def _on_node_selected(self, node_id: str):
+        # 记录当前选中 ID，供 _sync_prop_to_node 写入
+        self._selected_node_id = node_id
+
+        node = self._scene.get_node(node_id)
+        if not node:
+            # 取消选中 → 清空属性面板
+            self._prop_label.setText("")
+            self._prop_cond_type.setCurrentIndex(0)
+            self._prop_cond_op.setCurrentIndex(0)
+            self._prop_cond_val.setText("")
+            self._prop_action_type.setCurrentIndex(0)
             return
         self._prop_label.setText(node.data.label)
         self._prop_cond_type.setCurrentText(node.data.condition_type)
@@ -832,21 +1478,13 @@ class VisualRuleEditor(QWidget):
         self._name_input.setText(self._rule_name)
         self._scene.from_dict(data)
 
-    def wheelEvent(self, event: QWheelEvent):
-        """缩放"""
-        factor = 1.15
-        if event.angleDelta().y() > 0:
-            self._view.scale(factor, factor)
-        else:
-            self._view.scale(1 / factor, 1 / factor)
-        event.accept()
-
     def to_rule_engine_code(self) -> str:
         """将可视化规则转换为 RuleEngine 可解析的规则字典"""
         scene_data = self._scene.to_dict()
         conditions = []
         actions = []
 
+        routers = []
         for nd in scene_data["nodes"]:
             if nd["type"] == "CONDITION":
                 conditions.append({
@@ -859,11 +1497,16 @@ class VisualRuleEditor(QWidget):
                     "type": nd.get("action_type", ""),
                     "params": nd.get("action_params", {}),
                 })
+            elif nd["type"] == "ROUTER":
+                routers.append({
+                    "branches": nd.get("router_branches", []),
+                })
 
         rule = {
             "name": self._rule_name,
             "conditions": conditions,
             "actions": actions,
+            "routers": routers,
             "connections": scene_data["connections"],
         }
         return json.dumps(rule, ensure_ascii=False, indent=2)

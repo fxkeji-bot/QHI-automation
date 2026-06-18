@@ -10,7 +10,7 @@ logger = get_logger(__name__)
 integration/action_executor.py - Action executor for QHI/PitStop/callas/Python workflows.
 Supports XML, PY, EAL, CALLAS action types with retry mechanism.
 """
-import os, subprocess, time, traceback as tb_module, uuid
+import os, subprocess, time, traceback as tb_module, uuid, shutil
 from typing import List, Dict, Optional, Any, Tuple, TYPE_CHECKING
 from pathlib import Path
 from datetime import datetime
@@ -128,6 +128,20 @@ class ActionExecutor:
                 result, changes = self._retry_wrapper(self._exec_eal, input_path, output_dir, step_file, params)
             elif step_type == ActionType.CALLAS:
                 result, changes = self._retry_wrapper(self._exec_callas, input_path, output_dir, step_file, params)
+            elif step_type == ActionType.RENAME:
+                result, changes = self._retry_wrapper(self._exec_rename, input_path, output_dir, step_file, params)
+            elif step_type == ActionType.SPLIT_PDF:
+                result, changes = self._retry_wrapper(self._exec_split_pdf, input_path, output_dir, step_file, params)
+            elif step_type == ActionType.MERGE_PDF:
+                result, changes = self._retry_wrapper(self._exec_merge_pdf, input_path, output_dir, step_file, params)
+            elif step_type == ActionType.INJECT_TOOL:
+                result, changes = self._retry_wrapper(self._exec_inject_tool, input_path, output_dir, step_file, params)
+            elif step_type == ActionType.HOLD:
+                result, changes = self._retry_wrapper(self._exec_hold, input_path, output_dir, step_file, params)
+            elif step_type == ActionType.COMBINE_WORK:
+                result, changes = self._retry_wrapper(self._exec_combine_work, input_path, output_dir, step_file, params)
+            elif step_type == ActionType.WORK_CROPPER:
+                result, changes = self._retry_wrapper(self._exec_work_cropper, input_path, output_dir, step_file, params)
             else:
                 return None, {'error': f'未知的动作类型: {step_type}'}
         except Exception as e:
@@ -523,6 +537,175 @@ class ActionExecutor:
         except Exception as e:
             output_path.unlink(missing_ok=True)
             return None, {'error': str(e)}
+
+    # ── Switch 扩展动作类型 ───────────────────────────────────
+
+    def _exec_rename(self, input_path: Path, output_dir: Path, step_file: str, params: Dict) -> Tuple[Optional[Path], Dict]:
+        """重命名文件动作。
+
+        参数:
+            pattern: 新文件名模板，支持 {变量} 占位符。
+            如: '{file_stem}_成品.pdf'
+        """
+        pattern = params.get('pattern', step_file) or '{input_stem}_renamed.pdf'
+        pattern = self.var_mgr.resolve_template(pattern) if self.var_mgr else pattern
+        # 替换特殊占位符
+        pattern = pattern.replace('{input_stem}', input_path.stem)
+        pattern = pattern.replace('{input_name}', input_path.name)
+        output_path = output_dir / pattern
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(str(input_path), str(output_path))
+            return output_path, {'action': 'rename', 'output_name': output_path.name}
+        except Exception as e:
+            return None, {'error': f'重命名失败: {e}'}
+
+    def _exec_split_pdf(self, input_path: Path, output_dir: Path, step_file: str, params: Dict) -> Tuple[Optional[Path], Dict]:
+        """分割 PDF 动作。
+
+        参数:
+            pages_per_file: 每个输出文件的页数（默认 1）
+        """
+        pages_per_file = int(params.get('pages_per_file', 1))
+        output_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            from pypdf import PdfReader, PdfWriter
+        except Exception:
+            try:
+                from PyPDF2 import PdfReader, PdfWriter
+            except Exception:
+                return None, {'error': '未找到 pypdf 或 PyPDF2，无法分割 PDF'}
+        try:
+            reader = PdfReader(str(input_path))
+            total_pages = len(reader.pages)
+            output_files = []
+            for start in range(0, total_pages, pages_per_file):
+                writer = PdfWriter()
+                end = min(start + pages_per_file, total_pages)
+                for i in range(start, end):
+                    writer.add_page(reader.pages[i])
+                out_path = output_dir / f"{input_path.stem}_{start + 1}-{end}.pdf"
+                with open(out_path, 'wb') as f:
+                    writer.write(f)
+                output_files.append(str(out_path))
+            return Path(output_files[0]) if output_files else None, {
+                'action': 'split_pdf', 'output_files': output_files, 'total_pages': total_pages
+            }
+        except Exception as e:
+            return None, {'error': f'PDF 分割失败: {e}'}
+
+    def _exec_merge_pdf(self, input_path: Path, output_dir: Path, step_file: str, params: Dict) -> Tuple[Optional[Path], Dict]:
+        """合并 PDF 动作。
+
+        参数:
+            files: 待合并的 PDF 文件路径列表（为空则使用 input_path）
+        """
+        files = params.get('files', [])
+        if not files:
+            files = [str(input_path)]
+        output_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            from pypdf import PdfReader, PdfWriter
+        except Exception:
+            try:
+                from PyPDF2 import PdfReader, PdfWriter
+            except Exception:
+                return None, {'error': '未找到 pypdf 或 PyPDF2，无法合并 PDF'}
+        try:
+            writer = PdfWriter()
+            for fp in files:
+                reader = PdfReader(str(fp))
+                for page in reader.pages:
+                    writer.add_page(page)
+            output_path = output_dir / f"{input_path.stem}_merged.pdf"
+            with open(output_path, 'wb') as f:
+                writer.write(f)
+            return output_path, {'action': 'merge_pdf', 'output_files': [str(output_path)], 'input_count': len(files)}
+        except Exception as e:
+            return None, {'error': f'PDF 合并失败: {e}'}
+
+    def _exec_inject_tool(self, input_path: Path, output_dir: Path, step_file: str, params: Dict) -> Tuple[Optional[Path], Dict]:
+        """注入工具动作：将脚本/工具复制到插件目录或输出目录。"""
+        tool_path = Path(step_file)
+        if not tool_path.exists():
+            alt = PLUGIN_DIR / step_file
+            if alt.exists():
+                tool_path = alt
+            else:
+                return None, {'error': f'工具文件不存在: {step_file}'}
+        dest_dir = Path(params.get('dest_dir', PLUGIN_DIR))
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_path = dest_dir / tool_path.name
+        try:
+            shutil.copy2(str(tool_path), str(dest_path))
+            return dest_path, {'action': 'inject_tool', 'dest': str(dest_path)}
+        except Exception as e:
+            return None, {'error': f'注入工具失败: {e}'}
+
+    def _exec_hold(self, input_path: Path, output_dir: Path, step_file: str, params: Dict) -> Tuple[Optional[Path], Dict]:
+        """保持/暂停作业：将文件移动到 hold 目录。"""
+        hold_dir = Path(params.get('hold_dir', output_dir / 'hold'))
+        hold_dir.mkdir(parents=True, exist_ok=True)
+        output_path = hold_dir / input_path.name
+        try:
+            shutil.copy2(str(input_path), str(output_path))
+            return None, {'action': 'hold', 'held_path': str(output_path), 'reason': params.get('reason', '')}
+        except Exception as e:
+            return None, {'error': f'保持作业失败: {e}'}
+
+    def _exec_combine_work(self, input_path: Path, output_dir: Path, step_file: str, params: Dict) -> Tuple[Optional[Path], Dict]:
+        """组合工作：将多个输入文件合并到一个工作目录。"""
+        files = params.get('files', [str(input_path)])
+        work_dir = Path(params.get('work_dir', output_dir / 'combined_work'))
+        work_dir.mkdir(parents=True, exist_ok=True)
+        copied = []
+        try:
+            for fp in files:
+                src = Path(fp)
+                if src.exists():
+                    dst = work_dir / src.name
+                    shutil.copy2(str(src), str(dst))
+                    copied.append(str(dst))
+            return work_dir, {'action': 'combine_work', 'work_dir': str(work_dir), 'copied_files': copied}
+        except Exception as e:
+            return None, {'error': f'组合工作失败: {e}'}
+
+    def _exec_work_cropper(self, input_path: Path, output_dir: Path, step_file: str, params: Dict) -> Tuple[Optional[Path], Dict]:
+        """工作裁剪器：按参数裁剪 PDF 页面。
+
+        参数:
+            left, right, top, bottom: 裁剪边距（pt 或 mm，单位默认为 pt）
+        """
+        left = float(params.get('left', 0))
+        right = float(params.get('right', 0))
+        top = float(params.get('top', 0))
+        bottom = float(params.get('bottom', 0))
+        output_path = output_dir / f"{input_path.stem}_cropped.pdf"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            from pypdf import PdfReader, PdfWriter
+        except Exception:
+            try:
+                from PyPDF2 import PdfReader, PdfWriter
+            except Exception:
+                return None, {'error': '未找到 pypdf 或 PyPDF2，无法裁剪 PDF'}
+        try:
+            reader = PdfReader(str(input_path))
+            writer = PdfWriter()
+            for page in reader.pages:
+                box = page.mediabox
+                new_left = box.left + left
+                new_bottom = box.bottom + bottom
+                new_right = box.right - right
+                new_top = box.top - top
+                page.mediabox.lower_left = (new_left, new_bottom)
+                page.mediabox.upper_right = (new_right, new_top)
+                writer.add_page(page)
+            with open(output_path, 'wb') as f:
+                writer.write(f)
+            return output_path, {'action': 'work_cropper', 'output': str(output_path)}
+        except Exception as e:
+            return None, {'error': f'PDF 裁剪失败: {e}'}
 
 
 # ==================== 规则引擎 ====================

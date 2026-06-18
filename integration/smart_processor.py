@@ -167,7 +167,7 @@ class SmartProcessor:
         self._log_chain = []  # 日志链路追踪
         
         # 子服务初始化
-        self.rule_engine = RuleEngine()
+        self.rule_engine = RuleEngine(self.metadata_mgr, self.var_mgr, self._log)
         self.action_exec = ActionExecutor(
             config.get('qhi_path', ''), 
             db, 
@@ -444,7 +444,7 @@ class SmartProcessor:
             price_result = info.get('price_result', {})
             summary = price_result.get('summary', {})
             
-            self.db.insert('production_logs', {
+            self.db.insert('production_logs', **{
                 'timestamp': datetime.now().isoformat(),
                 'file_name': Path(file_path).name,
                 'file_path': file_path,
