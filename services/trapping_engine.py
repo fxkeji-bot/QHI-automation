@@ -223,8 +223,9 @@ def trap_page(
 
         prev_row_colors = row_colors
 
+    _MM_PER_PT = 25.4 / 72.0
     result.total_trap_area_mm2 = sum(
-        z.width_mm * z.height_mm * 0.001 for z in result.trap_zones
+        z.width_mm * (z.height * _MM_PER_PT) * 0.001 for z in result.trap_zones
     )
 
     logger.info(
