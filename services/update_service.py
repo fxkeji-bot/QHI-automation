@@ -272,7 +272,7 @@ class UpdateService(QObject):
                 args = [str(pp)]
                 if silent:
                     args.append("/quiet" if installer_type == "msi" else "/S")
-                subprocess.Popen(args, shell=True)
+                subprocess.Popen(args, shell=False)
                 return True
 
             elif installer_type == "zip":

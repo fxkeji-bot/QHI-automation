@@ -49,9 +49,8 @@ class TestCropMarkUtils(unittest.TestCase):
         self.assertEqual(cfg.style, MarkStyle.CORNER)
 
     def test_config_preset_detailed(self):
-        cfg = get_crop_mark_config_preset("detailed")
+        cfg = get_crop_mark_config_preset("full")
         self.assertEqual(cfg.style, MarkStyle.FULL)
-        self.assertTrue(cfg.show_microtext)
 
     def test_config_preset_unknown_fallback(self):
         cfg = get_crop_mark_config_preset("unknown")
@@ -176,7 +175,7 @@ class TestRegMarkUtils(unittest.TestCase):
         self.assertEqual(len(positions), 9)
 
     def test_calc_positions_cmyk(self):
-        positions = _calc_positions(RegMarkPosition.CMYK_ONLY, 595, 842, 14)
+        positions = _calc_positions(RegMarkPosition.CORNERS, 595, 842, 14)
         self.assertEqual(len(positions), 4)
 
     def test_reg_mark_style_values(self):

@@ -113,13 +113,37 @@ class _APIHandler(BaseHTTPRequestHandler):
                 "message": f"未知端点: {method} {path}",
             })
 
+    _MAX_BODY_SIZE = 1 * 1024 * 1024  # 1MB
+
     def _read_body(self) -> dict:
-        """读取 JSON 请求体"""
+        """读取 JSON 请求体（带大小限制和类型校验）"""
+        content_type = self.headers.get("Content-Type", "")
+        if content_type and "application/json" not in content_type and "text/json" not in content_type:
+            self._json_response(415, {
+                "error": "unsupported_media_type",
+                "message": "Content-Type 必须为 application/json",
+            })
+            return None
+
         length = int(self.headers.get("Content-Length", 0))
         if length == 0:
             return {}
+        if length > self._MAX_BODY_SIZE:
+            self._json_response(413, {
+                "error": "payload_too_large",
+                "message": f"请求体超过大小限制 ({self._MAX_BODY_SIZE // 1024}KB)",
+            })
+            return None
+
         raw = self.rfile.read(length)
-        return json.loads(raw.decode("utf-8"))
+        try:
+            return json.loads(raw.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            self._json_response(400, {
+                "error": "bad_request",
+                "message": f"JSON 解析失败: {e}",
+            })
+            return None
 
     def _json_response(self, status: int, data: dict):
         """发送 JSON 响应"""
@@ -187,6 +211,8 @@ class _APIHandler(BaseHTTPRequestHandler):
     def _handle_create_order(self):
         """POST /api/v1/orders"""
         data = self._read_body()
+        if data is None:
+            return
         if not data.get("file_paths"):
             self._json_response(400, {"error": "缺少 file_paths"})
             return
@@ -208,6 +234,8 @@ class _APIHandler(BaseHTTPRequestHandler):
     def _handle_submit_process(self):
         """POST /api/v1/process"""
         data = self._read_body()
+        if data is None:
+            return
         files = data.get("file_paths", [])
         if not files:
             self._json_response(400, {"error": "缺少 file_paths"})
@@ -258,6 +286,8 @@ class _APIHandler(BaseHTTPRequestHandler):
     def _handle_flow_submit(self):
         """POST /api/v1/flow/submit - 手动提交文件"""
         data = self._read_body()
+        if data is None:
+            return
         files = data.get("file_paths", [])
         if not files:
             self._json_response(400, {"error": "missing_file_paths"})
@@ -279,6 +309,8 @@ class _APIHandler(BaseHTTPRequestHandler):
     def _handle_flow_webhook(self):
         """POST /api/v1/flow/webhook - Webhook 接收"""
         data = self._read_body()
+        if data is None:
+            return
         if not self.flow_entry:
             self._json_response(503, {"error": "flow_entry_not_available"})
             return
@@ -288,6 +320,8 @@ class _APIHandler(BaseHTTPRequestHandler):
     def _handle_flow_metadata(self):
         """POST /api/v1/flow/metadata - XML/JSON 元数据注入"""
         data = self._read_body()
+        if data is None:
+            return
         payload = data.get("payload", "")
         job_id = data.get("job_id", "")
         fmt = data.get("format", "auto")

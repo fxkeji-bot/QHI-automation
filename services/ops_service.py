@@ -176,12 +176,14 @@ class OpsService:
     def run_script_command(self, command: str, cwd: Optional[str] = None,
                            timeout: int = 60) -> Dict[str, Any]:
         """执行脚本/job log 命令。"""
+        import shlex
         logger.info(_i18n.tr("执行脚本命令: {command}"), command=command)
         try:
+            args = shlex.split(command)
             result = subprocess.run(
-                command,
+                args,
                 cwd=cwd,
-                shell=True,
+                shell=False,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
