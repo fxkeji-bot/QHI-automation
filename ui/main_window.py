@@ -290,6 +290,30 @@ class MainWindow(QMainWindow):  # noqa: F405
             if machine_idx >= 0:
                 self.config_mgr.config['default_machine'] = self.default_machine.itemData(machine_idx)
 
+        # 印前标记设置
+        if hasattr(self, 'crop_marks_enabled') and self.crop_marks_enabled:
+            self.config_mgr.config['crop_marks_enabled'] = self.crop_marks_enabled.isChecked()
+        if hasattr(self, 'crop_marks_style') and self.crop_marks_style:
+            style_idx = self.crop_marks_style.currentIndex()
+            if style_idx >= 0:
+                self.config_mgr.config['crop_marks_style'] = self.crop_marks_style.itemData(style_idx)
+        if hasattr(self, 'reg_marks_enabled') and self.reg_marks_enabled:
+            self.config_mgr.config['reg_marks_enabled'] = self.reg_marks_enabled.isChecked()
+        if hasattr(self, 'trapping_enabled') and self.trapping_enabled:
+            self.config_mgr.config['trapping_enabled'] = self.trapping_enabled.isChecked()
+        if hasattr(self, 'trap_width_spin') and self.trap_width_spin:
+            self.config_mgr.config['trap_width_mm'] = self.trap_width_spin.value()
+
+        # 预检设置
+        if hasattr(self, 'ink_coverage_check') and self.ink_coverage_check:
+            self.config_mgr.config['ink_coverage_check'] = self.ink_coverage_check.isChecked()
+        if hasattr(self, 'max_ink_coverage_spin') and self.max_ink_coverage_spin:
+            self.config_mgr.config['max_ink_coverage'] = self.max_ink_coverage_spin.value()
+        if hasattr(self, 'gwg_profile_combo') and self.gwg_profile_combo:
+            gwg_idx = self.gwg_profile_combo.currentIndex()
+            if gwg_idx >= 0:
+                self.config_mgr.config['gwg_profile'] = self.gwg_profile_combo.itemData(gwg_idx)
+
         self.config_mgr.save()
         self.log("设置已保存")
         QMessageBox.information(self, "成功", "设置已保存")

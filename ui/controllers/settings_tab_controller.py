@@ -106,6 +106,71 @@ class SettingsTabController:
         device_layout.addRow("默认设备:", self.default_machine)
         scroll_layout.addWidget(device_group)
 
+        # ===== 印前标记设置 =====
+        marks_group = QGroupBox("印前标记设置")
+        marks_layout = QFormLayout(marks_group)
+
+        self.crop_marks_enabled = QCheckBox("启用裁切标记 (Crop Marks)")
+        self.crop_marks_enabled.setChecked(mw.config_mgr.get('crop_marks_enabled', False))
+        marks_layout.addRow("", self.crop_marks_enabled)
+
+        self.crop_marks_style = QComboBox()
+        self.crop_marks_style.addItem("角线+中线 (标准)", "both")
+        self.crop_marks_style.addItem("仅角线", "corner")
+        self.crop_marks_style.addItem("完整标记", "full")
+        current_style = mw.config_mgr.get('crop_marks_style', 'both')
+        for i in range(self.crop_marks_style.count()):
+            if self.crop_marks_style.itemData(i) == current_style:
+                self.crop_marks_style.setCurrentIndex(i)
+                break
+        marks_layout.addRow("裁切标记样式:", self.crop_marks_style)
+
+        self.reg_marks_enabled = QCheckBox("启用套准标记 (Registration Marks)")
+        self.reg_marks_enabled.setChecked(mw.config_mgr.get('reg_marks_enabled', False))
+        marks_layout.addRow("", self.reg_marks_enabled)
+
+        self.trapping_enabled = QCheckBox("启用陷印 (Trapping)")
+        self.trapping_enabled.setChecked(mw.config_mgr.get('trapping_enabled', False))
+        marks_layout.addRow("", self.trapping_enabled)
+
+        self.trap_width_spin = QSpinBox()
+        self.trap_width_spin.setRange(5, 30)
+        self.trap_width_spin.setValue(int(mw.config_mgr.get('trap_width_mm', 10)))
+        self.trap_width_spin.setSuffix(" ×0.01mm")
+        marks_layout.addRow("陷印宽度:", self.trap_width_spin)
+
+        scroll_layout.addWidget(marks_group)
+
+        # ===== 预检设置 =====
+        preflight_group = QGroupBox("预检设置")
+        preflight_layout = QFormLayout(preflight_group)
+
+        self.ink_coverage_check = QCheckBox("总墨量检测 (TAC)")
+        self.ink_coverage_check.setChecked(mw.config_mgr.get('ink_coverage_check', True))
+        preflight_layout.addRow("", self.ink_coverage_check)
+
+        self.max_ink_coverage_spin = QSpinBox()
+        self.max_ink_coverage_spin.setRange(200, 400)
+        self.max_ink_coverage_spin.setValue(int(mw.config_mgr.get('max_ink_coverage', 320)))
+        self.max_ink_coverage_spin.setSuffix("%")
+        preflight_layout.addRow("最大总墨量:", self.max_ink_coverage_spin)
+
+        self.gwg_profile_combo = QComboBox()
+        self.gwg_profile_combo.addItem("不启用", "")
+        self.gwg_profile_combo.addItem("GWG 广告", "advertising")
+        self.gwg_profile_combo.addItem("GWG 杂志", "magazine")
+        self.gwg_profile_combo.addItem("GWG 包装", "packaging")
+        self.gwg_profile_combo.addItem("GWG 报纸", "newspaper")
+        self.gwg_profile_combo.addItem("GWG 通用", "general")
+        current_gwg = mw.config_mgr.get('gwg_profile', '')
+        for i in range(self.gwg_profile_combo.count()):
+            if self.gwg_profile_combo.itemData(i) == current_gwg:
+                self.gwg_profile_combo.setCurrentIndex(i)
+                break
+        preflight_layout.addRow("GWG 预检剖面:", self.gwg_profile_combo)
+
+        scroll_layout.addWidget(preflight_group)
+
         # ===== 保存按钮 =====
         save_btn = QPushButton(" 保存设置")
         save_btn.setMinimumHeight(40)
@@ -131,3 +196,11 @@ class SettingsTabController:
         mw.number_digits = self.number_digits
         mw.number_start = self.number_start
         mw.default_machine = self.default_machine
+        mw.crop_marks_enabled = self.crop_marks_enabled
+        mw.crop_marks_style = self.crop_marks_style
+        mw.reg_marks_enabled = self.reg_marks_enabled
+        mw.trapping_enabled = self.trapping_enabled
+        mw.trap_width_spin = self.trap_width_spin
+        mw.ink_coverage_check = self.ink_coverage_check
+        mw.max_ink_coverage_spin = self.max_ink_coverage_spin
+        mw.gwg_profile_combo = self.gwg_profile_combo
