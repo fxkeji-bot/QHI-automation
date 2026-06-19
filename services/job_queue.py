@@ -21,6 +21,10 @@ import uuid
 import sqlite3
 import logging
 import threading
+import hashlib
+import hmac
+import urllib.request
+import urllib.error
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Callable, Tuple
 from pathlib import Path
@@ -201,6 +205,35 @@ class Device:
         }
 
 
+@dataclass
+class WebhookData:
+    """Webhook 回调配置"""
+    webhook_id: str
+    url: str
+    events: List[str] = field(default_factory=lambda: ["job.completed", "job.failed"])
+    secret: str = ""           # HMAC-SHA256 签名密钥
+    description: str = ""
+    enabled: bool = True
+    created_at: str = ""
+    last_triggered_at: str = ""
+    total_triggers: int = 0
+    failed_triggers: int = 0
+
+    def to_dict(self) -> Dict:
+        return {
+            "webhook_id": self.webhook_id,
+            "url": self.url,
+            "events": self.events,
+            "secret": self.secret,
+            "description": self.description,
+            "enabled": self.enabled,
+            "created_at": self.created_at,
+            "last_triggered_at": self.last_triggered_at,
+            "total_triggers": self.total_triggers,
+            "failed_triggers": self.failed_triggers,
+        }
+
+
 class JobQueue:
     """打印作业队列管理器"""
     
@@ -255,8 +288,24 @@ class JobQueue:
     CREATE INDEX IF NOT EXISTS idx_devices_status ON print_devices(status);
     """
     
+    CREATE_WEBHOOKS_TABLE = """
+    CREATE TABLE IF NOT EXISTS webhooks (
+        webhook_id TEXT PRIMARY KEY,
+        url TEXT NOT NULL,
+        events TEXT,          -- JSON数组
+        secret TEXT DEFAULT '',
+        description TEXT DEFAULT '',
+        enabled INTEGER DEFAULT 1,
+        created_at TEXT,
+        last_triggered_at TEXT,
+        total_triggers INTEGER DEFAULT 0,
+        failed_triggers INTEGER DEFAULT 0
+    )
+    """
+    
     def __init__(
         self,
+        db=None,
         db_path: str = None,
         max_workers: int = 4,
         log_callback: Callable = None,
@@ -265,19 +314,25 @@ class JobQueue:
         初始化作业队列
         
         Args:
-            db_path: 数据库路径
+            db: 共享数据库实例（优先使用）
+            db_path: 数据库路径（仅在 db=None 时使用，向后兼容）
             max_workers: 最大并发数
             log_callback: 日志回调函数
         """
+        self._db = db
         self.db_path = db_path or str(Path.home() / ".qhi_processor" / "job_queue.db")
         self.max_workers = max_workers
         self.log = log_callback or logger.info
         
         # 确保目录存在
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        if self._db is None:
+            os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         
         # 初始化数据库
-        self._init_db()
+        if self._db is None:
+            self._init_db_standalone()
+        else:
+            self._init_db_shared()
         
         # 设备存储
         self._devices: Dict[str, Device] = {}
@@ -297,13 +352,26 @@ class JobQueue:
         
         self.log("作业队列管理器初始化完成")
     
-    def _init_db(self):
-        """初始化数据库"""
+    def _init_db_shared(self):
+        """使用共享数据库初始化表"""
+        conn = self._db.conn
+        cursor = conn.cursor()
+        
+        cursor.execute(self.CREATE_JOBS_TABLE)
+        cursor.execute(self.CREATE_DEVICES_TABLE)
+        cursor.execute(self.CREATE_WEBHOOKS_TABLE)
+        cursor.executescript(self.CREATE_INDEXES)
+        
+        conn.commit()
+    
+    def _init_db_standalone(self):
+        """独立数据库初始化（向后兼容）"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute(self.CREATE_JOBS_TABLE)
         cursor.execute(self.CREATE_DEVICES_TABLE)
+        cursor.execute(self.CREATE_WEBHOOKS_TABLE)
         cursor.executescript(self.CREATE_INDEXES)
         
         conn.commit()
@@ -311,7 +379,14 @@ class JobQueue:
     
     def _get_conn(self) -> sqlite3.Connection:
         """获取数据库连接"""
+        if self._db:
+            return self._db.conn
         return sqlite3.connect(self.db_path)
+    
+    def _close_conn(self, conn):
+        """关闭连接（仅独立模式）"""
+        if self._db is None:
+            conn.close()
     
     # ==================== 作业管理 ====================
     
@@ -528,7 +603,20 @@ class JobQueue:
                 )
                 conn.commit()
                 
-                return cursor.rowcount > 0
+                result = cursor.rowcount > 0
+                
+                # 触发 Webhook 回调（仅在终态时）
+                if result and status in [
+                    JobStatus.COMPLETED.value,
+                    JobStatus.FAILED.value,
+                    JobStatus.CANCELLED.value,
+                    JobStatus.DEAD_LETTER.value,
+                ]:
+                    job = self.get_job(job_id)
+                    if job:
+                        self._trigger_webhooks_async(job, f"job.{status}")
+                
+                return result
             finally:
                 conn.close()
     
@@ -962,6 +1050,211 @@ class JobQueue:
                 return count
             finally:
                 conn.close()
+    
+    # ==================== Webhook 管理 ====================
+    
+    def register_webhook(
+        self,
+        url: str,
+        events: List[str] = None,
+        secret: str = "",
+        description: str = "",
+    ) -> str:
+        """注册 Webhook 回调"""
+        wh_id = f"wh_{uuid.uuid4().hex[:12]}"
+        if events is None:
+            events = ["job.completed", "job.failed"]
+        
+        with self._lock:
+            conn = self._get_conn()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """INSERT INTO webhooks 
+                       (webhook_id, url, events, secret, description, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (
+                        wh_id, url,
+                        json.dumps(events), secret, description,
+                        datetime.now().isoformat(),
+                    )
+                )
+                conn.commit()
+                self.log(f"Webhook 已注册: {wh_id} → {url}")
+            finally:
+                conn.close()
+        
+        return wh_id
+    
+    def get_webhook(self, webhook_id: str) -> Optional[WebhookData]:
+        """获取指定 Webhook"""
+        conn = self._get_conn()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM webhooks WHERE webhook_id = ?",
+                (webhook_id,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return self._row_to_webhook(row, cursor.description)
+            return None
+        finally:
+            conn.close()
+    
+    def list_webhooks(self) -> List[Dict]:
+        """列出所有 Webhook"""
+        conn = self._get_conn()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM webhooks ORDER BY created_at DESC")
+            rows = cursor.fetchall()
+            return [self._row_to_webhook(r, cursor.description).to_dict() for r in rows]
+        finally:
+            conn.close()
+    
+    def delete_webhook(self, webhook_id: str) -> bool:
+        """删除 Webhook"""
+        with self._lock:
+            conn = self._get_conn()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "DELETE FROM webhooks WHERE webhook_id = ?",
+                    (webhook_id,)
+                )
+                conn.commit()
+                if cursor.rowcount > 0:
+                    self.log(f"Webhook 已删除: {webhook_id}")
+                    return True
+                return False
+            finally:
+                conn.close()
+    
+    def _row_to_webhook(self, row: tuple, description) -> WebhookData:
+        """将数据库行转换为 WebhookData"""
+        columns = [desc[0] for desc in description]
+        data = dict(zip(columns, row))
+        
+        if data.get("events") and isinstance(data["events"], str):
+            try:
+                data["events"] = json.loads(data["events"])
+            except Exception:
+                data["events"] = ["job.completed", "job.failed"]
+        
+        data["enabled"] = bool(data.get("enabled", 1))
+        return WebhookData(**{k: v for k, v in data.items() if k in WebhookData.__dataclass_fields__})
+    
+    def dispatch_webhook(self, webhook_id: str, event: str, payload: Dict) -> Dict:
+        """
+        向指定 Webhook URL 发送回调请求。
+        
+        Returns:
+            {"success": bool, "status_code": int, "response": str}
+        """
+        wh = self.get_webhook(webhook_id)
+        if not wh or not wh.enabled:
+            return {"success": False, "status_code": 0, "response": "Webhook not found or disabled"}
+        
+        if event not in wh.events:
+            return {"success": False, "status_code": 0, "response": f"Event '{event}' not subscribed"}
+        
+        try:
+            body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            headers = {"Content-Type": "application/json; charset=utf-8"}
+            
+            # HMAC-SHA256 签名
+            if wh.secret:
+                signature = hmac.new(
+                    wh.secret.encode(),
+                    body,
+                    hashlib.sha256,
+                ).hexdigest()
+                headers["X-Webhook-Signature"] = signature
+            
+            headers["X-Webhook-ID"] = webhook_id
+            headers["X-Webhook-Event"] = event
+            
+            req = urllib.request.Request(
+                wh.url,
+                data=body,
+                headers=headers,
+                method="POST",
+            )
+            
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                response_body = resp.read().decode("utf-8", errors="replace")
+                status_code = resp.status
+                success = 200 <= status_code < 300
+        except urllib.error.HTTPError as e:
+            status_code = e.code
+            response_body = e.read().decode("utf-8", errors="replace")[:500]
+            success = False
+        except Exception as e:
+            status_code = 0
+            response_body = str(e)[:500]
+            success = False
+        
+        # 更新统计
+        self._update_webhook_stats(webhook_id, success)
+        
+        return {
+            "success": success,
+            "status_code": status_code,
+            "response": response_body,
+        }
+    
+    def _update_webhook_stats(self, webhook_id: str, success: bool):
+        """更新 Webhook 触发统计"""
+        with self._lock:
+            conn = self._get_conn()
+            try:
+                now = datetime.now().isoformat()
+                if success:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """UPDATE webhooks 
+                           SET last_triggered_at = ?, total_triggers = total_triggers + 1
+                           WHERE webhook_id = ?""",
+                        (now, webhook_id)
+                    )
+                else:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """UPDATE webhooks 
+                           SET last_triggered_at = ?, 
+                               total_triggers = total_triggers + 1,
+                               failed_triggers = failed_triggers + 1
+                           WHERE webhook_id = ?""",
+                        (now, webhook_id)
+                    )
+                conn.commit()
+            finally:
+                conn.close()
+    
+    def _trigger_webhooks_for_job(self, job: Job, event: str):
+        """
+        异步触发匹配的 Webhook 回调（在单独线程中执行，避免阻塞队列处理）
+        """
+        webhooks = self.list_webhooks()
+        payload = job.to_dict()
+        payload["event"] = event
+        payload["triggered_at"] = datetime.now().isoformat()
+        
+        for wh in webhooks:
+            if not wh.get("enabled", True):
+                continue
+            if event in wh.get("events", []):
+                self.dispatch_webhook(wh["webhook_id"], event, payload)
+    
+    def _trigger_webhooks_async(self, job: Job, event: str):
+        """异步触发 Webhook（非阻塞）"""
+        t = threading.Thread(
+            target=self._trigger_webhooks_for_job,
+            args=(job, event),
+            daemon=True,
+        )
+        t.start()
     
     def get_queue_html(self) -> str:
         """生成队列状态HTML（用于监控面板）"""

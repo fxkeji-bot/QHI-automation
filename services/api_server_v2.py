@@ -25,6 +25,8 @@ import hmac
 import base64
 import logging
 import threading
+import urllib.request
+import urllib.error
 from datetime import datetime, timedelta
 from typing import Optional, Callable, Dict, List, Any, Tuple
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -431,16 +433,24 @@ def handle_login(handler: APIHandler):
         handler._json_response(400, APIResponse.error("缺少用户名或密码"))
         return
     
-    # 简单的验证（生产环境应使用数据库）
-    if username == "admin" and password == "admin123":
-        token = JWTAuth.create_token("1", username, ["admin", "user"])
-        handler._json_response(200, APIResponse.success({
-            "token": token,
-            "username": username,
-            "expires_in": APIConfig.JWT_EXPIRY_HOURS * 3600,
-        }))
+    # 通过 UserManager 验证（优先）；不可用时拒绝登录
+    user_mgr = getattr(handler.server, 'user_manager', None)
+    if user_mgr is not None:
+        result = user_mgr.authenticate(username, password)
+        if result and result.get("success"):
+            user = result.get("user", {})
+            roles = user.get("roles", ["user"])
+            token = JWTAuth.create_token(str(user.get("id", "0")), username, roles)
+            handler._json_response(200, APIResponse.success({
+                "token": token,
+                "username": username,
+                "roles": roles,
+                "expires_in": APIConfig.JWT_EXPIRY_HOURS * 3600,
+            }))
+        else:
+            handler._json_response(401, APIResponse.error("用户名或密码错误"))
     else:
-        handler._json_response(401, APIResponse.error("用户名或密码错误"))
+        handler._json_response(503, APIResponse.error("用户管理服务不可用"))
 
 
 def handle_profile(handler: APIHandler):
@@ -597,6 +607,56 @@ def handle_get_dead_letter(handler: APIHandler):
         handler._json_response(200, APIResponse.success([j.to_dict() for j in jobs]))
     else:
         handler._json_response(503, APIResponse.error("队列服务不可用"))
+
+
+def handle_submit_batch_jobs(handler: APIHandler):
+    """POST /api/v2/jobs/batch — 批量提交作业"""
+    data = handler._read_body()
+
+    jobs_raw = data.get("jobs", [])
+    if not jobs_raw or not isinstance(jobs_raw, list):
+        handler._json_response(400, APIResponse.error("缺少 jobs 字段或格式不正确"))
+        return
+
+    if len(jobs_raw) > 100:
+        handler._json_response(400, APIResponse.error("单批次最多 100 个作业"))
+        return
+
+    if not handler.job_queue:
+        handler._json_response(503, APIResponse.error("队列服务不可用"))
+        return
+
+    results = []
+    for idx, jd in enumerate(jobs_raw):
+        valid, msg = RequestValidator.validate_required(jd, ["name"])
+        if not valid:
+            results.append({"index": idx, "status": "rejected", "error": msg})
+            continue
+        try:
+            job = handler.job_queue.submit_job(
+                name=jd["name"],
+                file_path=jd.get("file_path", ""),
+                file_paths=jd.get("file_paths", []),
+                priority=jd.get("priority", 50),
+                device_id=jd.get("device_id", ""),
+                device_group=jd.get("device_group", ""),
+                config=jd.get("config", {}),
+            )
+            results.append({"index": idx, "status": "accepted", "job_id": job.job_id})
+        except Exception as e:
+            results.append({"index": idx, "status": "rejected", "error": str(e)})
+
+    accepted = sum(1 for r in results if r["status"] == "accepted")
+    rejected = len(results) - accepted
+    handler._json_response(
+        200 if accepted > 0 else 400,
+        APIResponse.success({
+            "total": len(jobs_raw),
+            "accepted": accepted,
+            "rejected": rejected,
+            "results": results,
+        }, f"批量提交完成: {accepted}/{len(jobs_raw)} 成功")
+    )
 
 
 # --- 设备端点 ---
@@ -845,6 +905,87 @@ def handle_get_order(handler: APIHandler, order_id: str):
         handler._json_response(503, APIResponse.error("数据库不可用"))
 
 
+# --- Webhook 端点 ---
+
+def handle_register_webhook(handler: APIHandler):
+    """POST /api/v2/webhooks — 注册 Webhook 回调 URL"""
+    data = handler._read_body()
+
+    valid, msg = RequestValidator.validate_required(data, ["url"])
+    if not valid:
+        handler._json_response(400, APIResponse.error(msg))
+        return
+
+    events = data.get("events", ["job.completed", "job.failed"])
+    secret = data.get("secret", "")
+    description = data.get("description", "")
+
+    if handler.job_queue:
+        try:
+            wh_id = handler.job_queue.register_webhook(
+                url=data["url"],
+                events=events,
+                secret=secret,
+                description=description,
+            )
+            handler._json_response(201, APIResponse.success({
+                "webhook_id": wh_id,
+                "url": data["url"],
+                "events": events,
+                "description": description,
+            }, "Webhook 已注册"))
+        except Exception as e:
+            handler._json_response(400, APIResponse.error(str(e)))
+    else:
+        handler._json_response(503, APIResponse.error("队列服务不可用"))
+
+
+def handle_list_webhooks(handler: APIHandler):
+    """GET /api/v2/webhooks"""
+    if handler.job_queue:
+        webhooks = handler.job_queue.list_webhooks()
+        handler._json_response(200, APIResponse.success(webhooks))
+    else:
+        handler._json_response(503, APIResponse.error("队列服务不可用"))
+
+
+def handle_delete_webhook(handler: APIHandler, webhook_id: str):
+    """DELETE /api/v2/webhooks/{webhook_id}"""
+    if handler.job_queue:
+        success = handler.job_queue.delete_webhook(webhook_id)
+        if success:
+            handler._json_response(200, APIResponse.success(message="Webhook 已删除"))
+        else:
+            handler._json_response(404, APIResponse.error("Webhook 不存在"))
+    else:
+        handler._json_response(503, APIResponse.error("队列服务不可用"))
+
+
+def handle_test_webhook(handler: APIHandler, webhook_id: str):
+    """POST /api/v2/webhooks/{webhook_id}/test — 测试触发 Webhook"""
+    if handler.job_queue:
+        wh = handler.job_queue.get_webhook(webhook_id)
+        if not wh:
+            handler._json_response(404, APIResponse.error("Webhook 不存在"))
+            return
+        try:
+            result = handler.job_queue.dispatch_webhook(
+                webhook_id,
+                event="ping",
+                payload={"test": True, "timestamp": datetime.now().isoformat()},
+            )
+            handler._json_response(200, APIResponse.success({
+                "webhook_id": webhook_id,
+                "status_code": result.get("status_code"),
+                "response": result.get("response", ""),
+                "success": result.get("success", False),
+            }))
+        except Exception as e:
+            handler._json_response(500, APIResponse.error(f"测试失败: {e}"))
+    else:
+        handler._json_response(503, APIResponse.error("队列服务不可用"))
+
+
 # ==================== 注册路由 ====================
 
 def register_routes(router: Router):
@@ -861,6 +1002,7 @@ def register_routes(router: Router):
     # 作业队列
     router.add("GET", "/api/v2/jobs", handle_list_jobs)
     router.add("POST", "/api/v2/jobs", handle_submit_job)
+    router.add("POST", "/api/v2/jobs/batch", handle_submit_batch_jobs)
     router.add("GET", "/api/v2/jobs/stats", handle_get_queue_stats)
     router.add("GET", "/api/v2/jobs/dead-letter", handle_get_dead_letter)
     router.add("GET", "/api/v2/jobs/{job_id}", handle_get_job)
@@ -889,6 +1031,12 @@ def register_routes(router: Router):
     router.add("GET", "/api/v2/orders", handle_list_orders)
     router.add("POST", "/api/v2/orders", handle_create_order)
     router.add("GET", "/api/v2/orders/{order_id}", handle_get_order)
+    
+    # Webhook 回调
+    router.add("POST", "/api/v2/webhooks", handle_register_webhook)
+    router.add("GET", "/api/v2/webhooks", handle_list_webhooks)
+    router.add("DELETE", "/api/v2/webhooks/{webhook_id}", handle_delete_webhook)
+    router.add("POST", "/api/v2/webhooks/{webhook_id}/test", handle_test_webhook)
 
 
 # 注册路由

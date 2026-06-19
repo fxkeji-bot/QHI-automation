@@ -215,7 +215,7 @@ class WebSocketServer:
     
     def __init__(
         self,
-        host: str = "0.0.0.0",
+        host: str = "127.0.0.1",
         port: int = 8765,
         log_callback: Callable = None,
     ):
@@ -223,7 +223,7 @@ class WebSocketServer:
         初始化WebSocket服务器
         
         Args:
-            host: 监听地址
+            host: 监听地址（默认127.0.0.1，仅本地访问；设为0.0.0.0可接受远程连接）
             port: 监听端口
             log_callback: 日志回调
         """

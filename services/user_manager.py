@@ -448,14 +448,16 @@ class UserManager:
         },
     }
     
-    def __init__(self, db_path: str = None, log_callback: Callable = None):
+    def __init__(self, db=None, db_path: str = None, log_callback: Callable = None):
         """
         初始化用户管理器
         
         Args:
-            db_path: 数据库路径
+            db: 共享数据库实例（优先使用）
+            db_path: 数据库路径（仅在 db=None 时使用，向后兼容）
             log_callback: 日志回调
         """
+        self._db = db
         self.db_path = db_path or str(Path.home() / ".qhi_processor" / "users.db")
         self.log = log_callback or logger.info
         
@@ -470,17 +472,18 @@ class UserManager:
         self._lock = threading.RLock()
         
         # 初始化
-        self._init_db()
+        if self._db is None:
+            self._init_db_standalone()
+        else:
+            self._init_db_shared()
         self._load_data()
         self._ensure_default_roles()
         
         self.log("用户管理器初始化完成")
     
-    def _init_db(self):
-        """初始化数据库"""
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        
-        conn = sqlite3.connect(self.db_path)
+    def _init_db_shared(self):
+        """使用共享数据库初始化表"""
+        conn = self._db.conn
         cursor = conn.cursor()
         
         # 用户表
@@ -567,11 +570,110 @@ class UserManager:
         """)
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
+    
+    def _init_db_standalone(self):
+        """独立数据库初始化（向后兼容）"""
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id TEXT PRIMARY KEY,
+                username TEXT UNIQUE,
+                email TEXT UNIQUE,
+                password_hash TEXT,
+                salt TEXT,
+                display_name TEXT,
+                avatar TEXT,
+                phone TEXT,
+                is_active INTEGER DEFAULT 1,
+                is_verified INTEGER DEFAULT 0,
+                last_login TEXT,
+                login_count INTEGER DEFAULT 0,
+                roles TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS roles (
+                role_id TEXT PRIMARY KEY,
+                name TEXT UNIQUE,
+                display_name TEXT,
+                description TEXT,
+                permissions TEXT,
+                is_system INTEGER DEFAULT 0,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                session_id TEXT PRIMARY KEY,
+                user_id TEXT,
+                token TEXT,
+                ip_address TEXT,
+                user_agent TEXT,
+                created_at TEXT,
+                expires_at TEXT,
+                is_active INTEGER DEFAULT 1
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS api_keys (
+                key_id TEXT PRIMARY KEY,
+                user_id TEXT,
+                name TEXT,
+                key_hash TEXT,
+                prefix TEXT,
+                permissions TEXT,
+                rate_limit INTEGER DEFAULT 100,
+                allowed_ips TEXT,
+                is_active INTEGER DEFAULT 1,
+                last_used TEXT,
+                usage_count INTEGER DEFAULT 0,
+                created_at TEXT,
+                expires_at TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                log_id TEXT PRIMARY KEY,
+                user_id TEXT,
+                username TEXT,
+                action TEXT,
+                resource_type TEXT,
+                resource_id TEXT,
+                details TEXT,
+                ip_address TEXT,
+                timestamp TEXT
+            )
+        """)
+        
+        conn.commit()
+        self._close_conn(conn)
+    
+    def _get_conn(self):
+        """获取数据库连接"""
+        if self._db:
+            return self._db.conn
+        return sqlite3.connect(self.db_path)
+    
+    def _close_conn(self, conn):
+        """关闭连接（仅独立模式）"""
+        if self._db is None:
+            conn.close()
     
     def _load_data(self):
         """加载数据"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         # 加载用户
@@ -606,7 +708,7 @@ class UserManager:
             api_key = APIKey(**{k: v for k, v in data.items() if k in APIKey.__dataclass_fields__})
             self._api_keys[api_key.key_id] = api_key
         
-        conn.close()
+        self._close_conn(conn)
     
     def _ensure_default_roles(self):
         """确保默认角色存在"""
@@ -632,7 +734,7 @@ class UserManager:
     
     def _save_user(self, user: User):
         """保存用户"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -649,11 +751,11 @@ class UserManager:
         ))
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
     
     def _save_role(self, role: Role):
         """保存角色"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -666,11 +768,11 @@ class UserManager:
         ))
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
     
     def _save_api_key(self, api_key: APIKey):
         """保存API密钥"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -686,11 +788,11 @@ class UserManager:
         ))
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
     
     def _save_audit_log(self, log: AuditLog):
         """保存审计日志"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -704,7 +806,7 @@ class UserManager:
         ))
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
     
     # ==================== 用户管理 ====================
     
@@ -915,11 +1017,11 @@ class UserManager:
             del self._users[user_id]
             
             # 从数据库删除
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_conn()
             cursor = conn.cursor()
             cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
             conn.commit()
-            conn.close()
+            self._close_conn(conn)
         
         self.log(f"用户已删除: {user_id}")
         return True
@@ -996,11 +1098,11 @@ class UserManager:
             del self._roles[role_id]
             
             # 从数据库删除
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_conn()
             cursor = conn.cursor()
             cursor.execute("DELETE FROM roles WHERE role_id = ?", (role_id,))
             conn.commit()
-            conn.close()
+            self._close_conn(conn)
         
         self.log(f"角色已删除: {role_id}")
         return True

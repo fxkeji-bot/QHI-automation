@@ -42,6 +42,7 @@ from core.order_repository import OrderRepository
 from core.repositories.material_repository import PaperRepository, ProcessRepository, BindingRepository
 from core.repositories.config_repository import MachineRepository, CustomerRepository
 from core.repositories.custom_repository import CustomProcessRepository, CustomBindingRepository
+from core.repositories.action_repository import ActionRepository
 
 class Database:
     """数据库管理器
@@ -94,12 +95,19 @@ class Database:
         self._custom_binding_repo = CustomBindingRepository(self)
         self._machine_repo = MachineRepository(self)
         self._customer_repo = CustomerRepository(self)
+        self._action_repo = ActionRepository(self)
     
     @property
     def conn(self):
-        """获取数据库连接（向后兼容）"""
+        """获取数据库连接（向后兼容）
+        
+        注意：池模式下请使用 _get_conn()/_release_conn() 配对调用，
+        此属性仅用于非池模式的向后兼容。
+        """
         if self.use_pool:
-            return self._pool._acquire().conn
+            # 池模式下不应通过属性获取连接（会导致泄漏）
+            # 返回直接连接引用用于只读场景
+            return self._pool._all_connections[0].conn if self._pool._all_connections else self._conn
         return self._conn
     
     @conn.setter
@@ -1031,115 +1039,33 @@ class Database:
             
             return self._safe_execute(_query, "获取监控配置失败")
 
-    # ==================== actions 表 CRUD ====================
+    # ==================== actions 表 CRUD → 委托给 ActionRepository ====================
 
     def add_action(self, name: str, action_type: str, file_path: str = '', 
                    content: str = '', params: str = '', category: str = '', 
                    is_active: int = 1) -> int:
-        """添加动作
-        
-        Args:
-            name: 动作名称
-            action_type: 动作类型 (xml/py/eal/callas)
-            file_path: 文件路径
-            content: 动作内容
-            params: 参数JSON
-            category: 分类
-            is_active: 是否激活
-        
-        Returns:
-            新动作ID
-        """
-        return self.insert(
-            "actions",
-            name=name,
-            type=action_type,
-            file_path=file_path,
-            content=content,
-            params=params,
-            category=category,
-            is_active=is_active
-        )
+        """添加动作 → 委托给 ActionRepository"""
+        return self._action_repo.add(name, action_type, file_path, content, params, category, is_active)
 
     def get_all_actions(self, action_type: str = '') -> List[Dict]:
-        """获取所有动作（可按类型过滤）
-        
-        Args:
-            action_type: 动作类型过滤
-        
-        Returns:
-            动作列表
-        """
-        with self._lock:
-            def _query():
-                cur = self.conn.cursor()
-                if action_type:
-                    cur.execute(
-                        "SELECT * FROM actions WHERE type=? AND is_active=1 ORDER BY category, name",
-                        (action_type,)
-                    )
-                else:
-                    cur.execute(
-                        "SELECT * FROM actions WHERE is_active=1 ORDER BY type, category, name"
-                    )
-                return [dict(row) for row in cur.fetchall()]
-            
-            return self._safe_execute(_query, "获取动作列表失败")
+        """获取所有动作 → 委托给 ActionRepository"""
+        return self._action_repo.all(action_type)
 
     def get_action(self, action_id: int) -> Optional[Dict]:
-        """获取单个动作
-        
-        Args:
-            action_id: 动作ID
-        
-        Returns:
-            动作字典
-        """
-        with self._lock:
-            def _query():
-                cur = self.conn.cursor()
-                cur.execute("SELECT * FROM actions WHERE id=?", (action_id,))
-                row = cur.fetchone()
-                return dict(row) if row else None
-            
-            return self._safe_execute(_query, f"获取动作 {action_id} 失败")
+        """获取单个动作 → 委托给 ActionRepository"""
+        return self._action_repo.get(action_id)
 
     def update_action(self, action_id: int, **kwargs):
-        """更新动作
-        
-        Args:
-            action_id: 动作ID
-            **kwargs: 要更新的字段
-        """
-        self.update("actions", action_id, **kwargs)
+        """更新动作 → 委托给 ActionRepository"""
+        self._action_repo.update(action_id, **kwargs)
 
     def delete_action(self, action_id: int):
-        """删除动作（软删除）
-        
-        Args:
-            action_id: 动作ID
-        """
-        self.delete("actions", action_id, soft=True)
+        """删除动作（软删除）→ 委托给 ActionRepository"""
+        self._action_repo.delete(action_id)
 
     def search_actions(self, keyword: str) -> List[Dict]:
-        """搜索动作
-        
-        Args:
-            keyword: 搜索关键词
-        
-        Returns:
-            匹配的动作列表
-        """
-        with self._lock:
-            def _query():
-                cur = self.conn.cursor()
-                cur.execute(
-                    "SELECT * FROM actions WHERE is_active=1 AND name LIKE ? ORDER BY type, name",
-                    (f"%{keyword}%",)
-                )
-                return [dict(row) for row in cur.fetchall()]
-            
-            return self._safe_execute(_query, f"搜索动作 '{keyword}' 失败")
+        """搜索动作 → 委托给 ActionRepository"""
+        return self._action_repo.search(keyword)
 
     # ===== 各表专用CRUD（保持向后兼容）=====
 

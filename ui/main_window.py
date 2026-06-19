@@ -55,6 +55,7 @@ from ui.controllers.database_maintenance_controller import DatabaseMaintenanceCo
 from ui.controllers.dialog_controller import DialogController
 from models.constants import DB_PATH, QI_EXE, METADATA_PATH
 from models.metadata import MetadataManager
+from services.job_bill_service import JobBillService
 
 # Application-specific capability flags
 try:
@@ -114,7 +115,9 @@ class MainWindow(QMainWindow):  # noqa: F405
         self.config_mgr = ConfigManager()
 
         logger.info(" [4/7] 初始化元数据管理器...")
-        self.metadata_mgr = MetadataManager(self.log)
+        self.job_bill_service = JobBillService(self.log)
+        self.metadata_mgr = MetadataManager(self.log,
+            job_bill_service=self.job_bill_service)
 
         logger.info(" [5/7] 构建用户界面...")
 
@@ -279,6 +282,7 @@ class MainWindow(QMainWindow):  # noqa: F405
             QMessageBox.information(self, "成功", "设置已保存")
             return
 
+        # 基础设置
         self.config_mgr.config['qhi_path'] = self.qhi_edit.text()
         self.config_mgr.config['rename_enabled'] = self.rename_enabled.isChecked()
         self.config_mgr.config['rename_template'] = self.rename_template.text()
@@ -297,22 +301,102 @@ class MainWindow(QMainWindow):  # noqa: F405
             style_idx = self.crop_marks_style.currentIndex()
             if style_idx >= 0:
                 self.config_mgr.config['crop_marks_style'] = self.crop_marks_style.itemData(style_idx)
+        if hasattr(self, 'crop_offset_spin') and self.crop_offset_spin:
+            self.config_mgr.config['crop_offset_mm'] = self.crop_offset_spin.value()
         if hasattr(self, 'reg_marks_enabled') and self.reg_marks_enabled:
             self.config_mgr.config['reg_marks_enabled'] = self.reg_marks_enabled.isChecked()
+        if hasattr(self, 'reg_style_combo') and self.reg_style_combo:
+            idx = self.reg_style_combo.currentIndex()
+            if idx >= 0:
+                self.config_mgr.config['reg_marks_style'] = self.reg_style_combo.itemData(idx)
+        if hasattr(self, 'reg_position_combo') and self.reg_position_combo:
+            idx = self.reg_position_combo.currentIndex()
+            if idx >= 0:
+                self.config_mgr.config['reg_marks_position'] = self.reg_position_combo.itemData(idx)
         if hasattr(self, 'trapping_enabled') and self.trapping_enabled:
             self.config_mgr.config['trapping_enabled'] = self.trapping_enabled.isChecked()
         if hasattr(self, 'trap_width_spin') and self.trap_width_spin:
             self.config_mgr.config['trap_width_mm'] = self.trap_width_spin.value()
+        if hasattr(self, 'trap_direction_combo') and self.trap_direction_combo:
+            idx = self.trap_direction_combo.currentIndex()
+            if idx >= 0:
+                self.config_mgr.config['trap_direction'] = self.trap_direction_combo.itemData(idx)
+        if hasattr(self, 'black_trap_check') and self.black_trap_check:
+            self.config_mgr.config['black_trap_enabled'] = self.black_trap_check.isChecked()
+        if hasattr(self, 'flatten_enabled') and self.flatten_enabled:
+            self.config_mgr.config['flatten_transparency'] = self.flatten_enabled.isChecked()
+        if hasattr(self, 'flatten_dpi_spin') and self.flatten_dpi_spin:
+            self.config_mgr.config['flatten_dpi'] = self.flatten_dpi_spin.value()
 
         # 预检设置
         if hasattr(self, 'ink_coverage_check') and self.ink_coverage_check:
             self.config_mgr.config['ink_coverage_check'] = self.ink_coverage_check.isChecked()
         if hasattr(self, 'max_ink_coverage_spin') and self.max_ink_coverage_spin:
             self.config_mgr.config['max_ink_coverage'] = self.max_ink_coverage_spin.value()
+        if hasattr(self, 'min_dpi_spin') and self.min_dpi_spin:
+            self.config_mgr.config['min_dpi'] = self.min_dpi_spin.value()
+        if hasattr(self, 'bleed_check') and self.bleed_check:
+            self.config_mgr.config['bleed_check'] = self.bleed_check.isChecked()
+        if hasattr(self, 'min_bleed_spin') and self.min_bleed_spin:
+            self.config_mgr.config['min_bleed_mm'] = self.min_bleed_spin.value()
         if hasattr(self, 'gwg_profile_combo') and self.gwg_profile_combo:
             gwg_idx = self.gwg_profile_combo.currentIndex()
             if gwg_idx >= 0:
                 self.config_mgr.config['gwg_profile'] = self.gwg_profile_combo.itemData(gwg_idx)
+
+        # 色彩管理
+        if hasattr(self, 'icc_profile_combo') and self.icc_profile_combo:
+            idx = self.icc_profile_combo.currentIndex()
+            if idx >= 0:
+                self.config_mgr.config['icc_profile'] = self.icc_profile_combo.itemData(idx)
+        if hasattr(self, 'convert_rgb_check') and self.convert_rgb_check:
+            self.config_mgr.config['convert_rgb_to_cmyk'] = self.convert_rgb_check.isChecked()
+        if hasattr(self, 'pantone_check') and self.pantone_check:
+            self.config_mgr.config['pantone_enabled'] = self.pantone_check.isChecked()
+
+        # PDF/X 输出
+        if hasattr(self, 'pdfx_enabled') and self.pdfx_enabled:
+            self.config_mgr.config['pdfx_enabled'] = self.pdfx_enabled.isChecked()
+        if hasattr(self, 'pdfx_standard_combo') and self.pdfx_standard_combo:
+            idx = self.pdfx_standard_combo.currentIndex()
+            if idx >= 0:
+                self.config_mgr.config['pdfx_standard'] = self.pdfx_standard_combo.itemData(idx)
+        if hasattr(self, 'pdfx_embed_fonts') and self.pdfx_embed_fonts:
+            self.config_mgr.config['pdfx_embed_fonts'] = self.pdfx_embed_fonts.isChecked()
+
+        # 输出与管线
+        if hasattr(self, 'output_dir_edit') and self.output_dir_edit:
+            self.config_mgr.config['output_dir'] = self.output_dir_edit.text()
+        if hasattr(self, 'auto_archive_check') and self.auto_archive_check:
+            self.config_mgr.config['auto_archive'] = self.auto_archive_check.isChecked()
+        if hasattr(self, 'max_workers_spin') and self.max_workers_spin:
+            self.config_mgr.config['max_workers'] = self.max_workers_spin.value()
+        if hasattr(self, 'timeout_spin') and self.timeout_spin:
+            self.config_mgr.config['timeout_per_file'] = self.timeout_spin.value()
+        if hasattr(self, 'stop_on_error_check') and self.stop_on_error_check:
+            self.config_mgr.config['stop_on_error'] = self.stop_on_error_check.isChecked()
+
+        # 服务配置
+        if hasattr(self, 'api_enabled_check') and self.api_enabled_check:
+            self.config_mgr.config.setdefault('api', {})['enabled'] = self.api_enabled_check.isChecked()
+        if hasattr(self, 'api_port_spin') and self.api_port_spin:
+            self.config_mgr.config.setdefault('api', {})['port'] = self.api_port_spin.value()
+        if hasattr(self, 'api_host_edit') and self.api_host_edit:
+            self.config_mgr.config.setdefault('api', {})['host'] = self.api_host_edit.text()
+        if hasattr(self, 'ws_enabled_check') and self.ws_enabled_check:
+            self.config_mgr.config['ws_enabled'] = self.ws_enabled_check.isChecked()
+        if hasattr(self, 'ws_port_spin') and self.ws_port_spin:
+            self.config_mgr.config['ws_port'] = self.ws_port_spin.value()
+        if hasattr(self, 'jdf_hotfolder_check') and self.jdf_hotfolder_check:
+            self.config_mgr.config['jdf_hotfolder_enabled'] = self.jdf_hotfolder_check.isChecked()
+        if hasattr(self, 'jdf_hotfolder_edit') and self.jdf_hotfolder_edit:
+            self.config_mgr.config['jdf_hotfolder_path'] = self.jdf_hotfolder_edit.text()
+        if hasattr(self, 'jmf_push_check') and self.jmf_push_check:
+            self.config_mgr.config['jmf_push_enabled'] = self.jmf_push_check.isChecked()
+        if hasattr(self, 'monitor_enabled_check') and self.monitor_enabled_check:
+            self.config_mgr.config['monitor_enabled'] = self.monitor_enabled_check.isChecked()
+        if hasattr(self, 'monitor_stability_spin') and self.monitor_stability_spin:
+            self.config_mgr.config['monitor_stability_sec'] = self.monitor_stability_spin.value()
 
         self.config_mgr.save()
         self.log("设置已保存")

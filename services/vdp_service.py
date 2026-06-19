@@ -863,7 +863,7 @@ class VDPService:
         output_path: str,
     ):
         """
-        生成输出PDF
+        生成输出PDF（使用 PyMuPDF）
         
         Args:
             template: VDP模板
@@ -871,16 +871,162 @@ class VDPService:
             resolved: 解析后的占位符
             output_path: 输出路径
         """
-        # TODO: 集成reportlab或PyFPDF生成实际PDF
-        # 目前创建一个占位文件
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(f"VDP Output Record: {record.record_id}\n")
-            for page_id, placeholders in resolved.items():
-                f.write(f"Page: {page_id}\n")
-                for ph_id, result in placeholders.items():
-                    f.write(f"  {ph_id}: {result}\n")
+        try:
+            import fitz  # PyMuPDF
+            self._generate_pdf_with_fitz(template, record, resolved, output_path)
+        except ImportError:
+            self.log("PyMuPDF 未安装，使用简易文本PDF生成")
+            self._generate_pdf_fallback(template, record, resolved, output_path)
+    
+    def _generate_pdf_with_fitz(
+        self,
+        template: VDPTemplate,
+        record: VDPRecord,
+        resolved: Dict,
+        output_path: str,
+    ):
+        """使用 PyMuPDF 生成实际 PDF"""
+        import fitz
         
-        self.log(f"已生成: {output_path}")
+        doc = fitz.open()
+        
+        for page_def in template.pages:
+            # 创建页面（A4 默认）
+            page_width = getattr(page_def, 'width_mm', 210) * 72 / 25.4
+            page_height = getattr(page_def, 'height_mm', 297) * 72 / 25.4
+            page = doc.new_page(width=page_width, height=page_height)
+            
+            # 获取该页的占位符解析结果
+            page_resolved = resolved.get(page_def.page_id, {})
+            
+            # 绘制占位符内容
+            for placeholder in page_def.placeholders:
+                value = page_resolved.get(placeholder.placeholder_id, "")
+                if not value:
+                    continue
+                
+                # 计算位置（mm -> pt）
+                x = getattr(placeholder, 'x_mm', 10) * 72 / 25.4
+                y = getattr(placeholder, 'y_mm', 10) * 72 / 25.4
+                font_size = getattr(placeholder, 'font_size', 12)
+                
+                # 插入文本
+                text_point = fitz.Point(x, y + font_size)
+                page.insert_text(
+                    text_point,
+                    str(value),
+                    fontsize=font_size,
+                    fontname="helv",  # Helvetica
+                    color=(0, 0, 0),
+                )
+        
+        # 写入元数据
+        doc.set_metadata({
+            "title": f"VDP Output - {record.record_id}",
+            "author": "QHI Processor",
+            "subject": f"可变数据印刷输出",
+            "creator": "QHI VDP Service",
+        })
+        
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        doc.save(output_path)
+        doc.close()
+        self.log(f"已生成 PDF: {output_path}")
+    
+    def _generate_pdf_fallback(
+        self,
+        template: VDPTemplate,
+        record: VDPRecord,
+        resolved: Dict,
+        output_path: str,
+    ):
+        """简易文本 PDF 生成（无 fitz 时的回退方案）"""
+        # 生成纯文本内容
+        lines = [f"VDP Output Record: {record.record_id}", ""]
+        for page_def in template.pages:
+            page_resolved = resolved.get(page_def.page_id, {})
+            lines.append(f"=== Page: {page_def.page_id} ===")
+            for placeholder in page_def.placeholders:
+                value = page_resolved.get(placeholder.placeholder_id, "")
+                lines.append(f"  {placeholder.name}: {value}")
+            lines.append("")
+        
+        # 创建最小 PDF
+        content = "\n".join(lines)
+        pdf_bytes = self._text_to_minimal_pdf(content)
+        
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, 'wb') as f:
+            f.write(pdf_bytes)
+        self.log(f"已生成 PDF (文本模式): {output_path}")
+    
+    @staticmethod
+    def _text_to_minimal_pdf(text: str) -> bytes:
+        """将纯文本转换为最小 PDF 文件"""
+        lines = text.split('\n')
+        # 简单的 PDF 结构
+        objects = []
+        obj_id = 1
+        
+        # Catalog
+        catalog_id = obj_id
+        objects.append(f"{obj_id} 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+        obj_id += 1
+        
+        # Pages
+        pages_id = obj_id
+        objects.append(f"{obj_id} 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
+        obj_id += 1
+        
+        # Page
+        page_id = obj_id
+        objects.append(f"{obj_id} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 4 0 R >> >> >>\nendobj\n")
+        obj_id += 1
+        
+        # Font
+        font_id = obj_id
+        objects.append(f"{obj_id} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
+        obj_id += 1
+        
+        # Content stream
+        stream_lines = ["BT", "/F1 10 Tf"]
+        y = 750
+        for line in lines:
+            if y < 50:
+                break
+            # 转义 PDF 特殊字符
+            safe_line = line.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
+            stream_lines.append(f"1 0 0 1 50 {y} Tm ({safe_line}) Tj")
+            y -= 14
+        stream_lines.append("ET")
+        stream_content = "\n".join(stream_lines)
+        
+        content_id = obj_id
+        objects.append(f"{obj_id} 0 obj\n<< /Length {len(stream_content)} >>\nstream\n{stream_content}\nendstream\nendobj\n")
+        
+        # 组装 PDF
+        pdf = b"%PDF-1.4\n"
+        offsets = []
+        for obj in objects:
+            offsets.append(len(pdf))
+            pdf += obj.encode('latin-1', errors='replace')
+        
+        # xref
+        xref_offset = len(pdf)
+        pdf += b"xref\n"
+        pdf += f"0 {len(objects) + 1}\n".encode()
+        pdf += b"0000000000 65535 f \n"
+        for offset in offsets:
+            pdf += f"{offset:010d} 00000 n \n".encode()
+        
+        # trailer
+        pdf += b"trailer\n"
+        pdf += f"<< /Size {len(objects) + 1} /Root {catalog_id} 0 R >>\n".encode()
+        pdf += b"startxref\n"
+        pdf += f"{xref_offset}\n".encode()
+        pdf += b"%%EOF\n"
+        
+        return pdf
     
     # ==================== 工具方法 ====================
     

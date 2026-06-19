@@ -19,6 +19,7 @@ import json
 import uuid
 import sqlite3
 import logging
+import threading
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Callable, Tuple
 from pathlib import Path
@@ -308,14 +309,16 @@ class TrendData:
 class BillingService:
     """计费服务"""
     
-    def __init__(self, db_path: str = None, log_callback: Callable = None):
+    def __init__(self, db=None, db_path: str = None, log_callback: Callable = None):
         """
         初始化计费服务
         
         Args:
-            db_path: 数据库路径
+            db: 共享数据库实例（优先使用）
+            db_path: 数据库路径（仅在 db=None 时使用，向后兼容）
             log_callback: 日志回调
         """
+        self._db = db
         self.db_path = db_path or str(Path.home() / ".qhi_processor" / "billing.db")
         self.log = log_callback or logger.info
         
@@ -328,16 +331,17 @@ class BillingService:
         self._lock = threading.RLock()
         
         # 初始化
-        self._init_db()
+        if self._db is None:
+            self._init_db_standalone()
+        else:
+            self._init_db_shared()
         self._load_data()
         
         self.log("计费服务初始化完成")
     
-    def _init_db(self):
-        """初始化数据库"""
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        
-        conn = sqlite3.connect(self.db_path)
+    def _init_db_shared(self):
+        """使用共享数据库初始化表"""
+        conn = self._db.conn
         cursor = conn.cursor()
         
         # 价格规则表
@@ -427,11 +431,113 @@ class BillingService:
         """)
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
+    
+    def _init_db_standalone(self):
+        """独立数据库初始化（向后兼容）"""
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS price_rules (
+                rule_id TEXT PRIMARY KEY,
+                name TEXT,
+                category TEXT,
+                billing_mode TEXT,
+                unit_price REAL,
+                currency TEXT DEFAULT 'CNY',
+                tiers TEXT,
+                min_quantity INTEGER,
+                max_quantity INTEGER,
+                min_charge REAL,
+                customer_discounts TEXT,
+                effective_from TEXT,
+                expires_at TEXT,
+                is_active INTEGER DEFAULT 1
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS quotes (
+                quote_id TEXT PRIMARY KEY,
+                customer_id TEXT,
+                customer_name TEXT,
+                items TEXT,
+                subtotal REAL,
+                discount_rate REAL,
+                discount_amount REAL,
+                tax_rate REAL,
+                tax_amount REAL,
+                total_amount REAL,
+                currency TEXT DEFAULT 'CNY',
+                status TEXT DEFAULT 'draft',
+                valid_until TEXT,
+                notes TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS invoices (
+                invoice_id TEXT PRIMARY KEY,
+                quote_id TEXT,
+                customer_id TEXT,
+                customer_name TEXT,
+                invoice_no TEXT,
+                invoice_date TEXT,
+                items TEXT,
+                subtotal REAL,
+                tax_rate REAL,
+                tax_amount REAL,
+                total_amount REAL,
+                currency TEXT DEFAULT 'CNY',
+                status TEXT DEFAULT 'draft',
+                payment_method TEXT,
+                payment_date TEXT,
+                payment_reference TEXT,
+                created_at TEXT
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS production_records (
+                record_id TEXT PRIMARY KEY,
+                job_id TEXT,
+                device_id TEXT,
+                order_id TEXT,
+                customer_id TEXT,
+                pages INTEGER,
+                sheets INTEGER,
+                area_sqm REAL,
+                run_time_minutes REAL,
+                paper_cost REAL,
+                ink_cost REAL,
+                labor_cost REAL,
+                total_cost REAL,
+                revenue REAL,
+                created_at TEXT
+            )
+        """)
+        
+        conn.commit()
+        self._close_conn(conn)
+    
+    def _get_conn(self):
+        """获取数据库连接"""
+        if self._db:
+            return self._db.conn
+        return sqlite3.connect(self.db_path)
+    
+    def _close_conn(self, conn):
+        """关闭连接（仅独立模式）"""
+        if self._db is None:
+            conn.close()
     
     def _load_data(self):
         """加载数据"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         # 加载价格规则
@@ -463,11 +569,11 @@ class BillingService:
             invoice = Invoice(**{k: v for k, v in data.items() if k in Invoice.__dataclass_fields__})
             self._invoices[invoice.invoice_id] = invoice
         
-        conn.close()
+        self._close_conn(conn)
     
     def _save_price_rule(self, rule: PriceRule):
         """保存价格规则"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -485,11 +591,11 @@ class BillingService:
         ))
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
     
     def _save_quote(self, quote: Quote):
         """保存报价单"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -507,11 +613,11 @@ class BillingService:
         ))
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
     
     def _save_invoice(self, invoice: Invoice):
         """保存发票"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -530,7 +636,7 @@ class BillingService:
         ))
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
     
     # ==================== 价格规则管理 ====================
     
@@ -797,7 +903,7 @@ class BillingService:
         record_id = f"REC-{uuid.uuid4().hex[:8]}"
         total_cost = paper_cost + ink_cost + labor_cost
         
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -814,7 +920,7 @@ class BillingService:
         ))
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
     
     # ==================== 统计报表 ====================
     
@@ -829,7 +935,7 @@ class BillingService:
         if not end_date:
             end_date = datetime.now().strftime("%Y-%m-%d")
         
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         # 查询统计 - 使用LIKE匹配日期前缀
@@ -865,7 +971,7 @@ class BillingService:
                 "run_time_minutes": device_row[2],
             }
         
-        conn.close()
+        self._close_conn(conn)
         
         # 构建统计对象
         stats = ProductionStats(
@@ -891,7 +997,7 @@ class BillingService:
         metric: str = "revenue",
     ) -> List[TrendData]:
         """获取每日趋势"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
@@ -922,12 +1028,12 @@ class BillingService:
                 label=metric,
             ))
         
-        conn.close()
+        self._close_conn(conn)
         return trend
     
     def get_top_customers(self, limit: int = 10) -> List[Dict]:
         """获取Top客户"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -951,12 +1057,12 @@ class BillingService:
                 "total_pages": row[3] or 0,
             })
         
-        conn.close()
+        self._close_conn(conn)
         return customers
     
     def get_top_devices(self, limit: int = 10) -> List[Dict]:
         """获取Top设备"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -979,7 +1085,7 @@ class BillingService:
                 "total_time_minutes": round(row[3] or 0, 2),
             })
         
-        conn.close()
+        self._close_conn(conn)
         return devices
     
     # ==================== 数据导出 ====================
@@ -1033,7 +1139,3 @@ class BillingService:
             self.export_to_csv(invoices, file_path)
         elif format == "json":
             self.export_to_json(invoices, file_path)
-
-
-# 避免循环导入
-import threading

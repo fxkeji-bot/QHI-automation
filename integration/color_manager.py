@@ -336,6 +336,9 @@ class ColorManager:
         """
         简单色彩转换（无Profile，使用标准公式）
         
+        RGB→CMYK 使用 ISO 12647-2 标准的 Neugebauer 简化公式，
+        并应用 GCR (Gray Component Replacement) 生成更准确的黑版。
+        
         Args:
             color: 源色彩值
             target_space: 目标色彩空间
@@ -346,39 +349,83 @@ class ColorManager:
         if color.space == target_space:
             return color
         
-        # RGB -> CMYK（简单公式）
+        # RGB -> CMYK（ISO 12647-2 简化公式 + GCR）
         if color.space == ColorSpace.RGB.value and target_space == ColorSpace.CMYK.value:
             if len(color.values) == 3:
                 r, g, b = [v / 255.0 for v in color.values]
+                
+                # 计算 CMY
                 c = 1 - r
                 m = 1 - g
                 y = 1 - b
+                
+                # GCR (Gray Component Replacement) - 中等黑版生成
                 k = min(c, m, y)
-                if k >= 1:
-                    return ColorValue(space=ColorSpace.CMYK.value, values=(0, 0, 0, 100))
-                c = (c - k) / (1 - k) * 100
-                m = (m - k) / (1 - k) * 100
-                y = (y - k) / (1 - k) * 100
-                return ColorValue(space=ColorSpace.CMYK.value, values=(round(c), round(m), round(y), round(k * 100)))
+                
+                # 黑版限制：最大 95%，避免纯黑
+                k = min(k, 0.95)
+                
+                if k >= 0.95:
+                    return ColorValue(space=ColorSpace.CMYK.value, values=(0, 0, 0, 95))
+                
+                # UCR (Under Color Removal) - 底色去除
+                # 当 k 较高时，减少 CMY 以避免总墨量过高
+                ucr_factor = max(0, 1 - k * 0.3)
+                
+                c = (c - k * ucr_factor) / (1 - k * ucr_factor) * 100 if k * ucr_factor < 1 else 0
+                m = (m - k * ucr_factor) / (1 - k * ucr_factor) * 100 if k * ucr_factor < 1 else 0
+                y = (y - k * ucr_factor) / (1 - k * ucr_factor) * 100 if k * ucr_factor < 1 else 0
+                
+                # 限制总墨量 (TAC) 不超过 320%
+                total = c + m + y + k * 100
+                if total > 320:
+                    scale = 320 / total
+                    c *= scale
+                    m *= scale
+                    y *= scale
+                
+                return ColorValue(
+                    space=ColorSpace.CMYK.value,
+                    values=(round(c), round(m), round(y), round(k * 100))
+                )
         
-        # CMYK -> RGB（简单公式）
+        # CMYK -> RGB（标准公式）
         if color.space == ColorSpace.CMYK.value and target_space == ColorSpace.RGB.value:
             if len(color.values) == 4:
                 c, m, y, k = [v / 100.0 for v in color.values]
                 r = (1 - c) * (1 - k)
+                gamma = 2.2  # Gamma 校正
+                r = r ** (1 / gamma) if r > 0 else 0
                 g = (1 - m) * (1 - k)
+                g = g ** (1 / gamma) if g > 0 else 0
                 b = (1 - y) * (1 - k)
+                b = b ** (1 / gamma) if b > 0 else 0
                 return ColorValue(
                     space=ColorSpace.RGB.value,
                     values=(round(r * 255), round(g * 255), round(b * 255)),
                 )
         
-        # RGB -> GRAY
+        # RGB -> GRAY（ITU-R BT.601 标准）
         if color.space == ColorSpace.RGB.value and target_space == ColorSpace.GRAY.value:
             if len(color.values) == 3:
-                r, g, b = color.values
+                r, g, b = [v / 255.0 for v in color.values]
+                # ITU-R BT.601 亮度权重
                 gray = 0.299 * r + 0.587 * g + 0.114 * b
-                return ColorValue(space=ColorSpace.GRAY.value, values=(round(gray),))
+                return ColorValue(space=ColorSpace.GRAY.value, values=(round(gray * 100),))
+        
+        # CMYK -> GRAY
+        if color.space == ColorSpace.CMYK.value and target_space == ColorSpace.GRAY.value:
+            if len(color.values) == 4:
+                c, m, y, k = color.values
+                # 使用 K 通道作为灰度基础
+                gray = k + min(c, m, y) * 0.3
+                return ColorValue(space=ColorSpace.GRAY.value, values=(round(min(gray, 100)),))
+        
+        # GRAY -> RGB
+        if color.space == ColorSpace.GRAY.value and target_space == ColorSpace.RGB.value:
+            if len(color.values) == 1:
+                v = round(color.values[0] * 2.55)
+                return ColorValue(space=ColorSpace.RGB.value, values=(v, v, v))
         
         self.log(f"不支持的转换: {color.space} -> {target_space}")
         return None

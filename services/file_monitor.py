@@ -435,8 +435,8 @@ class MonitorPanel(QWidget):
         try:
             db = self.main_window.db
             if db:
-                rows = db.fetch_all("SELECT code, name FROM customers ORDER BY code")
-                return [(r[0], r[1]) for r in rows] if rows else []
+                rows = db.get_all_customers()
+                return [(r.get("code", ""), r.get("name", "")) for r in rows] if rows else []
         except Exception:
             pass
         return []

@@ -299,12 +299,8 @@ class RuleEngine:
         env["machine"] = metadata.recommended_machine or ""
 
         try:
-            node = ast.parse(expr, mode="eval")
-            for sub in ast.walk(node):
-                if isinstance(sub, ast.Name) and sub.id not in env:
-                    raise ValueError(f"脚本表达式中禁止使用的名称: {sub.id}")
-            compiled = compile(node, filename="<rule_script>", mode="eval")
-            return bool(eval(compiled, env))
+            from utils.safe_eval import safe_eval_bool
+            return safe_eval_bool(expr, env)
         except Exception as e:
             raise ValueError(f"脚本表达式执行失败: {e}") from e
 

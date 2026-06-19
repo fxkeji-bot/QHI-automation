@@ -55,8 +55,8 @@ class LicenseConfig:
     APP_NAME = "QHI Processor"
     APP_VERSION = _load_app_version()
     
-    # 密钥配置（生产环境应使用RSA非对称加密）
-    LICENSE_SECRET = "QHI2026@SecureLicenseKey#Production"
+    # 密钥配置：优先从环境变量读取，不可用时自动生成（不再硬编码）
+    LICENSE_SECRET = os.environ.get("QHI_LICENSE_SECRET", "")
     
     # 试用配置
     TRIAL_DAYS = 30

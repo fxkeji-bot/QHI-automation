@@ -108,7 +108,51 @@ class ConfigManager:
                 'window_width': 1280,
                 'window_height': 800,
                 'log_font_size': 12,
-            }
+            },
+            # 印前标记
+            'crop_marks_enabled': False,
+            'crop_marks_style': 'both',
+            'crop_offset_mm': 3.0,
+            'reg_marks_enabled': False,
+            'reg_marks_style': 'crosshair',
+            'reg_marks_position': 'all',
+            # 陷印
+            'trapping_enabled': False,
+            'trap_width_mm': 0.10,
+            'trap_direction': 'auto',
+            'black_trap_enabled': False,
+            # 透明度拼合
+            'flatten_transparency': False,
+            'flatten_dpi': 300,
+            # 预检
+            'ink_coverage_check': True,
+            'max_ink_coverage': 320,
+            'min_dpi': 150,
+            'bleed_check': True,
+            'min_bleed_mm': 3.0,
+            'gwg_profile': '',
+            # 色彩管理
+            'icc_profile': 'FOGRA39',
+            'convert_rgb_to_cmyk': True,
+            'pantone_enabled': True,
+            # PDF/X 输出
+            'pdfx_enabled': False,
+            'pdfx_standard': 'PDF/X-1a',
+            'pdfx_embed_fonts': True,
+            # 管线
+            'max_workers': 4,
+            'timeout_per_file': 300,
+            'stop_on_error': False,
+            'auto_archive': True,
+            # 服务
+            'api': {'enabled': False, 'host': '127.0.0.1', 'port': 18900},
+            'ws_enabled': False,
+            'ws_port': 18901,
+            'jdf_hotfolder_enabled': False,
+            'jdf_hotfolder_path': '',
+            'jmf_push_enabled': False,
+            'monitor_enabled': False,
+            'monitor_stability_sec': 3,
         }
 
     def _validate_config(self, data: Dict) -> Tuple[bool, str]:

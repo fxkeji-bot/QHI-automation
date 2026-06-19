@@ -41,6 +41,7 @@ class _SafeEvaluator:
     @classmethod
     def eval(cls, expr: str, values: Dict[str, Any]) -> Any:
         """求值表达式。先替换 {var} 占位符，再执行安全 eval。"""
+        from utils.safe_eval import safe_eval
         if not expr:
             return None
 
@@ -52,7 +53,6 @@ class _SafeEvaluator:
             if isinstance(val, (int, float, bool)):
                 return str(val)
             s = str(val)
-            # 尝试转换为数值，否则作为字符串字面量返回
             try:
                 float(s)
                 return s
@@ -60,29 +60,7 @@ class _SafeEvaluator:
                 return repr(s)
 
         substituted = re.sub(r"\{(\w+)\}", replace_var, expr)
-
-        try:
-            node = ast.parse(substituted, mode="eval")
-        except SyntaxError as e:
-            raise ValueError(f"计算表达式语法错误: {expr}") from e
-
-        for sub in ast.walk(node):
-            if isinstance(sub, ast.Name) and sub.id not in cls._ALLOWED_NAMES:
-                raise ValueError(f"表达式中禁止使用的名称: {sub.id}")
-            if isinstance(sub, ast.Call):
-                func = sub.func
-                if isinstance(func, ast.Name) and func.id not in cls._ALLOWED_NAMES:
-                    raise ValueError(f"表达式中禁止调用的函数: {func.id}")
-
-        compiled = compile(node, filename="<variable_expr>", mode="eval")
-        env = {"__builtins__": {}}
-        env.update({name: round for name in ["ROUND", "round"]})
-        env["abs"] = abs
-        env["min"] = min
-        env["max"] = max
-        env["sum"] = sum
-        env["len"] = len
-        return eval(compiled, env)
+        return safe_eval(substituted, {"round": round, "ROUND": round})
 
 
 def _round_value(value: Any, digits: int) -> Any:

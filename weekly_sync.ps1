@@ -2,7 +2,7 @@
 # weekly_sync.ps1 - Weekly sync QHI project to Git
 # Run: Every Monday 08:00
 
-$PROJECT_DIR = "C:\Users\diy\AppData\Roaming\Tencent\Marvis\User\oAN1i2RR3FJVCxKB7RydPILg8Nrg\workspace\conv_19e8e55ce77_b1c0386becb8\output\qhi_processor"
+$PROJECT_DIR = "E:\qhi_processor"
 $LOG_DIR = "E:\Temp\bug"
 
 # Create log file

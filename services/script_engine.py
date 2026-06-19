@@ -113,17 +113,11 @@ class JavaScriptRunner:
 
     def _fallback_eval(self, code: str, context: Dict[str, Any]) -> Any:
         """受限降级：仅支持基本数学/逻辑表达式。"""
-        # 仅允许安全的表达式，禁止声明、函数等
+        from utils.safe_eval import safe_eval
         safe_code = code.strip()
         if ";" in safe_code or "function" in safe_code or "{" in safe_code:
             raise ValueError("降级模式不支持多语句或函数定义")
-        # 简单替换变量
-        for key, value in context.items():
-            safe_code = safe_code.replace(key, json.dumps(value))
-        try:
-            return eval(safe_code, {"__builtins__": {}}, {})
-        except Exception as e:
-            raise ValueError(f"降级表达式求值失败: {e}") from e
+        return safe_eval(safe_code, context)
 
     def run(self, code: str, context: Optional[Dict[str, Any]] = None) -> Any:
         """执行 JavaScript 代码并返回结果。"""
@@ -287,8 +281,9 @@ class ScriptEngine:
             elif script_type == ScriptType.VBSCRIPT:
                 result = self._vbs_runner.run(code, ctx)
             elif script_type == ScriptType.PYTHON:
-                # 受限 Python 执行：仅允许表达式
-                result = eval(code, {"__builtins__": {}}, ctx)
+                # 受限 Python 执行：使用安全表达式求值器
+                from utils.safe_eval import safe_eval
+                result = safe_eval(code, ctx)
             elif script_type == ScriptType.SHELL:
                 result = self._cmd_runner.run(code)
             else:

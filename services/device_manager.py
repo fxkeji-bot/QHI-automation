@@ -382,14 +382,16 @@ class DeviceManager:
         },
     }
     
-    def __init__(self, db_path: str = None, log_callback: Callable = None):
+    def __init__(self, db=None, db_path: str = None, log_callback: Callable = None):
         """
         初始化设备管理器
         
         Args:
-            db_path: 数据库路径
+            db: 共享数据库实例（优先使用）
+            db_path: 数据库路径（仅在 db=None 时使用，向后兼容）
             log_callback: 日志回调
         """
+        self._db = db
         self.db_path = db_path or str(Path.home() / ".qhi_processor" / "devices.db")
         self.log = log_callback or logger.info
         
@@ -405,18 +407,19 @@ class DeviceManager:
         self._alert_callbacks: List[Callable] = []
         
         # 初始化数据库
-        self._init_db()
+        if self._db is None:
+            self._init_db_standalone()
+        else:
+            self._init_db_shared()
         
         # 加载设备
         self._load_devices()
         
         self.log("设备管理器初始化完成")
     
-    def _init_db(self):
-        """初始化数据库"""
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        
-        conn = sqlite3.connect(self.db_path)
+    def _init_db_shared(self):
+        """使用共享数据库初始化表"""
+        conn = self._db.conn
         cursor = conn.cursor()
         
         # 设备表
@@ -488,11 +491,95 @@ class DeviceManager:
         """)
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
+    
+    def _init_db_standalone(self):
+        """独立数据库初始化（向后兼容）"""
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS devices (
+                device_id TEXT PRIMARY KEY,
+                name TEXT,
+                device_type TEXT,
+                manufacturer TEXT,
+                model TEXT,
+                serial_number TEXT,
+                status TEXT DEFAULT 'idle',
+                current_job_id TEXT,
+                status_message TEXT,
+                capability TEXT,
+                enabled INTEGER DEFAULT 1,
+                ip_address TEXT,
+                location TEXT,
+                created_at TEXT,
+                updated_at TEXT,
+                last_seen TEXT
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS consumables (
+                consumable_id TEXT PRIMARY KEY,
+                device_id TEXT,
+                consumable_type TEXT,
+                name TEXT,
+                current_level REAL DEFAULT 100,
+                max_level REAL DEFAULT 100,
+                warning_threshold REAL DEFAULT 20,
+                unit TEXT DEFAULT '%',
+                FOREIGN KEY (device_id) REFERENCES devices(device_id)
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS device_alerts (
+                alert_id TEXT PRIMARY KEY,
+                device_id TEXT,
+                level TEXT,
+                title TEXT,
+                message TEXT,
+                created_at TEXT,
+                resolved INTEGER DEFAULT 0,
+                resolved_at TEXT,
+                FOREIGN KEY (device_id) REFERENCES devices(device_id)
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS device_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_id TEXT,
+                timestamp TEXT,
+                total_jobs INTEGER,
+                completed_jobs INTEGER,
+                failed_jobs INTEGER,
+                total_pages INTEGER,
+                run_time REAL,
+                downtime REAL,
+                FOREIGN KEY (device_id) REFERENCES devices(device_id)
+            )
+        """)
+        
+        conn.commit()
+        self._close_conn(conn)
+    
+    def _get_conn(self):
+        """获取数据库连接"""
+        if self._db:
+            return self._db.conn
+        return sqlite3.connect(self.db_path)
+    
+    def _close_conn(self, conn):
+        """关闭连接（仅独立模式）"""
+        if self._db is None:
+            conn.close()
     
     def _load_devices(self):
         """从数据库加载设备"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         cursor.execute("SELECT * FROM devices WHERE enabled = 1")
@@ -519,11 +606,11 @@ class DeviceManager:
             device = Device(**{k: v for k, v in data.items() if k in Device.__dataclass_fields__})
             self._devices[device.device_id] = device
         
-        conn.close()
+        self._close_conn(conn)
     
     def _load_consumables(self, device_id: str) -> List[Consumable]:
         """加载设备耗材"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         cursor.execute("SELECT * FROM consumables WHERE device_id = ?", (device_id,))
@@ -535,7 +622,7 @@ class DeviceManager:
             consumable = Consumable(**{k: v for k, v in data.items() if k in Consumable.__dataclass_fields__})
             consumables.append(consumable)
         
-        conn.close()
+        self._close_conn(conn)
         return consumables
     
     # ==================== 设备管理 ====================
@@ -611,7 +698,7 @@ class DeviceManager:
     
     def _save_device(self, device: Device):
         """保存设备到数据库"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         # 更新设备
@@ -659,7 +746,7 @@ class DeviceManager:
             ))
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
     
     def get_device(self, device_id: str) -> Optional[Device]:
         """获取设备"""
@@ -938,7 +1025,7 @@ class DeviceManager:
     
     def _save_alert(self, alert: DeviceAlert):
         """保存告警"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -957,7 +1044,7 @@ class DeviceManager:
         ))
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
     
     def get_alerts(
         self,
