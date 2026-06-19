@@ -1,32 +1,33 @@
-# QHI拼版处理器 - 依赖声明
-# 最后更新: 2026-06-18
+# QHI拼版处理器 - 依赖声明（版本锁定）
+# 最后更新: 2026-06-19
+# 锁定策略: pip freeze → 精确版本号，防止供应链攻击和依赖漂移
 
 # ==================== 核心依赖 (必需) ====================
-PyQt5>=5.15
-PyPDF2>=2.0
-py7zr>=0.20
-jsonschema>=4.17
-PyMuPDF>=1.23.0          # fitz - PDF高级处理和预检
+PyQt5==5.15.11
+PyPDF2==3.0.1
+py7zr==1.1.0
+jsonschema==4.26.0
+PyMuPDF==1.27.2.3        # fitz - PDF高级处理和预检
 
 # ==================== 可选依赖 (按功能) ====================
 # 脚本引擎
-js2py>=0.74              # JavaScript脚本执行
+js2py==0.74               # JavaScript脚本执行
 
 # VDP可变数据
-openpyxl>=3.1            # Excel文件读取
+openpyxl==3.1.5           # Excel文件读取
 
 # 色彩管理
-Pillow>=10.0             # PIL - 图像处理和ICC Profile
+Pillow==11.3.0            # PIL - 图像处理和ICC Profile
 
 # 条码生成
-qrcode[pil]>=7.4        # 二维码生成
+qrcode[pil]==8.2.0       # 二维码生成 (pil子依赖自动安装)
 
-# 数据库扩展 (可选)
-# pyodbc>=5.0            # ODBC数据源连接 (Windows环境)
+# 数据库扩展 (Windows环境)
+pyodbc==5.3.0             # ODBC数据源连接
 
 # 内存监控 (开发/调试)
-# psutil>=5.9            # 进程和系统监控
+psutil==7.2.2             # 进程和系统监控
 
 # ==================== 开发依赖 ====================
-# pytest>=7.0            # 测试框架
-# memory-profiler>=0.61  # 内存分析
+pytest==8.4.2             # 测试框架
+# memory-profiler==0.61   # 内存分析 (可选)
