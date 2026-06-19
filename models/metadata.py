@@ -10,8 +10,9 @@ logger = get_logger(__name__)
 models/metadata.py - Page info and file metadata data classes.
 """
 from dataclasses import dataclass, field
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Optional
 from pathlib import Path
+import re
 
 
 @dataclass
@@ -119,6 +120,12 @@ class FileMetadata:
     page_width_mm: float = 0.0
     page_height_mm: float = 0.0
     
+    # 工单关联信息（来自远程 PPM_JobBill）
+    order_code: str = ""
+    order_requirements: str = ""   # CustomerRemark — 要求项
+    order_remark: str = ""          # Remark — 备注项
+    order_title: str = ""           # Title — 工单标题
+
     # 处理状态
     status: str = ""
     processed_at: str = ""
@@ -148,17 +155,23 @@ class MetadataManager:
     元数据以文件路径为键存储在内存中，通过 save() 持久化到 JSON 文件。
     """
 
-    def __init__(self, log_callback=None, max_cache_size=500):
+    def __init__(self, log_callback=None, max_cache_size=500,
+                 job_bill_service=None):
         """初始化元数据管理器
 
         Args:
             log_callback: 日志回调函数
             max_cache_size: 缓存最大条目数（LRU淘汰策略），默认500
+            job_bill_service: 可选，JobBillService 实例，用于异步查询工单要求项/备注项
         """
         self.log = log_callback or print
         from collections import OrderedDict
         self._metadata: OrderedDict = OrderedDict()
         self._max_cache_size = max_cache_size
+        self._job_bill_service = job_bill_service
+        self._jbs_active = False
+        if self._job_bill_service:
+            self._jbs_active = True
 
     def create(self, file_path: str, info: Dict[str, Any] = None) -> FileMetadata:
         """为指定文件创建元数据条目
@@ -210,7 +223,43 @@ class MetadataManager:
             oldest_key, _ = self._metadata.popitem(last=False)
             self.log(f"缓存已满({self._max_cache_size})，淘汰最旧条目: {Path(oldest_key).name}")
         self.log(f"已创建元数据: {path.name}")
+
+        # 异步查询远程工单信息（要求项/备注项）
+        self._try_lookup_order(key, metadata)
         return metadata
+
+    def _try_lookup_order(self, key: str, metadata: FileMetadata):
+        """从文件路径提取工单编号并异步查询远程工单信息"""
+        if not self._jbs_active:
+            return
+        try:
+            from services.job_bill_service import extract_order_code
+            order_code = extract_order_code(key)
+        except Exception:
+            return
+        if not order_code:
+            return
+
+        metadata.order_code = order_code
+        self.log(f"检测到工单: {order_code}，开始后台查询...")
+
+        def on_result(code, data):
+            meta = self._metadata.get(key)
+            if meta is None:
+                return
+            meta.order_requirements = data.get("CustomerRemark", "")
+            meta.order_remark = data.get("Remark", "")
+            meta.order_title = data.get("Title", "")
+            self.log(
+                f"工单 {code} 查询完成 | "
+                f"要求项: {len(meta.order_requirements)}字 | "
+                f"备注项: {len(meta.order_remark)}字"
+            )
+
+        def on_error(code, err):
+            self.log(f"工单 {code} 查询失败: {err}")
+
+        self._job_bill_service.query_async(order_code, on_result, on_error)
 
     def get(self, file_path: str) -> FileMetadata | None:
         """获取指定文件的元数据
