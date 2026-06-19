@@ -66,3 +66,7 @@ variables_*.evs
 workbuddy/
 .workbuddy/
 .pytest_cache/
+
+# Local config / data (不入库)
+qhi_config.json
+客户库.txt
