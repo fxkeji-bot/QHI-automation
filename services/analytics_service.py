@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
@@ -646,3 +647,264 @@ class AnalyticsService:
             "error_rate": round(error_rate, 4),
             "trend": trend,
         }
+
+    # ── 版材利用率统计 ──────────────────────────────────
+
+    # 标准纸张尺寸（mm x mm）
+    _PAPER_SIZES: Dict[str, Tuple[float, float]] = {
+        "A3": (297.0, 420.0),
+        "A4": (210.0, 297.0),
+        "A5": (148.0, 210.0),
+        "SRA3": (320.0, 450.0),
+        "330x480": (330.0, 480.0),
+        "320x464": (320.0, 464.0),
+        "320x450": (320.0, 450.0),
+        "508x762": (508.0, 762.0),   # 20x30 inch
+        "636x939": (636.0, 939.0),   # 25x37 inch
+        "781x1084": (781.0, 1084.0),  # 31x43 inch
+        "B2": (500.0, 707.0),
+        "B3": (353.0, 500.0),
+        "243x323": (243.0, 323.0),   # 菊全开
+        "243x323mm": (243.0, 323.0),
+    }
+
+    def _parse_paper_size(self, paper_str: str) -> Optional[Tuple[float, float]]:
+        """解析纸张尺寸字符串为 (宽mm, 高mm)
+
+        支持格式：
+        - 标准名称: "A3", "SRA3"
+        - 尺寸字符串: "320x450", "320 x 450"
+        - 数据库存储格式: "320x450mm"
+        """
+        if not paper_str:
+            return None
+        clean = paper_str.strip()
+        # 直接匹配标准名称
+        if clean in self._PAPER_SIZES:
+            return self._PAPER_SIZES[clean]
+        # 尝试解析 "宽x高" 格式
+        clean = clean.replace("mm", "").replace(" ", "")
+        match = re.search(r"(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)", clean)
+        if match:
+            w, h = float(match.group(1)), float(match.group(2))
+            return (min(w, h), max(w, h))  # 统一为 (短边, 长边)
+        return None
+
+    def get_plate_utilization(
+        self, days: int = 30, paper_size: str = None
+    ) -> Dict:
+        """统计版材利用率（有效印刷面积 / 版材总面积）
+
+        基于 production_logs 表的纸张尺寸、页数、拼版方案数据，
+        计算版材利用率。利用率 = 有效印刷面积 / 版材总面积。
+
+        Args:
+            days: 统计最近 N 天的数据（默认 30 天）
+            paper_size: 限定纸张尺寸（如 "A3"），None 表示全部
+
+        Returns:
+            {
+                "avg_utilization": 0.854,           # 平均利用率
+                "total_plates": 1520,                # 总版数
+                "total_plate_area": 234567.89,       # 总版材面积 (mm²)
+                "total_print_area": 200234.56,       # 总有效印刷面积 (mm²)
+                "by_paper_type": [                   # 按纸张类型分组
+                    {"paper": "SRA3", "utilization": 0.86, "plates": 300},
+                    ...
+                ],
+                "daily_trend": [                     # 每日趋势
+                    {"date": "2026-06-01", "utilization": 0.85},
+                    ...
+                ],
+                "waste_area": 24333.33,              # 浪费面积 (mm²)
+                "waste_rate": 0.104,                 # 浪费率
+            }
+        """
+        cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+
+        # 构建查询条件
+        if paper_size:
+            rows = self._query(
+                """SELECT paper_size, total_pages, imposition_layout, status,
+                          COALESCE(print_width, 0) as print_width,
+                          COALESCE(print_height, 0) as print_height,
+                          started_at
+                   FROM production_logs
+                   WHERE date(started_at) >= ? AND paper_size = ?
+                   ORDER BY started_at""",
+                (cutoff, paper_size),
+            )
+        else:
+            rows = self._query(
+                """SELECT paper_size, total_pages, imposition_layout, status,
+                          COALESCE(print_width, 0) as print_width,
+                          COALESCE(print_height, 0) as print_height,
+                          started_at
+                   FROM production_logs
+                   WHERE date(started_at) >= ?
+                   ORDER BY started_at""",
+                (cutoff,),
+            )
+
+        if not rows:
+            return {
+                "avg_utilization": 0.0,
+                "total_plates": 0,
+                "total_plate_area": 0.0,
+                "total_print_area": 0.0,
+                "by_paper_type": [],
+                "daily_trend": [],
+                "waste_area": 0.0,
+                "waste_rate": 0.0,
+            }
+
+        # 按纸张类型的聚合
+        by_type: Dict[str, Dict] = {}
+        daily_data: Dict[str, Dict] = {}
+        total_plate_area = 0.0
+        total_print_area = 0.0
+        total_plates = 0
+
+        for r in rows:
+            paper = r.get("paper_size", "") or "未知"
+            pages = self._safe_int(r.get("total_pages", 0))
+            print_w = self._safe_int(r.get("print_width", 0))
+            print_h = self._safe_int(r.get("print_height", 0))
+            started = str(r.get("started_at", ""))[:10] if r.get("started_at") else ""
+            layout_str = r.get("imposition_layout", "") or ""
+
+            dims = self._parse_paper_size(paper)
+            if dims is None:
+                continue
+            plate_w, plate_h = dims  # 版材尺寸（短边, 长边）
+
+            # 版材总面积
+            plate_area = plate_w * plate_h
+
+            # 有效印刷面积
+            if print_w > 0 and print_h > 0:
+                print_area = print_w * print_h * pages
+            elif layout_str:
+                _, layout_pages = self._parse_imposition_layout(layout_str, plate_w, plate_h)
+                # 按拼版开数估算印刷面积
+                if layout_pages > 0:
+                    per_page_area = (plate_w / ((layout_pages + 1) // 2)) * (
+                        plate_h / 2
+                    )
+                    print_area = per_page_area * pages
+                else:
+                    print_area = plate_area * 0.75  # 默认估算 75%
+            else:
+                # 无详细信息时用 75% 估算
+                print_area = plate_area * 0.75
+
+            # 纸张四周通常有 5-10mm 的非印刷区（咬口/拖梢/侧规）
+            gripper_loss = plate_w * 10.0  # 咬口损失（10mm x 版宽）
+            usable_plate = plate_area - gripper_loss
+
+            total_plate_area += plate_area
+            total_print_area += min(print_area, usable_plate)
+            total_plates += 1
+
+            # 计算该片版材的利用率
+            utilization = min(print_area, usable_plate) / plate_area if plate_area > 0 else 0.0
+
+            # 按纸张类型聚合
+            if paper not in by_type:
+                by_type[paper] = {
+                    "paper": paper,
+                    "total_plate_area": 0.0,
+                    "total_print_area": 0.0,
+                    "plates": 0,
+                }
+            by_type[paper]["total_plate_area"] += plate_area
+            by_type[paper]["total_print_area"] += min(print_area, usable_plate)
+            by_type[paper]["plates"] += 1
+
+            # 每日趋势
+            if started:
+                if started not in daily_data:
+                    daily_data[started] = {
+                        "date": started,
+                        "total_plate_area": 0.0,
+                        "total_print_area": 0.0,
+                        "plates": 0,
+                    }
+                daily_data[started]["total_plate_area"] += plate_area
+                daily_data[started]["total_print_area"] += min(print_area, usable_plate)
+                daily_data[started]["plates"] += 1
+
+        # 计算聚合利用率
+        avg_utilization = (
+            total_print_area / total_plate_area if total_plate_area > 0 else 0.0
+        )
+        waste_area = total_plate_area - total_print_area
+        waste_rate = waste_area / total_plate_area if total_plate_area > 0 else 0.0
+
+        by_type_list = []
+        for key, data in sorted(by_type.items()):
+            data["utilization"] = round(
+                data["total_print_area"] / data["total_plate_area"]
+                if data["total_plate_area"] > 0
+                else 0.0,
+                4,
+            )
+            by_type_list.append(data)
+
+        daily_trend = []
+        for date_key in sorted(daily_data.keys()):
+            d = daily_data[date_key]
+            d["utilization"] = round(
+                d["total_print_area"] / d["total_plate_area"]
+                if d["total_plate_area"] > 0
+                else 0.0,
+                4,
+            )
+            daily_trend.append(
+                {"date": d["date"], "utilization": d["utilization"]}
+            )
+
+        return {
+            "avg_utilization": round(avg_utilization, 4),
+            "total_plates": total_plates,
+            "total_plate_area": round(total_plate_area, 2),
+            "total_print_area": round(total_print_area, 2),
+            "by_paper_type": by_type_list,
+            "daily_trend": daily_trend,
+            "waste_area": round(waste_area, 2),
+            "waste_rate": round(waste_rate, 4),
+        }
+
+    def _parse_imposition_layout(
+        self, layout_str: str, plate_w: float, plate_h: float
+    ) -> Tuple[Tuple[int, int], int]:
+        """解析拼版布局字符串，返回 ((行数, 列数), 总拼数)
+
+        支持格式：
+        - "2x4": 2行4列 = 8拼
+        - "2 up": 2拼
+        - 纯数字: 总拼数
+        """
+        layout_str = layout_str.strip().lower().replace(" up", "")
+        match = re.search(r"(\d+)\s*[xX×]\s*(\d+)", layout_str)
+        if match:
+            rows, cols = int(match.group(1)), int(match.group(2))
+            return (rows, cols), rows * cols
+        # 尝试纯数字
+        match = re.search(r"(\d+)", layout_str)
+        if match:
+            total = int(match.group(1))
+            # 估算行列
+            cols = int(math.sqrt(total))
+            rows = math.ceil(total / cols)
+            return (rows, cols), total
+        return (0, 0), 0
+
+    def _safe_int(self, value) -> int:
+        """安全转换为整数"""
+        if value is None:
+            return 0
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0

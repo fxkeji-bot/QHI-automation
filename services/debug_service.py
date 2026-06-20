@@ -41,7 +41,9 @@ class DebugService:
         """调试 XSLT 转换。"""
         if not output_path:
             import tempfile
-            output_path = tempfile.mktemp(suffix=".xml")
+            # Security: 使用 mkstemp 替代已弃用的 mktemp (CVE-2008-1572)
+            fd, output_path = tempfile.mkstemp(suffix=".xml")
+            os.close(fd)  # 关闭文件描述符，仅使用路径
         return self.saxon.transform(xslt_path, xml_path, output_path, params)
 
     # ── XML 验证 ──────────────────────────────────────────────

@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 """
-services/job_bill_service.py — 远程工单查询服务
+services/job_bill_service.py — 远程工单查询服务（安全修复版）
 
 通过 WMI + PowerShell + SQL Server (SSPI) 查询 EMSXDB 中
 PPM_JobBill 表的工单信息（要求项/备注项等），异步获取不阻塞 UI。
+
+安全修复：
+1. SQL 注入防护：验证订单编号格式 + PowerShell 端参数化查询
+2. 硬编码凭据：添加警告注释，建议移至环境变量
 """
 
 import uuid
 import logging
+import re
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -21,7 +26,9 @@ logger = logging.getLogger("qhi.job_bill_service")
 # ── 配置 ──────────────────────────────────────────────
 REMOTE_HOST = "192.168.1.22"
 REMOTE_USER = "administrator"
-REMOTE_PASS = "dell-123"
+# Security: 硬编码密码 - 应通过环境变量 REMOTE_PASS 或配置文件读取
+# 示例: REMOTE_PASS = os.environ.get('REMOTE_PASS', 'default_fallback')
+REMOTE_PASS = "dell-123"  # TODO: 移至安全配置
 REMOTE_SHARE = f"\\\\{REMOTE_HOST}\\C$"
 REMOTE_CONN = r"Server=.\GT_YINTE_EMS;Database=EMSXDB;Integrated Security=SSPI;"
 
@@ -37,7 +44,6 @@ def extract_order_code(file_path: str) -> Optional[str]:
     Returns:
         工单编号（如 GD26061812945）或 None
     """
-    import re
     path_parts = file_path.replace("\\", "/").split("/")
     # 从路径深处往浅处找，优先匹配目录名
     for part in reversed(path_parts):
@@ -60,10 +66,33 @@ class JobBillQueryWorker(QThread):
     def run(self):
         if not self._order_codes:
             return
-        # 去重
+        
+        # 去重并验证订单编号格式（防止 SQL 注入）
         codes = list(dict.fromkeys(self._order_codes))
-        # 构建 IN 子句
-        placeholders = ", ".join(f"'{c}'" for c in codes)
+        
+        # Security: 严格验证所有订单编号格式 (GD + 至少10位数字)
+        valid_codes = []
+        invalid_codes = []
+        pattern = re.compile(r'^GD\d{10,}$', re.IGNORECASE)
+        
+        for c in codes:
+            if pattern.match(c):
+                valid_codes.append(c.upper())
+            else:
+                invalid_codes.append(c)
+        
+        # 报告无效的订单编号
+        if invalid_codes:
+            for code in invalid_codes:
+                self.query_error.emit(code, f"无效的工单编号格式: {code}")
+            codes = valid_codes
+        
+        if not codes:
+            return
+        
+        # Security: 构建参数化 IN 子句（防止 SQL 注入）
+        # 使用 @p0, @p1, ... 作为参数占位符
+        placeholders = ", ".join([f"@p{i}" for i in range(len(codes))])
         sql = (
             f"SELECT Code, CustomerRemark, Remark, FilePath, Title, "
             f"Acc4CustomerName, CustomerContactMan, CustomerPhone, CustomerAddress "
@@ -74,6 +103,16 @@ class JobBillQueryWorker(QThread):
         remote_ps1 = f"C:\\Windows\\Temp\\qhi_jb_{script_id}.ps1"
         remote_txt = f"C:\\Windows\\Temp\\qhi_jb_{script_id}.txt"
 
+        # Security: 构建参数化 PowerShell 脚本
+        # 为每个参数添加 SqlParameter（防止 SQL 注入）
+        param_additions = []
+        for i, code in enumerate(codes):
+            # 注意：这里 code 已经通过正则验证，可以安全插入字符串
+            param_additions.append(
+                f"$cmd.Parameters.Add((New-Object System.Data.SqlClient.SqlParameter('@p{i}', "
+                f"[System.Data.SqlDbType]::NVarChar, 50))).Value = '{code}'"
+            )
+        
         ps_script = f'''
 $c = New-Object System.Data.SqlClient.SqlConnection("{REMOTE_CONN}")
 $c.Open()
@@ -81,6 +120,8 @@ $cmd = $c.CreateCommand()
 $cmd.CommandText = @'
 {sql}
 '@
+# Security: 添加参数（防止 SQL 注入）
+{chr(10).join(param_additions)}
 $rd = $cmd.ExecuteReader()
 $sb = [System.Text.StringBuilder]::new()
 $cols = @()
@@ -104,9 +145,10 @@ $c.Close()
         import os
 
         try:
+            # Security: 使用列表参数，不拼接 shell 命令
             subprocess.run(
-                f'net use {REMOTE_SHARE} /user:{REMOTE_USER} {REMOTE_PASS}',
-                shell=True, capture_output=True, timeout=10
+                ['net', 'use', REMOTE_SHARE, '/user:' + REMOTE_USER, REMOTE_PASS],
+                shell=False, capture_output=True, timeout=10
             )
             Path(f"{REMOTE_SHARE}\\Windows\\Temp\\qhi_jb_{script_id}.ps1").write_text(
                 ps_script, encoding="utf-8"

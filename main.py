@@ -75,7 +75,7 @@ from core.config import ConfigManager
 from ui.main_window import MainWindow
 
 # 版权保护模块
-from core.license_manager import LicenseManager, LicenseStatus
+from services.license_manager import LicenseManager, LicenseStatus
 
 # ── 工具函数（必须在模块级导入块之前定义）──
 def _load_app_version() -> str:
@@ -128,14 +128,12 @@ except ImportError:
 
 #  插件管理器、API、更新器、管线（通过 _safe_import_classes 批量安全导入）
 _imports = _safe_import_classes([
-    ("services.plugin_manager", [("PluginManager", "PluginManager")]),
-    ("services.plugin_schema", [("PluginValidator", "PluginValidator")]),
+    ("core.plugin_manager", [("PluginManager", "PluginManager")]),
     ("services.api_server", [("APIServer", "APIServer")]),
     ("services.update_service", [("UpdateService", "UpdateService")]),
     ("services.processing_pipeline", [("ProcessingPipeline", "ProcessingPipeline")]),
 ])
 PluginManager = _imports["PluginManager"]
-PluginValidator = _imports["PluginValidator"]
 APIServer = _imports["APIServer"]
 UpdateService = _imports["UpdateService"]
 ProcessingPipeline = _imports["ProcessingPipeline"]
@@ -185,90 +183,8 @@ def main():
     # ===== 版权保护检查 =====
     logger.info("[版权保护] 开始授权检查")
     _license_manager = None
-    try:
-        license_mgr = LicenseManager()
-        license_status = license_mgr.status
-        
-        # 创建 QApplication 用于显示授权对话框
-        temp_app = QApplication.instance() or QApplication(sys.argv)
-        
-        if license_status == LicenseStatus.VALID:
-            days = license_mgr.days_remaining
-            logger.info(f"[版权保护] 授权有效，剩余 {days} 天")
-        elif license_status == LicenseStatus.TRIAL:
-            days = license_mgr.days_remaining
-            launches = license_mgr._trial_info.launches_remaining if license_mgr._trial_info else 0
-            logger.info(f"[版权保护] 试用期，剩余 {days} 天 / {launches} 次启动")
-            
-            # 显示试用提示
-            QMessageBox.information(
-                None,
-                "试用期提示",
-                f"您正在使用试用版本\n\n"
-                f"剩余天数: {days} 天\n"
-                f"剩余启动次数: {launches} 次\n\n"
-                f"如需正式授权，请联系管理员获取授权码。\n"
-                f"机器码: {license_mgr.machine_code[:20]}..."
-            )
-        elif license_status == LicenseStatus.EXPIRED:
-            logger.warning("[版权保护] 授权已过期")
-            QMessageBox.critical(
-                None,
-                "授权已过期",
-                f"您的授权已过期，请联系管理员续费。\n\n"
-                f"机器码: {license_mgr.machine_code}\n\n"
-                f"如需激活，请运行:\n"
-                f"python core/license_manager.py activate <授权码>"
-            )
-            sys.exit(1)
-        elif license_status == LicenseStatus.TAMPERED:
-            logger.error("[版权保护] 授权文件被篡改")
-            QMessageBox.critical(
-                None,
-                "授权异常",
-                f"授权文件可能被篡改，请重新激活。\n\n"
-                f"机器码: {license_mgr.machine_code}\n\n"
-                f"如需激活，请运行:\n"
-                f"python core/license_manager.py activate <授权码>"
-            )
-            sys.exit(1)
-        elif license_status == LicenseStatus.MACHINE_MISMATCH:
-            logger.error("[版权保护] 机器码不匹配")
-            QMessageBox.critical(
-                None,
-                "授权不匹配",
-                f"授权码与当前设备不匹配。\n\n"
-                f"当前机器码: {license_mgr.machine_code}\n\n"
-                f"请联系管理员获取对应设备的授权码。"
-            )
-            sys.exit(1)
-        else:  # INVALID
-            logger.warning("[版权保护] 未找到有效授权")
-            reply = QMessageBox.question(
-                None,
-                "未激活",
-                f"软件未激活，将进入试用模式。\n\n"
-                f"试用限制: {LicenseConfig.TRIAL_DAYS} 天 / {LicenseConfig.TRIAL_MAXLaunches} 次启动\n\n"
-                f"如需激活，请运行:\n"
-                f"python core/license_manager.py activate <授权码>\n\n"
-                f"是否继续试用？",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes
-            )
-            if reply == QMessageBox.No:
-                sys.exit(0)
-            
-            # 重新初始化以更新试用状态
-            license_mgr = LicenseManager()
-            logger.info(f"[版权保护] 进入试用模式，剩余 {license_mgr.days_remaining} 天")
-        
-        # 保存授权信息供主窗口使用
-        _license_manager = license_mgr
-        
-    except Exception as e:
-        logger.error(f"[版权保护] 授权检查异常: {e}")
-        # 授权检查失败不阻断程序（降级为试用模式）
-        _license_manager = None
+    LicenseManager.verify_on_startup()
+    _license_manager = LicenseManager()
 
     # ===== 运行时日志 - 数据库兼容性检查开始 =====
     logger.info("[运行时] 开始数据库兼容性检查")
@@ -314,12 +230,13 @@ def main():
     logger.info("[运行时] 开始初始化可扩展性组件")
     # 1. 插件管理器（必须在创建窗口前加载，以便窗口直接使用）
     plugin_mgr = None
-    if PluginManager is not None and PLUGIN_DIR.exists():
+    if PluginManager is not None:
         try:
-            plugin_mgr = PluginManager(PLUGIN_DIR)
-            plugin_mgr.discover()
-            plugin_mgr.load_all()
-            logger.info(f"插件管理器已初始化，发现 {len(plugin_mgr)} 个插件")
+            plugin_mgr = PluginManager.instance()
+            plugin_mgr.init(db=None, config=None, plugin_dir=str(PLUGIN_DIR))
+            results = plugin_mgr.scan_and_load()
+            plugin_count = sum(1 for v in results.values() if v)
+            logger.info(f"插件管理器已初始化，发现 {plugin_count} 个插件")
         except Exception as e:
             logger.warning(f"插件管理器初始化失败（非致命）: {e}")
 
@@ -462,12 +379,12 @@ def _print_startup_info(plugin_mgr=None, api_server=None, app_version="0.0.0", l
     # 授权状态
     license_status = "--"
     if license_mgr:
-        if license_mgr.status == LicenseStatus.VALID:
+        if license_mgr.status == "valid":
             license_status = f"[OK] 有效 ({license_mgr.days_remaining}天)"
-        elif license_mgr.status == LicenseStatus.TRIAL:
+        elif license_mgr.status == "trial":
             license_status = f"[试用] ({license_mgr.days_remaining}天)"
         else:
-            license_status = f"[{license_mgr.status.value}]"
+            license_status = f"[{license_mgr.status}]"
     
     logger.info("=" * 70)
     logger.info(f"  QHI 拼版处理器 v{app_version} 所有模块加载完成")

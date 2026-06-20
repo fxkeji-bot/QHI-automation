@@ -53,22 +53,46 @@ class APIConfig:
     
     @classmethod
     def get_secret_key(cls) -> str:
-        """获取API密钥，未设置环境变量时生成随机密钥并发出警告"""
+        """获取API密钥
+        
+        安全策略：
+        1. 必须通过环境变量 QHI_API_SECRET 设置
+        2. 未设置时自动生成随机密钥（仅限开发环境）
+        3. 生产环境必须设置环境变量，否则启动时发出严重警告
+        """
         if cls._cached_secret is not None:
             return cls._cached_secret
+        
         secret = os.environ.get("QHI_API_SECRET", "")
-        if not secret or secret == cls._DEFAULT_SECRET:
-            import secrets
-            generated = secrets.token_hex(32)
-            logger.warning(
-                "API密钥未设置或使用默认值！已生成临时随机密钥。"
-                "为确保生产安全，请设置环境变量 QHI_API_SECRET。"
-                "命令: set QHI_API_SECRET=your-secret-key"
+        
+        # 检查是否使用默认值（不安全）
+        if secret == cls._DEFAULT_SECRET:
+            logger.critical(
+                "安全警告：API密钥使用了默认值！"
+                "生产环境必须设置环境变量 QHI_API_SECRET。"
+                "命令: set QHI_API_SECRET=<your-random-secret>"
             )
-            if not secret:
-                secret = generated
+            # 开发环境：生成随机密钥
+            import secrets
+            secret = secrets.token_hex(32)
+            logger.warning("已生成临时随机密钥（仅限开发环境使用）")
+        
+        # 未设置时生成随机密钥
+        if not secret:
+            import secrets
+            secret = secrets.token_hex(32)
+            logger.warning(
+                "API密钥未设置！已生成临时随机密钥。"
+                "生产环境请设置: set QHI_API_SECRET=<your-random-secret>"
+            )
+        
         cls._cached_secret = secret
         return secret
+    
+    @classmethod
+    def is_production(cls) -> bool:
+        """检查是否为生产环境"""
+        return os.environ.get("QHI_ENV", "").lower() == "production"
 
 
 # ==================== JWT认证 ====================

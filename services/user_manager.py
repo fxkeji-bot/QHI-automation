@@ -326,9 +326,11 @@ class PasswordUtils:
         """
         哈希密码
         
+        优先使用 bcrypt（更安全），不可用时回退到 PBKDF2。
+        
         Args:
             password: 明文密码
-            salt: 盐值（可选）
+            salt: 盐值（bcrypt模式下忽略，PBKDF2模式下使用）
             
         Returns:
             (password_hash, salt)
@@ -336,24 +338,50 @@ class PasswordUtils:
         if not salt:
             salt = secrets.token_hex(16)
         
-        # 使用PBKDF2哈希
+        # 尝试使用 bcrypt（更安全）
+        try:
+            import bcrypt
+            password_bytes = password.encode('utf-8')
+            # bcrypt 自动生成随机 salt
+            hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt(rounds=12))
+            return hashed.decode('utf-8'), salt
+        except ImportError:
+            pass
+        
+        # 回退到 PBKDF2（OWASP 2023 推荐迭代次数 600000）
         key = hashlib.pbkdf2_hmac(
             'sha256',
             password.encode('utf-8'),
             salt.encode('utf-8'),
-            100000,  # 迭代次数
+            600000,
         )
         
         return key.hex(), salt
     
     @staticmethod
     def verify_password(password: str, password_hash: str, salt: str) -> bool:
-        """验证密码"""
+        """验证密码
+        
+        自动检测哈希格式：bcrypt 或 PBKDF2
+        """
+        # 尝试 bcrypt 验证
+        try:
+            import bcrypt
+            if password_hash.startswith('$2'):
+                # bcrypt 哈希格式以 $2 开头
+                return bcrypt.checkpw(
+                    password.encode('utf-8'),
+                    password_hash.encode('utf-8')
+                )
+        except ImportError:
+            pass
+        
+        # PBKDF2 验证
         key = hashlib.pbkdf2_hmac(
             'sha256',
             password.encode('utf-8'),
             salt.encode('utf-8'),
-            100000,
+            600000,
         )
         return key.hex() == password_hash
     

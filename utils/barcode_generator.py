@@ -229,38 +229,48 @@ class BarcodeGenerator:
                             width: int, height: int, show_text: bool) -> Optional[bytes]:
         """ZINT 条码生成降级。"""
         import tempfile
+        import os
         if output_path:
             self._zint.generate(data, barcode_type, output_path, width, height, show_text)
             return None
-        tmp_path = tempfile.mktemp(suffix=".png")
-        result = self._zint.generate(data, barcode_type, tmp_path, width, height, show_text)
-        if not result.get("success"):
-            raise RuntimeError(f"ZINT 生成失败: {result.get('error')}")
-        with open(tmp_path, "rb") as f:
-            buf = f.read()
+        # Security: 使用 mkstemp 替代已弃用的 mktemp
+        fd, tmp_path = tempfile.mkstemp(suffix=".png")
+        os.close(fd)  # 关闭文件描述符，仅使用路径
         try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        return buf
+            result = self._zint.generate(data, barcode_type, tmp_path, width, height, show_text)
+            if not result.get("success"):
+                raise RuntimeError(f"ZINT 生成失败: {result.get('error')}")
+            with open(tmp_path, "rb") as f:
+                buf = f.read()
+            return buf
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
     def _generate_qrcode_with_zint(self, data: str, output_path: Optional[str], size: int) -> Optional[bytes]:
         """ZINT 二维码生成降级。"""
         import tempfile
+        import os
         if output_path:
             self._zint.generate_qrcode(data, output_path, size)
             return None
-        tmp_path = tempfile.mktemp(suffix=".png")
-        result = self._zint.generate_qrcode(data, tmp_path, size)
-        if not result.get("success"):
-            raise RuntimeError(f"ZINT 生成失败: {result.get('error')}")
-        with open(tmp_path, "rb") as f:
-            buf = f.read()
+        # Security: 使用 mkstemp 替代已弃用的 mktemp
+        fd, tmp_path = tempfile.mkstemp(suffix=".png")
+        os.close(fd)  # 关闭文件描述符，仅使用路径
         try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        return buf
+            result = self._zint.generate_qrcode(data, tmp_path, size)
+            if not result.get("success"):
+                raise RuntimeError(f"ZINT 生成失败: {result.get('error')}")
+            with open(tmp_path, "rb") as f:
+                buf = f.read()
+            return buf
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
     def generate_qrcode_image(
         self,

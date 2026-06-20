@@ -9,6 +9,8 @@ FIXES APPLIED:
 import os, re, shutil, subprocess, zipfile, tarfile
 from typing import Tuple, Optional, Callable
 from pathlib import Path
+import logging
+logger = logging.getLogger(__name__)
 
 try:
     import py7zr
@@ -273,10 +275,17 @@ class ArchiveExtractor:
                         except Exception:
                             fname = member.filename
                     
-                    target = Path(out_dir) / fname
+                    # 防止路径遍历攻击 - 安全处理文件名
+                    # 仅使用文件名的最后一部分（去除目录遍历）
+                    safe_name = Path(fname).name
+                    target = Path(out_dir) / safe_name
                     
-                    # 防止路径遍历攻击
-                    target = Path(out_dir) / Path(fname).name if '..' in fname else target
+                    # 验证目标路径是否在允许的输出目录内
+                    target = target.resolve()
+                    out_dir_resolved = Path(out_dir).resolve()
+                    if not str(target).startswith(str(out_dir_resolved)):
+                        logger.warning(f"检测到路径遍历攻击尝试: {fname}")
+                        continue
                     
                     if member.is_dir():
                         target.mkdir(parents=True, exist_ok=True)

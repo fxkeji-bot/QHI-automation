@@ -15,7 +15,7 @@ services/update_service.py — 自动更新服务
   - 后台线程执行，不阻塞主 UI
 """
 
-import sys, os, json, hashlib, tempfile, shutil, subprocess
+import sys, os, json, hashlib, tempfile, shutil, subprocess, socket
 from pathlib import Path
 from typing import Optional, Dict, Callable, Tuple
 from dataclasses import dataclass
@@ -172,6 +172,10 @@ class UpdateService(QObject):
             return latest
 
         except URLError as e:
+            # DNS 解析失败（Errno 11002 / socket.gaierror）静默处理
+            if isinstance(e.reason, socket.gaierror):
+                self._log("更新服务器不可达，跳过检查")
+                return None
             msg = f"更新检查失败: {e}"
             self._log(msg)
             self.error_occurred.emit(msg)

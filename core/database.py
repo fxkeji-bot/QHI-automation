@@ -604,6 +604,14 @@ class Database:
         'INTEGER', 'INTEGER DEFAULT', 'INTEGER NOT NULL',
         'REAL', 'REAL DEFAULT', 'REAL NOT NULL',
         'DATE', 'DATE DEFAULT',
+        "TEXT DEFAULT '待处理'",
+        "TEXT DEFAULT '审核中'",
+        "TEXT DEFAULT '已排产'",
+        "TEXT DEFAULT '生产中'",
+        "TEXT DEFAULT '品检中'",
+        "TEXT DEFAULT '已完成'",
+        "TEXT DEFAULT '已发货'",
+        "TEXT DEFAULT '已取消'",
     })
 
     def _add_column_if_missing(self, cur, table: str, column: str, col_type: str):
