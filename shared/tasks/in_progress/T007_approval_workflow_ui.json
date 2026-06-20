@@ -1,0 +1,13 @@
+{
+  "task_id": "T007",
+  "task_name": "审批工作流UI",
+  "type": "ui_dev",
+  "priority": "P1",
+  "assigned_to": "qorkbuddy",
+  "status": "in_progress",
+  "progress": 0,
+  "created_at": "2026-06-20T18:05:00",
+  "started_at": "2026-06-20T19:00:00",
+  "assigned_by": "smart_scheduler",
+  "description": "开发审批工作流界面，支持批准/驳回/修改操作"
+}

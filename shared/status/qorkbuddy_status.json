@@ -2,15 +2,16 @@
   "agent": "qorkbuddy",
   "role": "UI开发、界面优化、用户体验",
   "status": "idle",
-  "current_task": "T006",
-  "progress": 100,
-  "last_update": "2026-06-20T18:20:00",
-  "files_modified": [],
+  "current_task": null,
+  "progress": 0,
+  "last_update": "2026-06-20T19:10:00",
+  "files_modified": ["ui/widgets/approval_panel.py"],
   "issues_found": [],
-  "next_tasks": ["T007", "T008"],
+  "next_tasks": ["T008"],
   "completed_today": [
     "耗材管理面板",
     "工作单模版",
-    "小票打印"
+    "小票打印",
+    "审批工作流UI"
   ]
 }
