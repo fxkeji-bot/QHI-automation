@@ -241,6 +241,15 @@ class MainWindow(QMainWindow):  # noqa: F405
         except Exception as e:
             logger.warning(f"热文件夹监控加载失败: {e}")
 
+        # Web监控面板
+        try:
+            from services.web_monitor import WebMonitor
+            self.web_monitor = WebMonitor(self.hot_folder_service, port=8080)
+            self.web_monitor.start()
+            logger.info("Web监控面板已启动: http://127.0.0.1:8080")
+        except Exception as e:
+            logger.warning(f"Web监控面板加载失败: {e}")
+
         # 实时看板
         self.dashboard = DashboardWidget()
         self.dashboard.pause_requested.connect(self._on_dashboard_pause)
