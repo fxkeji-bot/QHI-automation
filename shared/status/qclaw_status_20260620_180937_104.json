@@ -1,0 +1,10 @@
+{
+  "agent": "qclaw",
+  "status": "idle",
+  "current_task": null,
+  "progress": 0,
+  "last_update": "2026-06-20T18:00:00",
+  "files_modified": [],
+  "issues_found": [],
+  "next_tasks": ["p2_data_dictionary"]
+}

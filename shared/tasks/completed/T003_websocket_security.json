@@ -1,0 +1,15 @@
+{
+  "task_id": "T003",
+  "task_name": "WebSocket安全加固",
+  "type": "security",
+  "priority": "P1",
+  "assigned_to": "marvis",
+  "status": "completed",
+  "progress": 100,
+  "created_at": "2026-06-20T18:05:00",
+  "started_at": "2026-06-20T18:10:00",
+  "completed_at": "2026-06-20T18:15:00",
+  "assigned_by": "smart_scheduler",
+  "description": "WebSocket服务安全加固，添加认证和加密",
+  "result": "WebSocket安全特性已验证：拒绝0.0.0.0绑定、Token认证、Origin验证、消息大小限制、速率限制"
+}

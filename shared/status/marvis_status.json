@@ -4,14 +4,15 @@
   "status": "idle",
   "current_task": null,
   "progress": 0,
-  "last_update": "2026-06-20T17:57:00",
+  "last_update": "2026-06-20T18:15:00",
   "files_modified": [],
   "issues_found": [],
-  "next_tasks": [],
+  "next_tasks": ["T004", "T010"],
   "completed_today": [
     "安全漏洞修复",
     "并发测试修复",
     "预检模块语法修复",
-    "ERP同步服务开发"
+    "ERP同步服务开发",
+    "WebSocket安全加固"
   ]
 }
