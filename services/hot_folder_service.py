@@ -81,6 +81,15 @@ class HotFolderService:
         # 回调
         self._on_file_found: Optional[Callable] = None
         self._on_job_completed: Optional[Callable] = None
+        self._on_status_update: Optional[Callable] = None
+        
+        # 统计
+        self._stats = {
+            "total_scanned": 0,
+            "total_processed": 0,
+            "total_failed": 0,
+            "last_scan_time": None,
+        }
         
         self.log("热文件夹监控服务初始化完成")
     
@@ -127,6 +136,12 @@ class HotFolderService:
         if self._monitor_thread:
             self._monitor_thread.join(timeout=5)
         self.log("热文件夹监控已停止")
+    
+    def set_callbacks(self, on_file_found: Callable = None, on_job_completed: Callable = None, on_status_update: Callable = None):
+        """设置回调函数"""
+        self._on_file_found = on_file_found
+        self._on_job_completed = on_job_completed
+        self._on_status_update = on_status_update
     
     def _monitor_loop(self):
         """监控循环"""
@@ -180,6 +195,15 @@ class HotFolderService:
         
         # 发现新文件
         self.log(f"发现新文件: {pdf_file.name}")
+        
+        # 更新统计
+        with self._lock:
+            self._stats["total_scanned"] += 1
+            self._stats["last_scan_time"] = datetime.now().isoformat()
+        
+        # 触发文件发现回调
+        if self._on_file_found:
+            self._on_file_found(pdf_file, config)
         
         # 自动选择打印机（如果启用）
         printer_ip = config.printer_ip
@@ -310,6 +334,9 @@ class HotFolderService:
         """提交打印作业（带重试）"""
         with self._lock:
             job.status = "printing"
+            self._stats["total_processed"] += 1
+            if self._on_status_update:
+                self._on_status_update(job)
         
         # 复制文件到打印机热文件夹（带重试）
         if job.printer_ip:
@@ -339,6 +366,8 @@ class HotFolderService:
                         # 触发回调
                         if self._on_job_completed:
                             self._on_job_completed(job)
+                        if self._on_status_update:
+                            self._on_status_update(job)
                         return
                         
                     except Exception as e:
@@ -351,7 +380,10 @@ class HotFolderService:
                 with self._lock:
                     job.status = "failed"
                     job.error = f"提交失败，已重试{job.max_retries}次"
+                    self._stats["total_failed"] += 1
                 self.log(f"作业提交最终失败: {job.job_id}")
+                if self._on_status_update:
+                    self._on_status_update(job)
     
     def print_test_page(self, printer_ip: str) -> bool:
         """打印测试样张"""
@@ -470,6 +502,10 @@ startxref
                 "failed": sum(1 for j in jobs if j.status == "failed"),
                 "monitors": len(self._monitors),
                 "running": self._running,
+                "total_scanned": self._stats["total_scanned"],
+                "total_processed": self._stats["total_processed"],
+                "total_failed": self._stats["total_failed"],
+                "last_scan_time": self._stats["last_scan_time"],
             }
     
     def get_printer_status(self) -> List[Dict]:
