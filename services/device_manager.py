@@ -841,6 +841,83 @@ class DeviceManager:
             self._save_device(device)
             return True
     
+    def match_device(
+        self,
+        paper_width_mm: float,
+        paper_height_mm: float,
+        device_type: str = None,
+        color_mode: str = "CMYK",
+    ) -> List[Dict]:
+        """
+        根据纸张尺寸匹配合适的设备
+        
+        Args:
+            paper_width_mm: 纸张宽度 (mm)
+            paper_height_mm: 纸张高度 (mm)
+            device_type: 设备类型过滤 (可选)
+            color_mode: 颜色模式
+            
+        Returns:
+            匹配的设备列表，按适合度排序
+        """
+        results = []
+        
+        for device in self._devices.values():
+            if not device.enabled:
+                continue
+            
+            if device_type and device.device_type != device_type:
+                continue
+            
+            cap = device.capability
+            
+            # 检查纸张尺寸是否在设备支持范围内
+            fits_width = paper_width_mm <= cap.max_paper_width
+            fits_height = paper_height_mm <= cap.max_paper_height
+            
+            # 也检查旋转后是否适合
+            fits_rotated = paper_height_mm <= cap.max_paper_width and paper_width_mm <= cap.max_paper_height
+            
+            if fits_width and fits_height:
+                # 计算适合度分数 (0-100)
+                area利用率 = (paper_width_mm * paper_height_mm) / (cap.max_paper_width * cap.max_paper_height)
+                score = min(100, area利用率 * 100)
+                
+                results.append({
+                    "device_id": device.device_id,
+                    "device_name": device.name,
+                    "device_type": device.device_type,
+                    "score": round(score, 1),
+                    "fits_normal": True,
+                    "fits_rotated": fits_rotated,
+                    "max_width": cap.max_paper_width,
+                    "max_height": cap.max_paper_height,
+                    "print_speed": cap.max_print_speed,
+                    "duplex": cap.duplex,
+                })
+            elif fits_rotated:
+                # 旋转后适合
+                area利用率 = (paper_width_mm * paper_height_mm) / (cap.max_paper_width * cap.max_paper_height)
+                score = min(100, area利用率 * 100) * 0.9  # 旋转扣10%分
+                
+                results.append({
+                    "device_id": device.device_id,
+                    "device_name": device.name,
+                    "device_type": device.device_type,
+                    "score": round(score, 1),
+                    "fits_normal": False,
+                    "fits_rotated": True,
+                    "max_width": cap.max_paper_width,
+                    "max_height": cap.max_paper_height,
+                    "print_speed": cap.max_print_speed,
+                    "duplex": cap.duplex,
+                })
+        
+        # 按分数排序
+        results.sort(key=lambda x: x["score"], reverse=True)
+        
+        return results
+    
     # ==================== 耗材管理 ====================
     
     def update_consumable_level(
