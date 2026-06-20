@@ -251,6 +251,14 @@ class MainWindow(QMainWindow):  # noqa: F405
         except Exception as e:
             logger.warning(f"打印管理Tab加载失败: {e}")
 
+        # 小票系统集成
+        try:
+            from services.receipt_integration import ReceiptIntegration
+            self.receipt_integration = ReceiptIntegration(self.hot_folder_service)
+            logger.info("小票系统已集成")
+        except Exception as e:
+            logger.warning(f"小票系统集成失败: {e}")
+
         # Web监控面板
         try:
             from services.web_monitor import WebMonitor
