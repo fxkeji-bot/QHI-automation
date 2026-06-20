@@ -1,0 +1,150 @@
+# QHI拼版处理器 — 翻译模板 (POT)
+# Copyright (C) 2026 QHI Team
+# This file is distributed under the same license as the QHI project.
+# FIRST AUTHOR <qhi@example.com>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: QHI拼版处理器 v1.3.0\n"
+"Report-Msgid-Bugs-To: qhi@example.com\n"
+"POT-Creation-Date: 2026-06-20 12:00+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ui/main_window.py
+msgid "QHI拼版处理器"
+msgstr ""
+
+#: ui/main_window.py
+msgid "文件管理"
+msgstr ""
+
+#: ui/main_window.py
+msgid "规则配置"
+msgstr ""
+
+#: ui/main_window.py
+msgid "处理监控"
+msgstr ""
+
+#: ui/main_window.py
+msgid "数据分析"
+msgstr ""
+
+#: ui/main_window.py
+msgid "系统设置"
+msgstr ""
+
+#: ui/dialogs/quoting_dialog.py
+msgid "智能报价"
+msgstr ""
+
+#: ui/dialogs/quoting_dialog.py
+msgid "报价参数"
+msgstr ""
+
+#: ui/dialogs/quoting_dialog.py
+msgid "纸张"
+msgstr ""
+
+#: ui/dialogs/quoting_dialog.py
+msgid "页面尺寸"
+msgstr ""
+
+#: ui/dialogs/quoting_dialog.py
+msgid "数量"
+msgstr ""
+
+#: ui/dialogs/quoting_dialog.py
+msgid "工艺"
+msgstr ""
+
+#: ui/dialogs/quoting_dialog.py
+msgid "客户"
+msgstr ""
+
+#: ui/dialogs/quoting_dialog.py
+msgid "计算报价"
+msgstr ""
+
+#: ui/dialogs/quoting_dialog.py
+msgid "成本明细"
+msgstr ""
+
+#: ui/dialogs/quoting_dialog.py
+msgid "设备推荐"
+msgstr ""
+
+#: ui/dialogs/quoting_dialog.py
+msgid "总报价"
+msgstr ""
+
+#: ui/dialogs/quoting_dialog.py
+msgid "保存为订单"
+msgstr ""
+
+#: ui/dialogs/batch_rename_dialog.py
+msgid "批量重命名"
+msgstr ""
+
+#: ui/dialogs/batch_rename_dialog.py
+msgid "命名模板"
+msgstr ""
+
+#: ui/dialogs/batch_rename_dialog.py
+msgid "选择模板"
+msgstr ""
+
+#: ui/dialogs/batch_rename_dialog.py
+msgid "模板字符串"
+msgstr ""
+
+#: ui/dialogs/batch_rename_dialog.py
+msgid "重命名预览"
+msgstr ""
+
+#: ui/dialogs/batch_rename_dialog.py
+msgid "执行重命名"
+msgstr ""
+
+#: ui/controllers/context_menu_controller.py
+msgid "添加文件"
+msgstr ""
+
+#: ui/controllers/context_menu_controller.py
+msgid "添加文件夹"
+msgstr ""
+
+#: ui/controllers/context_menu_controller.py
+msgid "即时处理选中"
+msgstr ""
+
+#: ui/controllers/context_menu_controller.py
+msgid "批量重命名..."
+msgstr ""
+
+#: ui/controllers/context_menu_controller.py
+msgid "智能报价..."
+msgstr ""
+
+#: ui/controllers/context_menu_controller.py
+msgid "打开文件所在目录"
+msgstr ""
+
+#: ui/controllers/context_menu_controller.py
+msgid "查看文件信息"
+msgstr ""
+
+#: ui/controllers/context_menu_controller.py
+msgid "移除选中"
+msgstr ""
+
+#: ui/controllers/context_menu_controller.py
+msgid "清空列表"
+msgstr ""
