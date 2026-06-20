@@ -1,0 +1,15 @@
+{
+  "task_id": "T009",
+  "task_name": "数据库索引优化",
+  "type": "database",
+  "priority": "P2",
+  "assigned_to": "qclaw",
+  "status": "completed",
+  "progress": 100,
+  "created_at": "2026-06-20T18:05:00",
+  "started_at": "2026-06-20T19:30:00",
+  "completed_at": "2026-06-20T19:35:00",
+  "assigned_by": "smart_scheduler",
+  "description": "优化数据库索引，提升查询性能",
+  "result": "新增6个性能索引，覆盖订单/客户/纸张/工艺/耗材表"
+}

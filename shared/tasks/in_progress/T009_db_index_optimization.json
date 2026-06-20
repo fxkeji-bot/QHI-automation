@@ -1,0 +1,13 @@
+{
+  "task_id": "T009",
+  "task_name": "数据库索引优化",
+  "type": "database",
+  "priority": "P2",
+  "assigned_to": "qclaw",
+  "status": "in_progress",
+  "progress": 0,
+  "created_at": "2026-06-20T18:05:00",
+  "started_at": "2026-06-20T19:30:00",
+  "assigned_by": "smart_scheduler",
+  "description": "优化数据库索引，提升查询性能"
+}
