@@ -1,0 +1,11 @@
+{
+  "last_sync": "2026-06-20T23:57:29.998027",
+  "sync_count": 1,
+  "last_result": {
+    "timestamp": "2026-06-20T23:57:24.873819",
+    "success": true,
+    "customers_synced": 0,
+    "orders_synced": 0,
+    "errors": []
+  }
+}

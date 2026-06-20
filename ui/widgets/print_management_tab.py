@@ -16,6 +16,7 @@ from __future__ import annotations
 import sys
 import socket
 import threading
+import webbrowser
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, List
@@ -405,15 +406,17 @@ class PrintManagementTab(QWidget):
     def _refresh_printers(self):
         if not self._hot_folder_service:
             return
-        try:
-            printers = self._hot_folder_service.get_printer_status()
-            for card in self._printer_cards:
-                for p in printers:
-                    if p["ip"] == card.printer["ip"]:
-                        card.update_status(p.get("status", "unknown"))
-                        break
-        except Exception:
-            pass
+        def _check():
+            try:
+                printers = self._hot_folder_service.get_printer_status()
+                for card in self._printer_cards:
+                    for p in printers:
+                        if p["ip"] == card.printer["ip"]:
+                            card.update_status(p.get("status", "unknown"))
+                            break
+            except Exception:
+                pass
+        threading.Thread(target=_check, daemon=True).start()
 
     def _refresh_queue(self):
         if not self._hot_folder_service:
@@ -514,7 +517,6 @@ class PrintManagementTab(QWidget):
         self.status_message.emit(f"测试样张已发送到 {online[0]['name']}")
 
     def _open_web_monitor(self):
-        import webbrowser
         webbrowser.open("http://127.0.0.1:8080")
 
     def _new_order_pipeline(self):

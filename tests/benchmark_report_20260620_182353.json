@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-06-20T18:23:48.523869",
+  "benchmarks": {
+    "concurrency_thread_pool": {
+      "avg_ms": 380.29,
+      "workers": 4,
+      "tasks": 100,
+      "iterations": 10
+    },
+    "file_io": {
+      "write_avg_ms": 0.7396,
+      "read_avg_ms": 0.1473,
+      "file_size_kb": 0,
+      "iterations": 100
+    },
+    "json_large_payload": {
+      "avg_ms": 9.04,
+      "size_mb": 1.2,
+      "iterations": 10
+    },
+    "json_serialization": {
+      "avg_ms": 0.0755,
+      "min_ms": 0.0663,
+      "max_ms": 0.3951,
+      "iterations": 1000
+    },
+    "memory_allocation": {
+      "avg_ms": 0.025214,
+      "size_kb": 1,
+      "iterations": 1000
+    },
+    "memory_large": {
+      "total_mb": 13.45,
+      "objects": 100000
+    },
+    "module_import": {
+      "avg_ms": 0.0008,
+      "iterations": 10
+    },
+    "string_processing": {
+      "avg_ms": 0.076868,
+      "iterations": 10000
+    }
+  },
+  "regressions": [
+    {
+      "test": "concurrency_thread_pool",
+      "baseline_ms": 44.42,
+      "current_ms": 380.29,
+      "ratio": 8.56,
+      "threshold": 1.2
+    },
+    {
+      "test": "json_large_payload",
+      "baseline_ms": 6.44,
+      "current_ms": 9.04,
+      "ratio": 1.4,
+      "threshold": 1.2
+    }
+  ]
+}

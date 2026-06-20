@@ -1,0 +1,31 @@
+{
+  "receipt": {
+    "printer_name": "XP-80",
+    "printer_type": "network_shared",
+    "host": "Asus121",
+    "system_path": "\\\\Asus121\\XP-80",
+    "paper_type": "thermal",
+    "paper_width_mm": 80,
+    "default": true,
+    "description": "热敏纸小票输出专用",
+    "dpi": 203,
+    "chars_per_line": 48,
+    "fallback_pdf_dir": "E:\\qhi_processor\\output\\receipts"
+  },
+  "bizhub_287": {
+    "printer_type": "network_raw",
+    "host": "192.168.1.32",
+    "port": 9100,
+    "protocol": "raw",
+    "snmp_community": "public",
+    "snmp_device_index": 1,
+    "queue_name": "KONICA MINOLTA bizhub 287 PCL",
+    "lpr_fallback_port": 515,
+    "lpr_queue": "PRINT",
+    "hotfolder_fallback": "\\\\192.168.1.32\\bizhub\\Hotfolder\\QHI",
+    "brand": "Konica Minolta",
+    "model": "bizhub 287"
+  },
+  "last_updated": "2026-06-20T21:30:00",
+  "version": "2.0.0"
+}

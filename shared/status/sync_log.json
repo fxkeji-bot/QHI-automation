@@ -1,38 +1,228 @@
 {
-  "timestamp": "2026-06-20T18:15:00",
-  "agent": "qclaw",
-  "summary": "完成 T001 数据字典标准化，T005 ERP实时同步服务开发中",
-  "completed": [
+  "log": [
     {
-      "task_id": "T001",
-      "task_name": "数据字典标准化",
-      "status": "completed",
-      "details": "验证 models/data_dictionary.py 已对齐 GWG 2025 规范"
-    }
-  ],
-  "in_progress": [
+      "time": "2026-06-20T21:25:31.817619",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 3,
+      "error": ""
+    },
     {
-      "task_id": "T005",
-      "task_name": "ERP实时同步",
-      "status": "in_progress",
-      "progress": 45,
-      "files_created": [
-        "services/erp_bridge.py (17KB)",
-        "services/erp_sync_api_server.py (11KB)"
-      ],
-      "remaining_steps": [
-        "在印特服务器部署 REST API 服务",
-        "配置 Windows 计划任务自动启动",
-        "测试双向同步功能",
-        "编写部署文档"
-      ]
-    }
-  ],
-  "next_up": [
+      "time": "2026-06-20T21:30:01.852729",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
     {
-      "task_id": "T009",
-      "name": "数据库优化",
-      "priority": "P2"
+      "time": "2026-06-20T21:35:00.862760",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T21:40:00.963894",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T21:45:00.898727",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T21:50:00.927103",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T21:55:01.680157",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T22:00:00.898848",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T22:05:00.889686",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T22:10:00.902173",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T22:15:00.959238",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T22:20:00.958938",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T22:25:00.973889",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 1,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T22:30:01.016271",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T22:35:01.025034",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T22:40:01.009325",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T22:45:01.018276",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T22:50:01.040497",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T22:55:01.077779",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T23:00:01.067647",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T23:05:01.037865",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T23:10:01.078172",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T23:15:01.261147",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T23:20:01.134342",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T23:25:01.062472",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T23:30:01.049759",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 3,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T23:35:01.064445",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T23:40:01.070270",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T23:45:01.770727",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T23:50:01.053996",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-20T23:55:01.051080",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T00:00:01.164288",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 3,
+      "error": ""
     }
   ]
 }

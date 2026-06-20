@@ -165,6 +165,30 @@ class MainWindow(QMainWindow):  # noqa: F405
         logger.info("主窗口初始化完成")
         logger.info("=" * 50)
 
+    def _start_hot_folder(self):
+        """延迟启动热文件夹监控（避免阻塞UI）"""
+        try:
+            self.hot_folder_service.add_monitor(
+                r"\\Server2\客户文件2\out",
+                printer_ip="192.168.1.210"
+            )
+            self.hot_folder_service.start()
+            if hasattr(self, 'print_mgmt_tab') and self.print_mgmt_tab:
+                self.print_mgmt_tab.set_hot_folder_service(self.hot_folder_service)
+            logger.info("热文件夹监控已启动")
+        except Exception as e:
+            logger.warning(f"热文件夹监控启动失败: {e}")
+
+    def _start_web_monitor(self):
+        """延迟启动Web监控面板"""
+        try:
+            from services.web_monitor import WebMonitor
+            self.web_monitor = WebMonitor(self.hot_folder_service, port=8080)
+            self.web_monitor.start()
+            logger.info("Web监控面板已启动: http://127.0.0.1:8080")
+        except Exception as e:
+            logger.warning(f"Web监控面板加载失败: {e}")
+
     # ════════════════════════════════════════════════════════════
     # UI 构建
     # ════════════════════════════════════════════════════════════
@@ -228,10 +252,10 @@ class MainWindow(QMainWindow):  # noqa: F405
             logger.warning(f"耗材管理面板加载失败: {e}")
 
         # 热文件夹监控
+        self.hot_folder_service = None
         try:
             from services.hot_folder_service import HotFolderService
             self.hot_folder_service = HotFolderService()
-            # 添加默认监控目录
             self.hot_folder_service.add_monitor(
                 r"\\Server2\客户文件2\out",
                 printer_ip="192.168.1.210"
@@ -239,7 +263,7 @@ class MainWindow(QMainWindow):  # noqa: F405
             self.hot_folder_service.start()
             logger.info("热文件夹监控已启动")
         except Exception as e:
-            logger.warning(f"热文件夹监控加载失败: {e}")
+            logger.warning(f"热文件夹监控启动失败: {e}")
 
         # 打印管理Tab
         try:
@@ -266,7 +290,17 @@ class MainWindow(QMainWindow):  # noqa: F405
             self.web_monitor.start()
             logger.info("Web监控面板已启动: http://127.0.0.1:8080")
         except Exception as e:
-            logger.warning(f"Web监控面板加载失败: {e}")
+            import traceback
+            tb = traceback.format_exc()
+            logger.warning(f"Web监控面板加载失败: {e}\n{tb}")
+            # 写到确定性文件位置
+            try:
+                _debug_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else "."
+                _debug_path = os.path.join(_debug_dir, "debug.log")
+                with open(_debug_path, "a", encoding="utf-8") as f:
+                    f.write(f"WebMonitor FAILED: {e}\n{tb}\n")
+            except Exception:
+                pass
 
         # 实时看板
         self.dashboard = DashboardWidget()

@@ -1,0 +1,357 @@
+{
+  "generated_at": "2026-06-20T23:59:36.938167",
+  "devices": [
+    {
+      "id": "hp_12000",
+      "name": "HP Indigo 12000",
+      "ip": "192.168.1.38",
+      "type": "digital_printer",
+      "brand": "HP",
+      "model": "Indigo 12000",
+      "hostname": "HP-120K",
+      "dfe_version": "8.3.0.180.0",
+      "serial": "WSDB1C00726",
+      "status": "idle",
+      "status_label": "就绪",
+      "online": true,
+      "active_jobs": 0,
+      "hotfolder_jobs": 0,
+      "consumables": {
+        "type": "electroink",
+        "items": [
+          {
+            "color": "cyan",
+            "name": "青色",
+            "level": "unknown",
+            "remaining_percent": 0.0
+          },
+          {
+            "color": "magenta",
+            "name": "品红",
+            "level": "unknown",
+            "remaining_percent": 0.0
+          },
+          {
+            "color": "yellow",
+            "name": "黄色",
+            "level": "unknown",
+            "remaining_percent": 0.0
+          },
+          {
+            "color": "black",
+            "name": "黑色",
+            "level": "unknown",
+            "remaining_percent": 0.0
+          },
+          {
+            "color": "spot_1",
+            "name": "专色 1",
+            "level": "unknown",
+            "remaining_percent": 0.0
+          },
+          {
+            "color": "spot_2",
+            "name": "专色 2",
+            "level": "unknown",
+            "remaining_percent": 0.0
+          },
+          {
+            "color": "spot_3",
+            "name": "专色 3",
+            "level": "unknown",
+            "remaining_percent": 0.0
+          }
+        ]
+      },
+      "last_updated": "2026-06-20T23:58:48.460235"
+    },
+    {
+      "id": "hp_7900",
+      "name": "HP Indigo 7900",
+      "ip": "192.168.1.205",
+      "type": "digital_printer",
+      "brand": "HP",
+      "model": "Indigo 7900",
+      "hostname": "HP-PRO",
+      "dfe_version": "8.0.1.122.0",
+      "serial": "WSDS3B30653",
+      "status": "idle",
+      "status_label": "就绪",
+      "online": true,
+      "active_jobs": 0,
+      "hotfolder_jobs": 0,
+      "consumables": {
+        "type": "electroink",
+        "items": [
+          {
+            "color": "cyan",
+            "name": "青色",
+            "level": "unknown",
+            "remaining_percent": 0.0
+          },
+          {
+            "color": "magenta",
+            "name": "品红",
+            "level": "unknown",
+            "remaining_percent": 0.0
+          },
+          {
+            "color": "yellow",
+            "name": "黄色",
+            "level": "unknown",
+            "remaining_percent": 0.0
+          },
+          {
+            "color": "black",
+            "name": "黑色",
+            "level": "unknown",
+            "remaining_percent": 0.0
+          }
+        ]
+      },
+      "last_updated": "2026-06-20T23:58:48.726318"
+    },
+    {
+      "id": "oce_6000",
+      "name": "Océ VarioPrint 6000",
+      "ip": "192.168.1.210",
+      "type": "digital_printer",
+      "brand": "Océ",
+      "model": "VarioPrint 6000",
+      "hostname": "",
+      "status": "idle",
+      "status_label": "就绪",
+      "online": true,
+      "active_jobs": 0,
+      "hotfolder_jobs": 0,
+      "consumables": {
+        "type": "toner",
+        "items": [
+          {
+            "color": "black",
+            "name": "黑色碳粉",
+            "level": "unknown",
+            "remaining_percent": 0.0,
+            "estimated_pages": 0
+          },
+          {
+            "color": "cyan",
+            "name": "青色碳粉",
+            "level": "unknown",
+            "remaining_percent": 0.0,
+            "estimated_pages": 0
+          },
+          {
+            "color": "magenta",
+            "name": "品红碳粉",
+            "level": "unknown",
+            "remaining_percent": 0.0,
+            "estimated_pages": 0
+          },
+          {
+            "color": "yellow",
+            "name": "黄色碳粉",
+            "level": "unknown",
+            "remaining_percent": 0.0,
+            "estimated_pages": 0
+          }
+        ],
+        "source": "unknown"
+      },
+      "last_updated": "2026-06-20T23:59:18.705079"
+    },
+    {
+      "id": "bizhub_287",
+      "name": "Konica Minolta bizhub 287",
+      "ip": "192.168.1.32",
+      "type": "digital_copier",
+      "brand": "Konica Minolta",
+      "model": "bizhub 287",
+      "hostname": "bizhub-287",
+      "status": "offline",
+      "status_label": "离线",
+      "online": false,
+      "active_jobs": 0,
+      "hotfolder_jobs": 0,
+      "total_pages": 0,
+      "consumables": {
+        "type": "toner",
+        "items": [
+          {
+            "color": "black",
+            "name": "黑色碳粉",
+            "level": "unknown",
+            "remaining_percent": 0.0
+          },
+          {
+            "color": "black",
+            "name": "感光鼓",
+            "level": "unknown",
+            "remaining_percent": 0.0
+          }
+        ],
+        "source": "unavailable"
+      },
+      "last_updated": "2026-06-20T23:59:36.938167"
+    }
+  ],
+  "recent_orders": [
+    {
+      "order_code": "GD26061812792",
+      "customer_name": "锦楚",
+      "title": "",
+      "flow_code": "10",
+      "flow_name": "排队",
+      "customer_remark": "",
+      "created_at": "2026-06-18 14:21:37",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\9375-锦楚\\GD26061812792"
+    },
+    {
+      "order_code": "GD26061812793",
+      "customer_name": "睿涵",
+      "title": "",
+      "flow_code": "21",
+      "flow_name": "机房",
+      "customer_remark": "",
+      "created_at": "2026-06-18 00:57:17",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\9090-睿涵\\GD26061812793"
+    },
+    {
+      "order_code": "GD26061812794",
+      "customer_name": "上海飞月文化传播有限公司",
+      "title": "300克铜板单面打印压线各 1张6.18.pdf",
+      "flow_code": "21",
+      "flow_name": "机房",
+      "customer_remark": "",
+      "created_at": "",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\7590-上海飞月文化传播有限公司\\GD26061812794"
+    },
+    {
+      "order_code": "GD26061812795",
+      "customer_name": "翰翎印刷",
+      "title": "自带纸单面一份大机器-7p.pdf",
+      "flow_code": "",
+      "flow_name": "未分配",
+      "customer_remark": "需要: AI, CDR, PDF, EPS, JPG, PSD, TIF, PNG, BMP, DOC, DOCX, XLSX, XLS, PPTX, PPT, WPS, DPS, ET, RAR, ZIP, 7Z, 3GP, AVI, WMV, MOV, FLV, MP4",
+      "created_at": "",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\3795-翰翎印刷\\GD26061812795"
+    },
+    {
+      "order_code": "GD26061812800",
+      "customer_name": "鑫妙印",
+      "title": "",
+      "flow_code": "10",
+      "flow_name": "排队",
+      "customer_remark": "",
+      "created_at": "",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\3120-鑫妙印\\GD26061812800"
+    },
+    {
+      "order_code": "GD26061812801",
+      "customer_name": "翔合",
+      "title": "a4 200g铜板彩打 1张 ×2份.pdf",
+      "flow_code": "21",
+      "flow_name": "机房",
+      "customer_remark": "",
+      "created_at": "",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\4910-翔合\\GD26061812801"
+    },
+    {
+      "order_code": "GD26061812802",
+      "customer_name": "品达包装",
+      "title": "",
+      "flow_code": "21",
+      "flow_name": "机房",
+      "customer_remark": "",
+      "created_at": "",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\1700-品达包装\\GD26061812802"
+    },
+    {
+      "order_code": "GD26061812803",
+      "customer_name": "上海明赫",
+      "title": "",
+      "flow_code": "21",
+      "flow_name": "机房",
+      "customer_remark": "",
+      "created_at": "",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\1100-上海明赫\\GD26061812803"
+    },
+    {
+      "order_code": "GD26061812804",
+      "customer_name": "洋明",
+      "title": "",
+      "flow_code": "65",
+      "flow_name": "寄快递",
+      "customer_remark": "",
+      "created_at": "",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\3655-洋明\\GD26061812804"
+    },
+    {
+      "order_code": "GD26061812805",
+      "customer_name": "创汇数码",
+      "title": "",
+      "flow_code": "21",
+      "flow_name": "机房",
+      "customer_remark": "",
+      "created_at": "",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\1275-创汇数码\\GD26061812805"
+    },
+    {
+      "order_code": "GD26061812807",
+      "customer_name": "上印",
+      "title": "",
+      "flow_code": "70",
+      "flow_name": "未付",
+      "customer_remark": "",
+      "created_at": "",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\1175-上印\\GD26061812807"
+    },
+    {
+      "order_code": "GD26061812809",
+      "customer_name": "深圳德兴达",
+      "title": "",
+      "flow_code": "65",
+      "flow_name": "寄快递",
+      "customer_remark": "",
+      "created_at": "",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\1125-深圳德兴达\\GD26061812809"
+    },
+    {
+      "order_code": "GD26061812810",
+      "customer_name": "广州宏诚印刷",
+      "title": "",
+      "flow_code": "21",
+      "flow_name": "机房",
+      "customer_remark": "",
+      "created_at": "",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\0495-广州宏诚印刷\\GD26061812810"
+    },
+    {
+      "order_code": "GD26061812812",
+      "customer_name": "希帝广告",
+      "title": "",
+      "flow_code": "21",
+      "flow_name": "机房",
+      "customer_remark": "",
+      "created_at": "",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\1845-希帝广告\\GD26061812812"
+    },
+    {
+      "order_code": "GD26061812813",
+      "customer_name": "玉夏客服",
+      "title": "",
+      "flow_code": "65",
+      "flow_name": "寄快递",
+      "customer_remark": "",
+      "created_at": "",
+      "file_path": "\\\\Server2\\客户文件2\\2026-06-18\\3790-玉夏客服\\GD26061812813"
+    }
+  ],
+  "monitor_stats": {
+    "started_at": "2026-06-20T23:54:00.634735",
+    "polls": 5,
+    "successful_polls": 20,
+    "failed_polls": 0,
+    "last_poll": "2026-06-20T23:59:36.938167"
+  }
+}

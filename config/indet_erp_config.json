@@ -1,0 +1,51 @@
+{
+    "version": "2.0",
+    "description": "印特ERP集成配置 - QHI系统",
+    "primary": {
+        "mode": "direct",
+        "sql_server": {
+            "host": "192.168.1.22",
+            "port": 1433,
+            "database": "EMSXDB",
+            "driver": "ODBC Driver 17 for SQL Server",
+            "trusted_connection": true,
+            "connect_timeout": 10,
+            "query_timeout": 30,
+            "pool_size": 5
+        }
+    },
+    "fallback": {
+        "mode": "api",
+        "api": {
+            "base_url": "http://192.168.1.22:8080/api",
+            "timeout": 15,
+            "retry": 3
+        }
+    },
+    "sync": {
+        "interval_minutes": 5,
+        "tables_sync": [
+            "RSM_Business",
+            "RSM_BusinessSub",
+            "RSM_BusinessSpec",
+            "PPM_JobBill",
+            "CRM_Customer",
+            "BAS_Paper",
+            "BAS_ProcessPrice",
+            "BAS_FinishingPrice"
+        ],
+        "write_back_tables": [
+            "PPM_JobBill"
+        ]
+    },
+    "tables": {
+        "RSM_Business": "业务单主表 - BillID, BillCode, CustomerID, CustomerName, BillDate, TotalAmount, BillStatus",
+        "RSM_BusinessSub": "业务单子表 - BillID, ProductName, Quantity, UnitPrice, SubTotal",
+        "RSM_BusinessSpec": "业务单规格明细 - SpecID, BillID, PaperType, Size, Color, Binding",
+        "PPM_JobBill": "工单主表 - OrderCode, CustomerName, Title, FlowCode, FlowName, FilePath, Quantity",
+        "CRM_Customer": "客户信息 - CustomerID, CustomerName, ContactPerson, Phone, Address",
+        "BAS_Paper": "纸张基础数据 - PaperCode, PaperName, PaperType, Grammage, UnitPrice",
+        "BAS_ProcessPrice": "工艺单价 - ProcessCode, ProcessName, Category, UnitPrice, CoefficientFormula",
+        "BAS_FinishingPrice": "后道工序单价 - FinishingCode, FinishingName, Category, UnitPrice"
+    }
+}

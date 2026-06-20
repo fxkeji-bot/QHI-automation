@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-06-20T18:19:14.433977",
+  "benchmarks": {
+    "concurrency_thread_pool": {
+      "avg_ms": 44.42,
+      "workers": 4,
+      "tasks": 100,
+      "iterations": 10
+    },
+    "file_io": {
+      "write_avg_ms": 0.3018,
+      "read_avg_ms": 0.1554,
+      "file_size_kb": 0,
+      "iterations": 100
+    },
+    "json_large_payload": {
+      "avg_ms": 6.44,
+      "size_mb": 1.2,
+      "iterations": 10
+    },
+    "json_serialization": {
+      "avg_ms": 0.0631,
+      "min_ms": 0.0586,
+      "max_ms": 0.2553,
+      "iterations": 1000
+    },
+    "memory_allocation": {
+      "avg_ms": 0.02516,
+      "size_kb": 1,
+      "iterations": 1000
+    },
+    "memory_large": {
+      "total_mb": 13.45,
+      "objects": 100000
+    },
+    "string_processing": {
+      "avg_ms": 0.073115,
+      "iterations": 10000
+    }
+  },
+  "baseline": {}
+}

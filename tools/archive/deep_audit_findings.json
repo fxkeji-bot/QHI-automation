@@ -1,0 +1,1650 @@
+[
+  {
+    "dimension": "4",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\main.py",
+    "line": 111,
+    "description": "使用 __import__() 动态导入，可能导致不安全的模块加载",
+    "code": "mod = __import__(module_path, fromlist=[c[0] for c in class_specs])"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\main.py",
+    "line": 34,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\main.py",
+    "line": 55,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\main.py",
+    "line": 62,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\main.py",
+    "line": 93,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\main.py",
+    "line": 150,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\main.py",
+    "line": 226,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\main.py",
+    "line": 411,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\main.py",
+    "line": 417,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\main.py",
+    "line": 431,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "4",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\test_p0_acceptance.py",
+    "line": 125,
+    "description": "使用 __import__() 动态导入，可能导致不安全的模块加载",
+    "code": "module = __import__(module_name, fromlist=[class_name])"
+  },
+  {
+    "dimension": "7",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\test_performance.py",
+    "line": 190,
+    "description": "使用已废弃的 tempfile.mktemp()，存在竞态条件，应使用 NamedTemporaryFile",
+    "code": "temp_db = tempfile.mktemp(suffix=\".db\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\codec_manager.py",
+    "line": 34,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cur.execute(f\"SELECT * FROM {table}\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\codec_manager.py",
+    "line": 59,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cur.execute(f\"UPDATE {table} SET code=? WHERE id=?\", (generated, rid))"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\codec_manager.py",
+    "line": 62,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cur.execute(f\"UPDATE {table} SET code=? WHERE id=?\","
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\core\\codec_manager.py",
+    "line": 61,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\core\\config.py",
+    "line": 287,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\core\\connection_pool.py",
+    "line": 161,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\core\\connection_pool.py",
+    "line": 169,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 619,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cur.execute(f\"ALTER TABLE {table} ADD COLUMN {column} {col_type}\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 670,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cur.execute(f\"SELECT * FROM {table} WHERE {active_field}=1 ORDER BY id\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 672,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cur.execute(f\"SELECT * FROM {table} ORDER BY id\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 675,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "return self._safe_execute(_query, f\"查询表 {table} 失败\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 690,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cur.execute(f\"SELECT * FROM {table} ORDER BY id\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 693,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "return self._safe_execute(_query, f\"查询表 {table} 所有记录失败\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 709,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cur.execute(f\"SELECT * FROM {table} WHERE id=?\", (item_id,))"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 713,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "return self._safe_execute(_query, f\"查询表 {table} 记录 {item_id} 失败\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 751,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cur.execute(f\"SELECT * FROM {table} WHERE {where} ORDER BY id\", params)"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 754,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "return self._safe_execute(_query, f\"搜索表 {table} 失败\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 785,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "return self._safe_execute(_insert, f\"插入表 {table} 失败\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 811,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "self._safe_execute(_update, f\"更新表 {table} 记录 {item_id} 失败\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 828,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cur.execute(f\"UPDATE {table} SET {active_field}=0 WHERE id=?\", (item_id,))"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 832,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cur.execute(f\"DELETE FROM {table} WHERE id=?\", (item_id,))"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 835,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cur.execute(f\"DELETE FROM {table} WHERE id=?\", (item_id,))"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 838,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "self._safe_execute(_delete, f\"删除表 {table} 记录 {item_id} 失败\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 870,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cur.execute(f\"SELECT * FROM papers WHERE {where} ORDER BY weight\", params)"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\core\\database.py",
+    "line": 623,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\core\\event_bus.py",
+    "line": 98,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\core\\event_bus.py",
+    "line": 104,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\core\\license_manager.py",
+    "line": 48,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\core\\seed_manager.py",
+    "line": 109,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\repositories\\action_repository.py",
+    "line": 56,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "return self._db._safe_execute(_query, f\"获取动作 {action_id} 失败\")"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\core\\repositories\\action_repository.py",
+    "line": 73,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "return self._db._safe_execute(_query, f\"搜索动作 '{keyword}' 失败\")"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\hooks\\rthook_fix_stderr.py",
+    "line": 19,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\hooks\\rthook_fix_stderr.py",
+    "line": 45,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\hooks\\rthook_fix_stderr.py",
+    "line": 73,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\hooks\\rthook_fix_stderr.py",
+    "line": 77,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "6",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\action_executor.py",
+    "line": 649,
+    "description": "除法操作未检查除数是否为零",
+    "code": "output_path = hold_dir / input_path.name"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\action_executor.py",
+    "line": 573,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\action_executor.py",
+    "line": 576,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\action_executor.py",
+    "line": 609,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\action_executor.py",
+    "line": 612,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\action_executor.py",
+    "line": 687,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\action_executor.py",
+    "line": 690,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "2",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\integration\\archive_extractor.py",
+    "line": 279,
+    "description": "文件路径可能包含 '..'，需验证路径是否在允许范围内",
+    "code": "target = Path(out_dir) / Path(fname).name if '..' in fname else target"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\archive_extractor.py",
+    "line": 16,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\archive_extractor.py",
+    "line": 253,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\archive_extractor.py",
+    "line": 270,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\archive_extractor.py",
+    "line": 273,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\imagemagick_service.py",
+    "line": 34,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\pdfx_exporter.py",
+    "line": 126,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "4",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\integration\\pdfx_output_engine.py",
+    "line": 32,
+    "description": "使用 __import__() 动态导入，可能导致不安全的模块加载",
+    "code": "if str(_parent) not in __import__(\"sys\").path:"
+  },
+  {
+    "dimension": "4",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\integration\\pdfx_output_engine.py",
+    "line": 33,
+    "description": "使用 __import__() 动态导入，可能导致不安全的模块加载",
+    "code": "__import__(\"sys\").path.insert(0, str(_parent))"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\pdf_processor.py",
+    "line": 24,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\pdf_processor.py",
+    "line": 168,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\pdf_processor.py",
+    "line": 222,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\pdf_processor.py",
+    "line": 243,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\pdf_processor.py",
+    "line": 259,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\pdf_processor.py",
+    "line": 364,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 36,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 393,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 451,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 453,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 500,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 502,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 564,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 566,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 608,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 610,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 649,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 689,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 691,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 736,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 766,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 793,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 822,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 856,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 858,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 884,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 920,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\preflight_enhanced.py",
+    "line": 922,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\qa_engine.py",
+    "line": 427,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\saxon_service.py",
+    "line": 35,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\integration\\smart_processor.py",
+    "line": 407,
+    "description": "可能向用户显示堆栈信息，暴露内部实现细节",
+    "code": "return False, msgs, {'error': str(e), 'traceback': error_detail}"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\transparency_flattener.py",
+    "line": 144,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\transparency_flattener.py",
+    "line": 311,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\integration\\transparency_flattener.py",
+    "line": 320,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\models\\constants.py",
+    "line": 110,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\models\\constants.py",
+    "line": 116,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\models\\metadata.py",
+    "line": 238,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\models\\metadata.py",
+    "line": 344,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\models\\metadata.py",
+    "line": 377,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\models\\metadata.py",
+    "line": 386,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\models\\variable.py",
+    "line": 132,
+    "description": "可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "qhi_field=\"PageCount\", pitstop_name=\"PageCount\", callas_key=\"page_count\""
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\models\\variable.py",
+    "line": 145,
+    "description": "可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "qhi_field=\"user1\", pitstop_name=\"PaperWeight\", callas_key=\"paper_weight\""
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\models\\variable.py",
+    "line": 151,
+    "description": "可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "qhi_field=\"user2\", pitstop_name=\"PaperType\", callas_key=\"paper_type\""
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\models\\variable.py",
+    "line": 196,
+    "description": "可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "qhi_field=\"user3\", pitstop_name=\"BindingType\", callas_key=\"binding\""
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\models\\variable.py",
+    "line": 335,
+    "description": "可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "metadata_key=\"customer_code\", description=\"元数据客户代码\""
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\models\\variable.py",
+    "line": 340,
+    "description": "可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "metadata_key=\"order_no\", description=\"元数据订单号\""
+  },
+  {
+    "dimension": "6",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\analytics_service.py",
+    "line": 412,
+    "description": "除法操作未检查除数是否为零",
+    "code": "monthly.avg_daily_files = monthly.total_files / num_days"
+  },
+  {
+    "dimension": "6",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\analytics_service.py",
+    "line": 465,
+    "description": "除法操作未检查除数是否为零",
+    "code": "result.avg_daily_output = result.total_files / num_days"
+  },
+  {
+    "dimension": "4",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\services\\api_server.py",
+    "line": 163,
+    "description": "使用 __import__() 动态导入，可能导致不安全的模块加载",
+    "code": "\"timestamp\": str(__import__(\"datetime\").datetime.now()),"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\api_server.py",
+    "line": 181,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\services\\api_server_v2.py",
+    "line": 48,
+    "description": "可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "_DEFAULT_SECRET = \"qhi-default-secret-key-change-in-production\""
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\api_server_v2.py",
+    "line": 132,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\api_server_v2.py",
+    "line": 874,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "3",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\services\\billing_service.py",
+    "line": 1014,
+    "description": "SQL语句使用 f-string 拼接，存在SQL注入风险",
+    "code": "cursor.execute(f\"\"\""
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\services\\debug_service.py",
+    "line": 98,
+    "description": "可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "key = \"debug_temp\""
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\file_monitor.py",
+    "line": 440,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "5",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\flow_entry.py",
+    "line": 191,
+    "description": "日志中包含完整堆栈信息，可能暴露内部路径给攻击者",
+    "code": "logger.debug(tb_module.format_exc()[-500:])"
+  },
+  {
+    "dimension": "6",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\job_bill_service.py",
+    "line": 150,
+    "description": "除法操作未检查除数是否为零",
+    "code": "['net', 'use', REMOTE_SHARE, '/user:' + REMOTE_USER, REMOTE_PASS],"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\job_bill_service.py",
+    "line": 225,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\job_bill_service.py",
+    "line": 229,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\job_queue.py",
+    "line": 1142,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\license_manager.py",
+    "line": 146,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\license_manager.py",
+    "line": 164,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\license_manager.py",
+    "line": 178,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\license_manager.py",
+    "line": 192,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\license_manager.py",
+    "line": 420,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\license_manager.py",
+    "line": 462,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\license_manager.py",
+    "line": 575,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\license_manager.py",
+    "line": 665,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\license_manager.py",
+    "line": 697,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\license_manager.py",
+    "line": 721,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\ops_service.py",
+    "line": 153,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\ops_service.py",
+    "line": 229,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\plugin_manager.py",
+    "line": 220,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\plugin_schema.py",
+    "line": 110,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\plugin_schema.py",
+    "line": 129,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\processing_pipeline.py",
+    "line": 183,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\processing_pipeline.py",
+    "line": 258,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\processing_pipeline.py",
+    "line": 389,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\rule_engine.py",
+    "line": 74,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\script_engine.py",
+    "line": 90,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\script_engine.py",
+    "line": 98,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\script_engine.py",
+    "line": 143,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\update_service.py",
+    "line": 61,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\update_service.py",
+    "line": 81,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "6",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\user_manager.py",
+    "line": 4,
+    "description": "除法操作未检查除数是否为零",
+    "code": "services/user_manager.py - 用户管理与权限模块"
+  },
+  {
+    "dimension": "4",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\services\\variable_service.py",
+    "line": 42,
+    "description": "使用 eval()/exec()/compile()，可执行任意代码，极度危险",
+    "code": "def eval(cls, expr: str, values: Dict[str, Any]) -> Any:"
+  },
+  {
+    "dimension": "6",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\variable_service.py",
+    "line": 157,
+    "description": "除法操作未检查除数是否为零",
+    "code": "\"\"\"Export variables in PitStop format (list of name/value pairs).\"\"\""
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\variable_service.py",
+    "line": 425,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\websocket_server.py",
+    "line": 136,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\services\\websocket_server.py",
+    "line": 207,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "4",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\tools\\daily_review.py",
+    "line": 99,
+    "description": "使用 __import__() 动态导入，可能导致不安全的模块加载",
+    "code": "module = __import__(module_name, fromlist=[class_name])"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\main_window.py",
+    "line": 75,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\controllers\\file_manager_controller.py",
+    "line": 201,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\dialogs\\action_dialog.py",
+    "line": 142,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\dialogs\\action_dialog.py",
+    "line": 181,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\dialogs\\batch_rename_dialog.py",
+    "line": 77,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\dialogs\\quoting_dialog.py",
+    "line": 74,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\dialogs\\quoting_dialog.py",
+    "line": 78,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\dialogs\\quoting_dialog.py",
+    "line": 82,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\widgets\\action_library_panel.py",
+    "line": 196,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\widgets\\action_library_panel.py",
+    "line": 351,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\widgets\\drop_zone.py",
+    "line": 235,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\widgets\\drop_zone.py",
+    "line": 239,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\widgets\\menu_bar.py",
+    "line": 81,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\widgets\\charts\\analytics_panel.py",
+    "line": 501,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\ui\\widgets\\charts\\analytics_panel.py",
+    "line": 518,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\exception_handler.py",
+    "line": 137,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\exception_handler.py",
+    "line": 146,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\exception_handler.py",
+    "line": 155,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\exception_handler.py",
+    "line": 171,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\exception_handler.py",
+    "line": 177,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\exception_handler.py",
+    "line": 230,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\file_utils.py",
+    "line": 29,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\i18n.py",
+    "line": 164,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\i18n.py",
+    "line": 178,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\i18n.py",
+    "line": 224,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\i18n.py",
+    "line": 236,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\memory_monitor.py",
+    "line": 80,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\memory_monitor.py",
+    "line": 251,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\memory_monitor.py",
+    "line": 273,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\utils\\memory_monitor.py",
+    "line": 302,
+    "description": "使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "4",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\utils\\safe_eval.py",
+    "line": 7,
+    "description": "使用 eval()/exec()/compile()，可执行任意代码，极度危险",
+    "code": "替代 eval() 的安全实现，仅支持："
+  },
+  {
+    "dimension": "4",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\utils\\safe_eval.py",
+    "line": 216,
+    "description": "使用 eval()/exec()/compile()，可执行任意代码，极度危险",
+    "code": "return eval(compile(tree, '<string>', 'eval'), env)"
+  },
+  {
+    "dimension": "4",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\utils\\safe_eval.py",
+    "line": 216,
+    "description": "AST检测: 使用 eval()，可执行任意代码，极度危险",
+    "code": ""
+  },
+  {
+    "dimension": "4",
+    "severity": "P0",
+    "file": "E:\\qhi_processor\\utils\\safe_eval.py",
+    "line": 216,
+    "description": "AST检测: 使用 compile()，可执行任意代码，极度危险",
+    "code": ""
+  },
+  {
+    "dimension": "4",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\tests\\test_analytics.py",
+    "line": 99,
+    "description": "[测试文件] 使用 __import__() 动态导入，可能导致不安全的模块加载",
+    "code": "yesterday = (datetime.now() - __import__(\"datetime\").timedelta(days=1)).strftime(\"%Y-%m-%d\")"
+  },
+  {
+    "dimension": "4",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\tests\\test_analytics.py",
+    "line": 230,
+    "description": "[测试文件] 使用 __import__() 动态导入，可能导致不安全的模块加载",
+    "code": "yesterday = (datetime.now() - __import__(\"datetime\").timedelta(days=1)).strftime(\"%Y-%m-%d\")"
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\tests\\test_api_v2.py",
+    "line": 61,
+    "description": "[测试文件] 可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "token = JWTAuth.encode({\"user_id\": \"1\"}, secret=\"secret1\")"
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\tests\\test_api_v2.py",
+    "line": 62,
+    "description": "[测试文件] 可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "result = JWTAuth.decode(token, secret=\"secret2\")"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\tests\\test_concurrency.py",
+    "line": 207,
+    "description": "[测试文件] 使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\tests\\test_database.py",
+    "line": 171,
+    "description": "[测试文件] 使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\tests\\test_database_extended.py",
+    "line": 245,
+    "description": "[测试文件] 使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "4",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\tests\\test_integration_e2e.py",
+    "line": 157,
+    "description": "[测试文件] 使用 __import__() 动态导入，可能导致不安全的模块加载",
+    "code": "safe_eval(\"__import__('os')\")"
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\tests\\test_integration_e2e.py",
+    "line": 50,
+    "description": "[测试文件] 使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "6",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\tests\\test_jdf_jmf.py",
+    "line": 443,
+    "description": "[测试文件] 除法操作未检查除数是否为零",
+    "code": "source_file=\"/input/test.pdf\","
+  },
+  {
+    "dimension": "10",
+    "severity": "P2",
+    "file": "E:\\qhi_processor\\tests\\test_qa_engine.py",
+    "line": 416,
+    "description": "[测试文件] 使用宽泛的 except Exception，可能吞掉重要异常，应捕获具体异常类型",
+    "code": "except Exception:"
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\tests\\test_switch_architecture.py",
+    "line": 216,
+    "description": "[测试文件] 可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "result = svc.reset_sort_order(items, sort_key=\"seq\")"
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\tests\\test_user_manager.py",
+    "line": 139,
+    "description": "[测试文件] 可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "self.manager.create_user(username=\"admin\", password=\"admin123\")"
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\tests\\test_user_manager.py",
+    "line": 156,
+    "description": "[测试文件] 可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "self.manager.create_user(username=\"user1\", password=\"pass1\")"
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\tests\\test_user_manager.py",
+    "line": 157,
+    "description": "[测试文件] 可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "self.manager.create_user(username=\"user2\", password=\"pass2\")"
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\tests\\test_user_manager.py",
+    "line": 158,
+    "description": "[测试文件] 可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "self.manager.create_user(username=\"user3\", password=\"pass3\")"
+  },
+  {
+    "dimension": "5",
+    "severity": "P1",
+    "file": "E:\\qhi_processor\\tests\\test_user_manager.py",
+    "line": 335,
+    "description": "[测试文件] 可能存在硬编码的密码/密钥，应使用环境变量或配置文件",
+    "code": "password=\"admin123\","
+  }
+]

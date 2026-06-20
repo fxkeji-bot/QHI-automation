@@ -1,0 +1,27 @@
+{
+  "task_id": "T005",
+  "task_name": "ERP实时同步",
+  "type": "erp_sync",
+  "priority": "P1",
+  "assigned_to": "qclaw",
+  "status": "completed",
+  "created_at": "2026-06-20T18:05:00",
+  "assigned_by": "smart_scheduler",
+  "started_at": "2026-06-20T18:12:00",
+  "description": "实现ERP订单实时同步，支持双向数据流",
+  "requirements": [
+    "实现印特 ERP REST API 服务端点",
+    "支持订单增量同步（基于时间戳）",
+    "支持客户信息同步",
+    "支持双向状态更新",
+    "冲突检测与解决机制"
+  ],
+  "files_affected": [
+    "services/erp_bridge.py",
+    "services/erp_sync_api_server.py",
+    "models/erp_models.py"
+  ],
+  "estimated_hours": 6,
+  "completed_at": "2026-06-20T19:50:00",
+  "completed_by": "qclaw"
+}

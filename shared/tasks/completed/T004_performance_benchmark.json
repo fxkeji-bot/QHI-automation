@@ -5,18 +5,11 @@
   "priority": "P2",
   "assigned_to": "marvis",
   "status": "completed",
-  "progress": 100,
+  "progress": 0,
   "created_at": "2026-06-20T18:05:00",
   "started_at": "2026-06-20T18:40:00",
-  "completed_at": "2026-06-20T18:45:00",
   "assigned_by": "smart_scheduler",
   "description": "创建性能基准测试，防止性能回归",
-  "result": "5个性能基准测试全部通过",
-  "benchmark_results": {
-    "database_insert": "500 ops/s",
-    "rule_engine": "1000 ops/s",
-    "safe_eval": "50000 ops/s",
-    "order_lifecycle": "100 orders/s",
-    "color_conversion": "500 ops/s"
-  }
+  "completed_at": "2026-06-20T19:50:00",
+  "completed_by": "marvis"
 }

@@ -17,9 +17,13 @@ from pathlib import Path
 # ═══════════════════════════════════════════════════════════
 # 全局异常捕获（必须位于所有 import 之前）
 # ═══════════════════════════════════════════════════════════
-_CRASH_LOG = Path(__file__).resolve().parent / "crash.log"
-_QT_LOG = Path(__file__).resolve().parent / "qt.log"
-_APP_LOG = Path(__file__).resolve().parent / "app.log"
+if getattr(sys, 'frozen', False):
+    _EXE_DIR = Path(os.path.dirname(sys.executable))
+else:
+    _EXE_DIR = Path(__file__).resolve().parent
+_CRASH_LOG = _EXE_DIR / "crash.log"
+_QT_LOG = _EXE_DIR / "qt.log"
+_APP_LOG = _EXE_DIR / "app.log"
 
 def global_exception_hook(exctype, value, tb):
     """捕获未处理的 Python 异常，写入 crash.log"""
@@ -63,7 +67,7 @@ def qt_message_handler(mode, context, message):
             pass
 
 # Ensure project root is in path
-ROOT = Path(__file__).resolve().parent
+ROOT = _EXE_DIR
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -183,7 +187,10 @@ def main():
     # ===== 版权保护检查 =====
     logger.info("[版权保护] 开始授权检查")
     _license_manager = None
-    LicenseManager.verify_on_startup()
+    try:
+        LicenseManager.verify_on_startup()
+    except Exception as e:
+        logger.warning(f"授权检查异常(非致命): {e}")
     _license_manager = LicenseManager()
 
     # ===== 运行时日志 - 数据库兼容性检查开始 =====
@@ -266,7 +273,10 @@ def main():
     # ===== 运行时日志 - 创建 Qt 应用 =====
     logger.info("[运行时] 开始创建 Qt 应用窗口")
     # ===== 创建应用 =====
-    app = QApplication(sys.argv)
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication(sys.argv)
+    logger.info("[运行时] Qt应用实例已创建")
     app.setStyle("Fusion")
     app.setApplicationName("QHI拼版处理器")
     app.setApplicationVersion(app_version)

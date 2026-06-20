@@ -1,0 +1,5 @@
+{
+  "services/license_manager.py": "18bc58e384ebae5864ce17876ded046fe5a2758fa50da95006f3ee811d46b7fd",
+  "main.py": "e5bbb2cb4d7ef3b224a93b9ef2c7b91079c36ea45f83d5c46e12966555048c5d",
+  "core/config.py": "9d187444f8b5122c8eac7598970fd1604dbe4cfc8ff21cea78e0dc2a9531bece"
+}

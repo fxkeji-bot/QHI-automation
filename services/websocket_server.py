@@ -213,23 +213,39 @@ class WSClient:
 class WebSocketServer:
     """WebSocket服务器"""
     
+    # 最大帧大小：1MB
+    MAX_FRAME_SIZE = 1 * 1024 * 1024
+    
     def __init__(
         self,
         host: str = "127.0.0.1",
         port: int = 8765,
         log_callback: Callable = None,
+        auth_token: str = "",
+        allowed_origins: List[str] = None,
     ):
         """
         初始化WebSocket服务器
         
         Args:
-            host: 监听地址（默认127.0.0.1，仅本地访问；设为0.0.0.0可接受远程连接）
+            host: 监听地址（强制127.0.0.1，拒绝0.0.0.0）
             port: 监听端口
             log_callback: 日志回调
+            auth_token: 认证令牌（为空则不认证）
+            allowed_origins: 允许的Origin列表（为空则不限制）
         """
+        # 安全加固：拒绝监听0.0.0.0
+        if host == "0.0.0.0":
+            raise ValueError(
+                "安全错误：不允许监听 0.0.0.0！"
+                "请使用 127.0.0.1（仅本地）或具体IP地址。"
+            )
+        
         self.host = host
         self.port = port
         self.log = log_callback or logger.info
+        self.auth_token = auth_token
+        self.allowed_origins = set(allowed_origins) if allowed_origins else None
         
         # 客户端管理
         self._clients: Dict[str, WSClient] = {}
@@ -253,10 +269,11 @@ class WebSocketServer:
         self._stats = {
             "total_connections": 0,
             "total_messages": 0,
+            "auth_failures": 0,
             "start_time": None,
         }
         
-        self.log(f"WebSocket服务器初始化: {host}:{port}")
+        self.log(f"WebSocket服务器初始化: {host}:{port} (认证: {'启用' if auth_token else '禁用'})")
     
     def start(self):
         """启动服务器"""
@@ -327,7 +344,15 @@ class WebSocketServer:
         """处理新连接"""
         try:
             # WebSocket握手
-            if not self._websocket_handshake(client_socket):
+            success, error_msg = self._websocket_handshake(client_socket)
+            if not success:
+                self.log(f"握手失败 {address}: {error_msg}")
+                try:
+                    # 发送错误响应
+                    error_response = f"HTTP/1.1 401 Unauthorized\r\n\r\n{error_msg}"
+                    client_socket.send(error_response.encode())
+                except Exception:
+                    pass
                 client_socket.close()
                 return
             
@@ -339,16 +364,24 @@ class WebSocketServer:
                 address=address,
             )
             
+            # 设置认证状态
+            client.authenticated = not bool(self.auth_token)  # 如果不需要认证，则直接认证
+            client.user_id = address[0]  # 暂时用IP作为用户ID
+            
             with self._lock:
                 self._clients[client_id] = client
                 self._stats["total_connections"] += 1
             
-            self.log(f"新客户端连接: {client_id} from {address}")
+            self.log(f"新客户端连接: {client_id} from {address} (认证: {client.authenticated})")
             
             # 发送连接确认
             msg = WSMessage(
                 type=MessageType.CONNECT.value,
-                data={"client_id": client_id, "message": "连接成功"},
+                data={
+                    "client_id": client_id,
+                    "message": "连接成功",
+                    "authenticated": client.authenticated,
+                },
             )
             client.send(msg)
             
@@ -364,32 +397,70 @@ class WebSocketServer:
             self.log(f"处理新连接异常: {e}")
             client_socket.close()
     
-    def _websocket_handshake(self, client_socket: socket.socket) -> bool:
-        """WebSocket握手"""
+    def _websocket_handshake(self, client_socket: socket.socket) -> tuple[bool, str]:
+        """
+        WebSocket握手
+        
+        Returns:
+            (成功?, 错误信息)
+        """
         try:
             # 读取HTTP请求
             request = b""
             while b"\r\n\r\n" not in request:
                 chunk = client_socket.recv(1024)
                 if not chunk:
-                    return False
+                    return False, "连接中断"
                 request += chunk
             
             # 解析请求头
             headers = {}
-            for line in request.decode("utf-8").split("\r\n")[1:]:
+            request_line = ""
+            for i, line in enumerate(request.decode("utf-8").split("\r\n")):
+                if i == 0:
+                    request_line = line
+                    continue
                 if ":" in line:
                     key, value = line.split(":", 1)
                     headers[key.strip().lower()] = value.strip()
             
             # 验证WebSocket升级
             if headers.get("upgrade", "").lower() != "websocket":
-                return False
+                return False, "非WebSocket请求"
+            
+            # 验证Origin（如果配置了）
+            if self.allowed_origins:
+                origin = headers.get("origin", "")
+                if origin and origin not in self.allowed_origins:
+                    self._stats["auth_failures"] += 1
+                    self.log(f"Origin拒绝: {origin}")
+                    return False, f"Origin不允许: {origin}"
+            
+            # 验证Token（如果配置了）
+            if self.auth_token:
+                # 从URL参数获取token（?token=xxx）
+                if "?" in request_line:
+                    query = request_line.split("?")[1].split(" ")[0]
+                    params = dict(pair.split("=") for pair in query.split("&") if "=" in pair)
+                    token = params.get("token", "")
+                else:
+                    token = ""
+                
+                # 从Authorization头获取
+                if not token:
+                    auth_header = headers.get("authorization", "")
+                    if auth_header.startswith("Bearer "):
+                        token = auth_header[7:]
+                
+                if token != self.auth_token:
+                    self._stats["auth_failures"] += 1
+                    self.log(f"Token认证失败: {request_line}")
+                    return False, "认证失败"
             
             # 获取Sec-WebSocket-Key
             ws_key = headers.get("sec-websocket-key", "")
             if not ws_key:
-                return False
+                return False, "缺少Sec-WebSocket-Key"
             
             # 计算Accept值
             accept_value = base64.b64encode(
@@ -406,11 +477,11 @@ class WebSocketServer:
             )
             client_socket.send(response.encode())
             
-            return True
+            return True, ""
             
         except Exception as e:
             self.log(f"WebSocket握手失败: {e}")
-            return False
+            return False, str(e)
     
     # ==================== 消息接收 ====================
     
@@ -465,6 +536,11 @@ class WebSocketServer:
                 return None
             length = struct.unpack(">Q", ext)[0]
         
+        # 安全加固：检查帧大小
+        if length > self.MAX_FRAME_SIZE:
+            self.log(f"帧过大拒绝: {length} bytes > {self.MAX_FRAME_SIZE}")
+            return None
+        
         # 读取掩码
         mask = None
         if masked:
@@ -497,6 +573,19 @@ class WebSocketServer:
     
     def _handle_message(self, client: WSClient, raw_message: str):
         """处理接收到的消息"""
+        # 安全加固：检查认证状态
+        if self.auth_token and not client.authenticated:
+            self.log(f"未认证客户端尝试发送消息: {client.client_id}")
+            # 发送认证失败消息并断开连接
+            error_msg = WSMessage(
+                type="error",
+                data={"code": 401, "message": "未认证，请重新连接并提供token"},
+            )
+            client.send(error_msg)
+            client.close()
+            self._remove_client(client)
+            return
+        
         msg = WSMessage.from_json(raw_message)
         if not msg:
             return
@@ -743,7 +832,9 @@ class WebSocketServer:
                 "client_count": len(self._clients),
                 "total_connections": self._stats["total_connections"],
                 "total_messages": self._stats["total_messages"],
+                "auth_failures": self._stats.get("auth_failures", 0),
                 "start_time": self._stats["start_time"],
+                "auth_enabled": bool(self.auth_token),
                 "channels": {
                     channel: len(subscribers)
                     for channel, subscribers in self._subscriptions.items()

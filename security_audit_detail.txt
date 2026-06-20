@@ -1,0 +1,1089 @@
+================================================================================
+安全审计详细结果
+================================================================================
+
+
+[P0-SQL注入-SQL拼接] - 88 处
+--------------------------------------------------------------------------------
+  services\analytics_service.py:390
+  services\analytics_service.py:390
+    389:         page_row = self._query_one(
+    390:             """SELECT COALESCE(SUM(page_count),0) as pages FROM orders
+    391:                WHERE strftime('%Y-%m', created_at) = ?""",
+    392:             (f"{y}-{m:02d}",),
+    393:         )
+
+  services\analytics_service.py:401
+  services\analytics_service.py:401
+    400:                  SUM(CASE WHEN status='已完成' THEN 1 ELSE 0 END) as done
+    401:                FROM orders
+    402:                WHERE strftime('%Y-%m', created_at) = ?""",
+    403:             (f"{y}-{m:02d}",),
+    404:         )
+
+  services\gang_layout.py:3
+  services\gang_layout.py:3
+    2: # -*- coding: utf-8 -*-
+    3: from __future__ import annotations
+    4: 
+    5: """
+    6: services/gang_layout.py — AI 智能合版拼版算法
+
+  services\jdf_service.py:243
+  services\jdf_service.py:243
+    242:                 record.status = TicketStatus.VALIDATED.value
+    243:                 record.updated_at = datetime.now().isoformat()
+    244:                 self.log(f"工单验证通过: {record_id}")
+    245:             else:
+    246:                 record.status = TicketStatus.FAILED.value
+
+  services\jdf_service.py:248
+  services\jdf_service.py:248
+    247:                 record.error_message = "; ".join(errors)
+    248:                 record.updated_at = datetime.now().isoformat()
+    249:                 self.log(f"工单验证失败: {record_id}, 错误: {errors}")
+    250:             
+    251:             return is_valid, errors
+
+  services\jdf_service.py:308
+  services\jdf_service.py:308
+    307:                     record.status = TicketStatus.CONVERTED.value
+    308:                     record.updated_at = datetime.now().isoformat()
+    309:                     self.log(f"工单已转换: {record_id} -> 订单 {order_id}")
+    310:                     return order_id
+    311:                 except Exception as e:
+
+  services\jdf_service.py:348
+  services\jdf_service.py:348
+    347:                     record.processing_started_at = datetime.now().isoformat()
+    348:                     record.updated_at = datetime.now().isoformat()
+    349:                     self.log(f"工单已提交处理: {record_id}")
+    350:                     return True
+    351:                 except Exception as e:
+
+  services\jdf_service.py:375
+  services\jdf_service.py:375
+    374:             record.processing_completed_at = datetime.now().isoformat()
+    375:             record.updated_at = datetime.now().isoformat()
+    376:             
+    377:             self.log(f"工单处理完成: {record_id}")
+    378:             
+
+  services\jdf_service.py:397
+  services\jdf_service.py:397
+    396:             record.error_message = error_message
+    397:             record.updated_at = datetime.now().isoformat()
+    398:             
+    399:             self.log(f"工单处理失败: {record_id}, 错误: {error_message}")
+    400:     
+
+  services\jdf_service.py:420
+  services\jdf_service.py:420
+    419:             record.status = TicketStatus.CANCELLED.value
+    420:             record.updated_at = datetime.now().isoformat()
+    421:             
+    422:             self.log(f"工单已取消: {record_id}")
+    423:             return True
+
+  services\job_bill_service.py:3
+  services\job_bill_service.py:3
+    2: # -*- coding: utf-8 -*-
+    3: from __future__ import annotations
+    4: 
+    5: """
+    6: services/job_bill_service.py — 远程工单查询服务
+
+  services\job_bill_service.py:64
+  services\job_bill_service.py:64
+    63:         # 去重
+    64:         codes = list(dict.fromkeys(self._order_codes))
+    65:         # 构建 IN 子句
+    66:         placeholders = ", ".join(f"'{c}'" for c in codes)
+    67:         sql = (
+
+  services\job_bill_service.py:68
+  services\job_bill_service.py:68
+    67:         sql = (
+    68:             f"SELECT Code, CustomerRemark, Remark, FilePath, Title, "
+    69:             f"Acc4CustomerName, CustomerContactMan, CustomerPhone, CustomerAddress "
+    70:             f"FROM PPM_JobBill WHERE Code IN ({placeholders})"
+    71:         )
+
+  services\job_bill_service.py:70
+  services\job_bill_service.py:70
+    69:             f"Acc4CustomerName, CustomerContactMan, CustomerPhone, CustomerAddress "
+    70:             f"FROM PPM_JobBill WHERE Code IN ({placeholders})"
+    71:         )
+    72: 
+    73:         script_id = uuid.uuid4().hex[:8]
+
+  services\job_queue.py:509
+  services\job_queue.py:509
+    508:             
+    509:             query = "SELECT * FROM print_jobs WHERE 1=1"
+    510:             params = []
+    511:             
+    512:             if status:
+
+  services\job_queue.py:634
+  services\job_queue.py:634
+    633:                 cursor.execute(
+    634:                     """UPDATE print_jobs 
+    635:                        SET status = 'pending', retry_count = retry_count + 1,
+    636:                            error_message = '', progress = 0
+    637:                        WHERE job_id = ? AND status IN ('failed', 'dead_letter')""",
+
+  services\job_queue.py:694
+  services\job_queue.py:694
+    693:                     # 更新状态为已入队
+    694:                     self.update_job_status(job.job_id, JobStatus.QUEUED.value)
+    695:                     
+    696:                     self.log(f"作业已入队: {job.job_id} - {job.name}")
+    697:                     return job
+
+  services\job_queue.py:1216
+  services\job_queue.py:1216
+    1215:                     cursor.execute(
+    1216:                         """UPDATE webhooks 
+    1217:                            SET last_triggered_at = ?, total_triggers = total_triggers + 1
+    1218:                            WHERE webhook_id = ?""",
+    1219:                         (now, webhook_id)
+
+  services\license_manager.py:565
+  services\license_manager.py:565
+    564:         try:
+    565:             first = datetime.fromisoformat(trial["first_launch"])
+    566:             expiry = first + timedelta(days=LicenseConfig.TRIAL_DAYS)
+    567:             delta = expiry - datetime.now()
+    568:             return max(0, delta.days)
+
+  services\oee_service.py:751
+  services\oee_service.py:751
+    750:                 data = dict(zip(columns, row))
+    751:                 records.append(ProductionRecord.from_dict(data))
+    752:         except Exception as e:
+    753:             self._log(f"加载生产记录失败: {e}")
+    754: 
+
+  services\oee_service.py:781
+  services\oee_service.py:781
+    780:                 data = dict(zip(columns, row))
+    781:                 records.append(DowntimeRecord.from_dict(data))
+    782:         except Exception as e:
+    783:             self._log(f"加载停机记录失败: {e}")
+    784: 
+
+  services\order_lifecycle_service.py:192
+  services\order_lifecycle_service.py:192
+    191:         progress.timeline.append(TimelineEvent(
+    192:             timestamp=progress.updated_at,
+    193:             stage=target_stage,
+    194:             action=f"{old_stage.value} → {target_stage.value}",
+    195:             operator=operator,
+
+  services\order_lifecycle_service.py:229
+  services\order_lifecycle_service.py:229
+    228:         progress.timeline.append(TimelineEvent(
+    229:             timestamp=progress.updated_at,
+    230:             stage=OrderStage.CANCELLED,
+    231:             action=f"取消订单 ({old_stage.value})",
+    232:             operator="system",
+
+  services\report_service.py:92
+  services\report_service.py:92
+    91:         week_end = (monday + timedelta(days=6)).strftime("%Y-%m-%d")
+    92:         stats = self.db.get_order_stats(date_from=week_start, date_to=week_end)
+    93:         return self._build_summary("weekly", f"{week_start} ~ {week_end}", stats)
+    94: 
+    95:     def get_monthly_summary(self, year: int = None, month: int = None) -> Dict:
+
+  services\report_service.py:106
+  services\report_service.py:106
+    105:             month_end = f"{year}-{month + 1:02d}-01"
+    106:         stats = self.db.get_order_stats(date_from=month_start, date_to=month_end)
+    107:         return self._build_summary("monthly", f"{year}年{month}月", stats)
+    108: 
+    109:     # ── 3. Dashboard 数据接口 ────────────────────────────
+
+  services\update_service.py:143
+  services\update_service.py:143
+    142: 
+    143:     def _do_check(self) -> Optional[UpdateInfo]:
+    144:         """执行更新检查"""
+    145:         self._log(f"检查更新: 当前 {self._current_version}")
+    146:         try:
+
+  services\update_service.py:148
+  services\update_service.py:148
+    147:             req = Request(
+    148:                 self._update_url,
+    149:                 headers={"User-Agent": f"QHI-Processor/{self._current_version}"},
+    150:             )
+    151:             with urlopen(req, timeout=15) as resp:
+
+  services\update_service.py:200
+  services\update_service.py:200
+    199: 
+    200:         self._temp_dir = Path(tempfile.mkdtemp(prefix="qhi_update_"))
+    201:         ext = ".zip" if info.installer_type == "zip" else f".{info.installer_type}"
+    202:         out_path = self._temp_dir / f"qhi_processor-{info.version}{ext}"
+    203: 
+
+  services\update_service.py:219
+  services\update_service.py:219
+    218:                         f.write(chunk)
+    219:                         sha256.update(chunk)
+    220:                         downloaded += len(chunk)
+    221:                         if total > 0:
+    222:                             pct = int(downloaded / total * 100)
+
+  services\user_manager.py:975
+  services\user_manager.py:975
+    974:             user.salt = salt
+    975:             user.updated_at = datetime.now().isoformat()
+    976:             self._save_user(user)
+    977:         
+    978:         self.log(f"密码已修改: {user_id}")
+
+  services\user_manager.py:992
+  services\user_manager.py:992
+    991:             user.salt = salt
+    992:             user.updated_at = datetime.now().isoformat()
+    993:             self._save_user(user)
+    994:         
+    995:         self.log(f"密码已重置: {user_id}")
+
+  core\codec_manager.py:59
+  core\codec_manager.py:59
+    58:                 try:
+    59:                     cur.execute(f"UPDATE {table} SET code=? WHERE id=?", (generated, rid))
+    60:                     updated += 1
+    61:                 except Exception:
+    62:                     cur.execute(f"UPDATE {table} SET code=? WHERE id=?",
+
+  core\codec_manager.py:62
+  core\codec_manager.py:62
+    61:                 except Exception:
+    62:                     cur.execute(f"UPDATE {table} SET code=? WHERE id=?",
+    63:                                 (f"{generated}_{rid}", rid))
+    64:         if updated:
+    65:             conn.commit()
+
+  core\codec_manager.py:64
+  core\codec_manager.py:64
+    63:                                 (f"{generated}_{rid}", rid))
+    64:         if updated:
+    65:             conn.commit()
+    66:             logger.info(f"表 {table} 已为 {updated} 条记录生成编码")
+    67:         return updated
+
+  core\codec_manager.py:66
+  core\codec_manager.py:66
+    65:             conn.commit()
+    66:             logger.info(f"表 {table} 已为 {updated} 条记录生成编码")
+    67:         return updated
+    68:     except Exception as e:
+    69:         logger.info(f"自动生成编码失败 (表 {table}): {e}")
+
+  core\config.py:277
+  core\config.py:277
+    276:                     # 深度合并配置（保留默认值中新增的字段）
+    277:                     self._deep_update(self.config, data)
+    278:                     logger.info(f"配置已加载: {self.CONFIG_FILE}")
+    279:                 else:
+    280:                     logger.error(f"配置校验失败: {msg}")
+
+  core\database.py:160
+  core\database.py:160
+    159:             self.error_callback(error)
+    160:             raise RuntimeError(error) from e
+    161:         except sqlite3.IntegrityError as e:
+    162:             error = f"{error_msg} (数据完整性): {e}"
+    163:             self.error_callback(error)
+
+  core\database.py:164
+  core\database.py:164
+    163:             self.error_callback(error)
+    164:             raise ValueError(error) from e
+    165:         except sqlite3.DatabaseError as e:
+    166:             error = f"{error_msg} (数据库错误): {e}"
+    167:             self.error_callback(error)
+
+  core\database.py:168
+  core\database.py:168
+    167:             self.error_callback(error)
+    168:             raise RuntimeError(error) from e
+    169:         except Exception as e:
+    170:             error = f"{error_msg} (未知错误): {e}"
+    171:             self.error_callback(error)
+
+  core\database.py:670
+  core\database.py:670
+    669:                 if active_field:
+    670:                     cur.execute(f"SELECT * FROM {table} WHERE {active_field}=1 ORDER BY id")
+    671:                 else:
+    672:                     cur.execute(f"SELECT * FROM {table} ORDER BY id")
+    673:                 return [dict(row) for row in cur.fetchall()]
+
+  core\database.py:750
+  core\database.py:750
+    749: 
+    750:                 where = " AND ".join(conditions) if conditions else "1=1"
+    751:                 cur.execute(f"SELECT * FROM {table} WHERE {where} ORDER BY id", params)
+    752:                 return [dict(row) for row in cur.fetchall()]
+    753:             
+
+  core\database.py:785
+  core\database.py:785
+    784:             
+    785:             return self._safe_execute(_insert, f"插入表 {table} 失败")
+    786: 
+    787:     def update(self, table: str, item_id: int, **kwargs):
+    788:         """更新记录
+
+  core\database.py:811
+  core\database.py:811
+    810:             
+    811:             self._safe_execute(_update, f"更新表 {table} 记录 {item_id} 失败")
+    812: 
+    813:     def delete(self, table: str, item_id: int, soft: bool = True):
+    814:         """删除记录（默认软删除：设置激活字段为0）
+
+  core\database.py:838
+  core\database.py:838
+    837:             
+    838:             self._safe_execute(_delete, f"删除表 {table} 记录 {item_id} 失败")
+    839: 
+    840:     # ===== 专用查询方法 =====
+    841: 
+
+  core\database.py:869
+  core\database.py:869
+    868:                 
+    869:                 where = " AND ".join(conds)
+    870:                 cur.execute(f"SELECT * FROM papers WHERE {where} ORDER BY weight", params)
+    871:                 return [dict(row) for row in cur.fetchall()]
+    872:             
+
+  core\database.py:889
+  core\database.py:889
+    888:                     cur.execute(
+    889:                         "SELECT * FROM processes WHERE is_active=1 AND (keyword LIKE ? OR name LIKE ?)",
+    890:                         (f"%{keyword}%", f"%{keyword}%")
+    891:                     )
+    892:                 else:
+
+  core\database.py:912
+  core\database.py:912
+    911:                     cur.execute(
+    912:                         "SELECT * FROM customers WHERE is_active=1 AND (name LIKE ? OR short_name LIKE ?)",
+    913:                         (f"%{name_keyword}%", f"%{name_keyword}%")
+    914:                     )
+    915:                 else:
+
+  core\license_manager.py:166
+  core\license_manager.py:166
+    165:         try:
+    166:             first = datetime.fromisoformat(self.first_launch)
+    167:             expiry = first + timedelta(days=LicenseConfig.TRIAL_DAYS)
+    168:             return datetime.now() > expiry
+    169:         except:
+
+  core\license_manager.py:178
+  core\license_manager.py:178
+    177:         try:
+    178:             first = datetime.fromisoformat(self.first_launch)
+    179:             expiry = first + timedelta(days=LicenseConfig.TRIAL_DAYS)
+    180:             delta = expiry - datetime.now()
+    181:             return max(0, delta.days)
+
+  core\license_manager.py:477
+  core\license_manager.py:477
+    476:                 data = json.load(f)
+    477:                 return LicenseInfo.from_dict(data)
+    478:         except Exception as e:
+    479:             self.log(f"加载授权文件失败: {e}")
+    480:             return None
+
+  core\order_repository.py:84
+  core\order_repository.py:84
+    83: 
+    84:                 where = " AND ".join(conds) if conds else "1=1"
+    85:                 cur.execute(
+    86:                     f"SELECT * FROM orders WHERE {where} ORDER BY id DESC LIMIT 500",
+    87:                     params,
+
+  core\order_repository.py:116
+  core\order_repository.py:116
+    115: 
+    116:                 where = " AND ".join(conds) if conds else "1=1"
+    117:                 cur.execute(
+    118:                     f"""
+    119:                     SELECT
+
+  core\order_repository.py:150
+  core\order_repository.py:150
+    149: 
+    150:                 if date_from or date_to:
+    151:                     sql += " WHERE "
+    152:                     if date_from:
+    153:                         sql += "created_at>=?"
+
+  core\order_repository.py:151
+  core\order_repository.py:151
+    150:                 if date_from or date_to:
+    151:                     sql += " WHERE "
+    152:                     if date_from:
+    153:                         sql += "created_at>=?"
+    154:                         params.append(date_from)
+
+  core\order_repository.py:156
+  core\order_repository.py:156
+    155:                     if date_to:
+    156:                         if date_from:
+    157:                             sql += " AND "
+    158:                         sql += "created_at<=?"
+    159:                         params.append(date_to + " 23:59:59")
+
+  core\repositories\action_repository.py:69
+  core\repositories\action_repository.py:69
+    68:                 cur.execute(
+    69:                     "SELECT * FROM actions WHERE is_active=1 AND name LIKE ? ORDER BY type, name",
+    70:                     (f"%{keyword}%",),
+    71:                 )
+    72:                 return [dict(row) for row in cur.fetchall()]
+
+  utils\context_menu.py:190
+  utils\context_menu.py:190
+    189:             if last_idx is not None and last_idx + 1 < len(actions):
+    190:                 menu.insertSeparator(actions[last_idx + 1])
+    191: 
+    192:     def _find_action_index(self, actions: List[QAction], item_id: str) -> Optional[int]:
+    193:         """根据 action 文本查找索引"""
+
+  utils\safe_eval.py:3
+  utils\safe_eval.py:3
+    2: # -*- coding: utf-8 -*-
+    3: from __future__ import annotations
+    4: """
+    5: utils/safe_eval.py — 安全的表达式求值器
+    6: 
+
+  utils\thread_manager.py:77
+  utils\thread_manager.py:77
+    76:                 percent = int((i + 1) / total * 100) if total > 0 else 0
+    77:                 self.progress_updated.emit(percent, Path(file_path).name, i + 1, total)
+    78:                 try:
+    79:                     ok, msgs, info = processor.process(file_path, self.output_base)
+    80:                     if ok:
+
+  integration\transparency_flattener.py:205
+  integration\transparency_flattener.py:205
+    204: 
+    205:     page.insert_image(img_rect, pixmap=pixmap)
+    206: 
+    207:     logger.info(f"页面 {page_index}: 已拼合透明度 ({info.object_count} 个对象, {dpi} DPI)")
+    208:     info.needs_flattening = False
+
+  ui\main_window.py:551
+  ui\main_window.py:551
+    550:             if fp not in self.selected_files:
+    551:                 self.selected_files.append(fp)
+    552:                 self.metadata_mgr.create(fp)
+    553:                 added += 1
+    554:         if added:
+
+  ui\controllers\database_maintenance_controller.py:37
+  ui\controllers\database_maintenance_controller.py:37
+    36:         mw = self._mw
+    37:         from models.constants import DB_PATH
+    38: 
+    39:         backup_path = f"qhi_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+    40:         try:
+
+  ui\controllers\file_manager_controller.py:111
+  ui\controllers\file_manager_controller.py:111
+    110:         finally:
+    111:             mw.file_list.setUpdatesEnabled(True)
+    112: 
+    113:         for fp in new_files:
+    114:             mw.metadata_mgr.create(fp)
+
+  ui\controllers\file_manager_controller.py:122
+  ui\controllers\file_manager_controller.py:122
+    121:         mw = self._mw
+    122:         count = len(mw.selected_files)
+    123:         mw.selected_files.clear()
+    124:         mw.file_list.clear()
+    125:         mw.log(f"已清空文件列表（共 {count} 个文件）")
+
+  ui\controllers\file_manager_controller.py:140
+  ui\controllers\file_manager_controller.py:140
+    139:             if 0 <= idx < len(mw.selected_files):
+    140:                 del mw.selected_files[idx]
+    141:                 mw.file_list.takeItem(idx)
+    142: 
+    143:         mw.log(f"已移除 {len(indices)} 个文件")
+
+  ui\controllers\file_manager_controller.py:149
+  ui\controllers\file_manager_controller.py:149
+    148:         mw = self._mw
+    149:         count = len(mw.selected_files)
+    150:         mw.file_count_label.setText(f"文件数: {count}")
+    151:         mw.statusBar().showMessage(f"文件列表: {count} 个文件")
+    152: 
+
+  ui\controllers\file_manager_controller.py:189
+  ui\controllers\file_manager_controller.py:189
+    188:             size_mb = stat.st_size / 1024 / 1024
+    189:             dt = datetime.fromtimestamp(stat.st_mtime)
+    190:             mtime = f"{dt.year}年{dt.month:02d}月{dt.day:02d}日 {dt.hour:02d}:{dt.minute:02d}"
+    191:             info_lines.append(f"文件: {p.name}")
+    192:             info_lines.append(f"路径: {fp}")
+
+  ui\controllers\processing_controller.py:81
+  ui\controllers\processing_controller.py:81
+    80:         mw.progress_bar.setMaximum(100)
+    81:         mw.progress_info.setText(f"准备处理 {len(mw.selected_files)} 个文件...")
+    82:         mw._cancelled = False
+    83: 
+    84:         mw.log(f"\n{'=' * 60}")
+
+  ui\controllers\processing_controller.py:85
+  ui\controllers\processing_controller.py:85
+    84:         mw.log(f"\n{'=' * 60}")
+    85:         mw.log(f"开始处理 {len(mw.selected_files)} 个文件")
+    86:         mw.log(f" 输出目录: {output_base}")
+    87:         mw.log(f" 默认设备: {mw.config_mgr.get('default_machine', 'HP12000')}")
+    88:         mw.log(f"{'=' * 60}")
+
+  ui\controllers\rule_manager_controller.py:136
+  ui\controllers\rule_manager_controller.py:136
+    135:                 self.load_rules()
+    136:                 mw.rule_table.selectRow(row)
+    137:                 mw.log(f"已更新规则: {rules[row].get('name', '未命名')}")
+    138: 
+    139:     def open_visual_rule_editor(self):
+
+  ui\controllers\rule_manager_controller.py:233
+  ui\controllers\rule_manager_controller.py:233
+    232:             self.load_rules()
+    233:             mw.rule_table.selectRow(row + 1)
+    234: 
+    235:     def duplicate_rule(self):
+    236:         """复制规则"""
+
+  ui\controllers\rule_manager_controller.py:246
+  ui\controllers\rule_manager_controller.py:246
+    245:             new_rule['name'] = new_rule.get('name', '') + ' (副本)'
+    246:             rules.insert(row + 1, new_rule)
+    247:             mw.config_mgr.save()
+    248:             self.load_rules()
+    249:             mw.rule_table.selectRow(row + 1)
+
+  ui\controllers\rule_manager_controller.py:249
+  ui\controllers\rule_manager_controller.py:249
+    248:             self.load_rules()
+    249:             mw.rule_table.selectRow(row + 1)
+    250:             mw.log(f"已复制规则: {new_rule['name']}")
+    251: 
+    252:     def enable_all_rules(self):
+
+  ui\widgets\action_library_panel.py:215
+  ui\widgets\action_library_panel.py:215
+    214:         # 构建SQL查询
+    215:         sql = "SELECT * FROM actions WHERE is_active=1"
+    216:         params = []
+    217: 
+    218:         if keyword:
+
+  ui\widgets\action_library_panel.py:390
+  ui\widgets\action_library_panel.py:390
+    389:         if reply == QMessageBox.Yes:
+    390:             self.db.delete_action(action_id)
+    391:             self._load_data()
+    392:             self.status_label.setText(f"已删除: {name}")
+    393: 
+
+  ui\widgets\dashboard_enhanced.py:227
+  ui\widgets\dashboard_enhanced.py:227
+    226:     
+    227:     def update_stats(self, stats: Dict):
+    228:         """更新统计"""
+    229:         self.pending_label.setText(f"待处理: {stats.get('pending', 0)}")
+    230:         self.processing_label.setText(f"处理中: {stats.get('processing', 0)}")
+
+  ui\widgets\drop_zone.py:79
+  ui\widgets\drop_zone.py:79
+    78:         self.file_list.setMaximumHeight(300)
+    79:         self.file_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
+    80:         self.file_list.setStyleSheet(
+    81:             DASHED_BORDER
+    82:             + "QListWidget::item { padding: 4px; }"
+
+  ui\widgets\drop_zone.py:83
+  ui\widgets\drop_zone.py:83
+    82:             + "QListWidget::item { padding: 4px; }"
+    83:             + "QListWidget::item:selected { background-color: #4CAF50; color: white; }"
+    84:             + "QListWidget::item:alternate { background-color: #f5f5f5; }"
+    85:         )
+    86:         self.file_list.setContextMenuPolicy(Qt.CustomContextMenu)
+
+  ui\widgets\layout_recommendation_widget.py:200
+  ui\widgets\layout_recommendation_widget.py:200
+    199: 
+    200:     def _update_detail(self, rec: LayoutRecommendation):
+    201:         """更新详情文本"""
+    202:         detail = (
+    203:             f"<b>{tr('方案')} #{rec.rank}: {rec.paper_name} ({rec.paper_size})</b><br><br>"
+
+  ui\widgets\menu_bar.py:92
+  ui\widgets\menu_bar.py:92
+    91:             self._parent.log(f"向导完成 — 模式: {result['mode_name']} | "
+    92:                              f"纸张: {len(result['selected_papers'])}种 | "
+    93:                              f"工艺: {len(result['selected_processes'])}种 | "
+    94:                              f"监控目录: {len(result['monitor_dirs'])}个")
+    95: 
+
+  ui\widgets\menu_bar.py:93
+  ui\widgets\menu_bar.py:93
+    92:                              f"纸张: {len(result['selected_papers'])}种 | "
+    93:                              f"工艺: {len(result['selected_processes'])}种 | "
+    94:                              f"监控目录: {len(result['monitor_dirs'])}个")
+    95: 
+    96:             if result['monitor_dirs']:
+
+  ui\widgets\stats_panel.py:82
+  ui\widgets\stats_panel.py:82
+    81: 
+    82:         stats = self.db.get_order_stats(date_from, date_to)
+    83: 
+    84:         def nz(v):
+    85:             return v if v is not None else 0
+
+  ui\widgets\visual_rule_editor.py:695
+  ui\widgets\visual_rule_editor.py:695
+    694: 
+    695:     def from_dict(self, d: dict):
+    696:         # 先清 Python 引用再清 C++ scene，避免 clear() 后 dict 内残留悬空指针
+    697:         self._nodes.clear()
+    698:         self._connections.clear()
+
+  models\enums.py:113
+  models\enums.py:113
+    112:         """生成纸张编码: PAP-{类别}-{克重}{规格缩写}"""
+    113:         cat = cls.from_name(name) or cls.SP
+    114:         if size:
+    115:             import re
+    116:             digits = re.findall(r'\d+', size)
+
+  models\enums.py:144
+  models\enums.py:144
+    143:         """生成工艺编码: PRC-{类别}-{序号}"""
+    144:         cat = cls.from_name(category) or cls.SURF
+    145:         return f"PRC-{cat.value}-{seq:03d}"
+    146: 
+    147: 
+
+  models\enums.py:169
+  models\enums.py:169
+    168:         """生成机型编码: MAC-{类别}-{序号}"""
+    169:         cat = cls.from_name(category) or cls.PRNT
+    170:         return f"MAC-{cat.value}-{seq:03d}"
+    171: 
+    172: 
+
+  models\enums.py:197
+  models\enums.py:197
+    196:         """生成装订编码: BND-{方式}"""
+    197:         code = cls.from_name(name)
+    198:         return f"BND-{code.value}" if code else f"BND-OTHER"
+    199: 
+    200: 
+
+  models\variable.py:103
+  models\variable.py:103
+    102:     @classmethod
+    103:     def from_dict(cls, d: dict) -> 'VariableDef':
+    104:         """从字典反序列化"""
+    105:         d = d.copy()
+    106:         d['var_type'] = VarType(d.get('var_type', 'String'))
+
+
+[P0-命令注入-check-subprocess.run] - 23 处
+--------------------------------------------------------------------------------
+  services\job_bill_service.py:107
+  services\job_bill_service.py:107
+    106:         try:
+    107:             subprocess.run(
+    108:                 ['net', 'use', REMOTE_SHARE, '/user:' + REMOTE_USER, REMOTE_PASS],
+    109:                 shell=False, capture_output=True, timeout=10
+    110:             )
+
+  services\job_bill_service.py:138
+  services\job_bill_service.py:138
+    137:             )
+    138:             result = subprocess.run(
+    139:                 ["powershell.exe", "-ExecutionPolicy", "Bypass", "-Command", ps_wmi],
+    140:                 capture_output=True, text=True, timeout=15
+    141:             )
+
+  services\license_manager.py:119
+  services\license_manager.py:119
+    118:         try:
+    119:             result = subprocess.run(
+    120:                 ["wmic", query, "get", field],
+    121:                 capture_output=True, text=True, timeout=8,
+    122:                 creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+
+  services\license_manager.py:148
+  services\license_manager.py:148
+    147:         try:
+    148:             result = subprocess.run(
+    149:                 ["wmic", "nic", "where", "NetEnabled=True", "get", "MACAddress"],
+    150:                 capture_output=True, text=True, timeout=8,
+    151:                 creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+
+  services\ops_service.py:183
+  services\ops_service.py:183
+    182:             args = shlex.split(command)
+    183:             result = subprocess.run(
+    184:                 args,
+    185:                 cwd=cwd,
+    186:                 shell=False,
+
+  services\ops_service.py:231
+  services\ops_service.py:231
+    230:             # 降级为 PowerShell 弹窗
+    231:             subprocess.run([
+    232:                 "powershell", "-Command",
+    233:                 f"Add-Type -AssemblyName System.Windows.Forms; "
+    234:                 f"[System.Windows.Forms.MessageBox]::Show('{message}', '{title}')"
+
+  services\script_engine.py:170
+  services\script_engine.py:170
+    169:         try:
+    170:             result = subprocess.run(
+    171:                 command,
+    172:                 cwd=cwd,
+    173:                 shell=shell,
+
+  utils\zint_barcode.py:41
+  utils\zint_barcode.py:41
+    40:         try:
+    41:             result = subprocess.run(
+    42:                 [self.cli] + args,
+    43:                 capture_output=True,
+    44:                 text=True,
+
+  integration\action_executor.py:233
+  integration\action_executor.py:233
+    232: 
+    233:             result = subprocess.run(
+    234:                 cmd,
+    235:                 capture_output=True,
+    236:                 text=True,
+
+  integration\action_executor.py:415
+  integration\action_executor.py:415
+    414: 
+    415:             result = subprocess.run(
+    416:                 cmd,
+    417:                 capture_output=True,
+    418:                 text=True,
+
+  integration\action_executor.py:514
+  integration\action_executor.py:514
+    513: 
+    514:             result = subprocess.run(
+    515:                 cmd,
+    516:                 capture_output=True,
+    517:                 text=True,
+
+  integration\archive_extractor.py:150
+  integration\archive_extractor.py:150
+    149:                 
+    150:                 result = subprocess.run(
+    151:                     cmd, 
+    152:                     capture_output=True, 
+    153:                     text=True,
+
+  integration\archive_extractor.py:188
+  integration\archive_extractor.py:188
+    187:                 
+    188:                 result = subprocess.run(
+    189:                     cmd,
+    190:                     capture_output=True,
+    191:                     text=True,
+
+  integration\archive_extractor.py:218
+  integration\archive_extractor.py:218
+    217:                 
+    218:                 result = subprocess.run(
+    219:                     cmd,
+    220:                     capture_output=True,
+    221:                     timeout=600
+
+  integration\archive_extractor.py:250
+  integration\archive_extractor.py:250
+    249:                 
+    250:                 result = subprocess.run(cmd, capture_output=True, timeout=300)
+    251:                 if result.returncode == 0:
+    252:                     return True, out_dir
+    253:             except Exception:
+
+  integration\archive_extractor.py:308
+  integration\archive_extractor.py:308
+    307:                 try:
+    308:                     result = subprocess.run(cmd, capture_output=True, timeout=600)
+    309:                     if result.returncode == 0:
+    310:                         return True, out_dir
+    311:                     return False, f'7Z解压失败 (返回码 {result.returncode})'
+
+  integration\callas_service.py:116
+  integration\callas_service.py:116
+    115:         try:
+    116:             result = subprocess.run(
+    117:                 cmd,
+    118:                 capture_output=True,
+    119:                 text=True,
+
+  integration\callas_service.py:199
+  integration\callas_service.py:199
+    198:         try:
+    199:             result = subprocess.run(
+    200:                 [self.toolbox_path, "--report", input_pdf],
+    201:                 capture_output=True,
+    202:                 text=True,
+
+  integration\imagemagick_service.py:54
+  integration\imagemagick_service.py:54
+    53:         try:
+    54:             result = subprocess.run(
+    55:                 [self._cli] + args,
+    56:                 capture_output=True,
+    57:                 text=True,
+
+  integration\pdfix_service.py:76
+  integration\pdfix_service.py:76
+    75:         try:
+    76:             result = subprocess.run(
+    77:                 [self.cli_path] + args,
+    78:                 capture_output=True,
+    79:                 text=True,
+
+  integration\pitstop_service.py:149
+  integration\pitstop_service.py:149
+    148:         try:
+    149:             result = subprocess.run(
+    150:                 cmd,
+    151:                 capture_output=True,
+    152:                 text=True,
+
+  integration\pitstop_service.py:297
+  integration\pitstop_service.py:297
+    296:             try:
+    297:                 result = subprocess.run(
+    298:                     [self.cli_path, "--preflight", input_pdf],
+    299:                     capture_output=True,
+    300:                     text=True,
+
+  integration\saxon_service.py:82
+  integration\saxon_service.py:82
+    81:         try:
+    82:             result = subprocess.run(
+    83:                 cmd, capture_output=True, text=True, timeout=120,
+    84:                 encoding='utf-8', errors='ignore',
+    85:             )
+
+
+[P1-eval执行-eval()] - 6 处
+--------------------------------------------------------------------------------
+  services\script_engine.py:112
+  services\script_engine.py:112
+    111:             ctx.set(key, value)
+    112:         return ctx.eval(code)
+    113: 
+    114:     def _fallback_eval(self, code: str, context: Dict[str, Any]) -> Any:
+    115:         """受限降级：仅支持基本数学/逻辑表达式。"""
+
+  services\script_engine.py:156
+  services\script_engine.py:156
+    155:         try:
+    156:             return script_control.Eval(code)
+    157:         except Exception as e:
+    158:             raise RuntimeError(f"VBScript 执行失败: {e}") from e
+    159: 
+
+  services\variable_service.py:42
+  services\variable_service.py:42
+    41:     @classmethod
+    42:     def eval(cls, expr: str, values: Dict[str, Any]) -> Any:
+    43:         """求值表达式。先替换 {var} 占位符，再执行安全 eval。"""
+    44:         from utils.safe_eval import safe_eval
+    45:         if not expr:
+
+  services\variable_service.py:278
+  services\variable_service.py:278
+    277:         """求值单个计算表达式（支持 {var} 占位符与 ROUND 函数）。"""
+    278:         return _SafeEvaluator.eval(expr, self._values)
+    279: 
+    280:     def round_value(self, value: Any, digits: int) -> Any:
+    281:         """对外暴露的 ROUND 取整工具。"""
+
+  utils\safe_eval.py:7
+  utils\safe_eval.py:7
+    6: 
+    7: 替代 eval() 的安全实现，仅支持：
+    8: - 基本数学运算 (+, -, *, /, //, %, **)
+    9: - 比较运算 (==, !=, <, >, <=, >=)
+    10: - 逻辑运算 (and, or, not)
+
+  utils\safe_eval.py:216
+  utils\safe_eval.py:216
+    215:     try:
+    216:         return eval(compile(tree, '<string>', 'eval'), env)
+    217:     except Exception as e:
+    218:         raise SafeEvalError(f"求值失败: {e}") from e
+    219: 
+
+
+[P1-exec执行-exec()] - 8 处
+--------------------------------------------------------------------------------
+  services\file_monitor.py:460
+  services\file_monitor.py:460
+    459:         dialog = self._make_dialog()
+    460:         if dialog and dialog.exec() == QDialog.Accepted:
+    461:             self.monitor_configs.append(dialog.get_config())
+    462:             self._save_configs()
+    463:             self._refresh_table()
+
+  services\file_monitor.py:470
+  services\file_monitor.py:470
+    469:         dialog = self._make_dialog(self.monitor_configs[row])
+    470:         if dialog and dialog.exec() == QDialog.Accepted:
+    471:             self.monitor_configs[row] = dialog.get_config()
+    472:             self._save_configs()
+    473:             self._refresh_table()
+
+  ui\controllers\rule_manager_controller.py:109
+  ui\controllers\rule_manager_controller.py:109
+    108:         dialog = RuleDialog(db=mw.db, parent=mw)
+    109:         if dialog.exec() == QDialog.Accepted:
+    110:             new_rule = dialog.get_rule()
+    111:             mw.config_mgr.config.setdefault('rules', []).append(new_rule)
+    112:             mw.config_mgr.save()
+
+  ui\controllers\rule_manager_controller.py:132
+  ui\controllers\rule_manager_controller.py:132
+    131:             dialog = RuleDialog(rule=rules[row], db=mw.db, parent=mw)
+    132:             if dialog.exec() == QDialog.Accepted:
+    133:                 rules[row] = dialog.get_rule()
+    134:                 mw.config_mgr.save()
+    135:                 self.load_rules()
+
+  ui\dialogs\rule_dialog.py:139
+  ui\dialogs\rule_dialog.py:139
+    138:         dialog = EnhancedStepDialog(parent=self)
+    139:         if dialog.exec() == QDialog.Accepted:
+    140:             self.rule['steps'].append(dialog.get_step())
+    141:             self.refresh_steps()
+    142: 
+
+  ui\dialogs\rule_dialog.py:150
+  ui\dialogs\rule_dialog.py:150
+    149:         dialog = EnhancedStepDialog(step_data=step, parent=self)
+    150:         if dialog.exec() == QDialog.Accepted:
+    151:             self.rule['steps'][row] = dialog.get_step()
+    152:             self.refresh_steps()
+    153: 
+
+  ui\widgets\action_library_panel.py:314
+  ui\widgets\action_library_panel.py:314
+    313:         dialog = ActionEditDialog(parent=self)
+    314:         if dialog.exec() == QDialog.Accepted:
+    315:             data = dialog.get_data()
+    316:             action_id = self.db.add_action(
+    317:                 name=data['name'],
+
+  ui\widgets\action_library_panel.py:355
+  ui\widgets\action_library_panel.py:355
+    354:         dialog = ActionEditDialog(action, parent=self)
+    355:         if dialog.exec() == QDialog.Accepted:
+    356:             data = dialog.get_data()
+    357:             self.db.update_action(
+    358:                 action_id,
+
+
+[P1-路径遍历-路径遍历] - 4 处
+--------------------------------------------------------------------------------
+  services\file_monitor.py:39
+  services\file_monitor.py:39
+    38:     目录结构要求：
+    39:     root_path/YYYY-MM-DD/{customer}/GDxxx.../
+    40:     """
+    41:     logger.info(f"[文件操作] 扫描订单目录: {root_path}, 回溯 {days_back} 天, 客户 {customer}")
+    42:     order_dirs = []
+
+  services\job_bill_service.py:34
+  services\job_bill_service.py:34
+    33:     1. 先在路径各部分中查找 GD + 至少10位数字的目录名/文件名
+    34:     2. 支持网络路径 (Server2/.../GD26061812945/xxx.pdf)
+    35:     3. 支持本地路径 (D:/.../GD26061812945/xxx.pdf)
+    36: 
+    37:     Returns:
+
+  services\job_bill_service.py:35
+  services\job_bill_service.py:35
+    34:     2. 支持网络路径 (Server2/.../GD26061812945/xxx.pdf)
+    35:     3. 支持本地路径 (D:/.../GD26061812945/xxx.pdf)
+    36: 
+    37:     Returns:
+    38:         工单编号（如 GD26061812945）或 None
+
+  services\update_service.py:231
+  services\update_service.py:231
+    230:                         self.error_occurred.emit(
+    231:                             f"SHA256 校验失败\n期望: {info.sha256[:16]}...\n实际: {actual[:16]}..."
+    232:                         )
+    233:                         return None
+    234: 
+
+
+[P2-临时文件-tempfile] - 3 处
+--------------------------------------------------------------------------------
+  services\debug_service.py:44
+  services\debug_service.py:44
+    43:             import tempfile
+    44:             output_path = tempfile.mktemp(suffix=".xml")
+    45:         return self.saxon.transform(xslt_path, xml_path, output_path, params)
+    46: 
+    47:     # ── XML 验证 ──────────────────────────────────────────────
+
+  utils\barcode_generator.py:235
+  utils\barcode_generator.py:235
+    234:             return None
+    235:         tmp_path = tempfile.mktemp(suffix=".png")
+    236:         result = self._zint.generate(data, barcode_type, tmp_path, width, height, show_text)
+    237:         if not result.get("success"):
+    238:             raise RuntimeError(f"ZINT 生成失败: {result.get('error')}")
+
+  utils\barcode_generator.py:253
+  utils\barcode_generator.py:253
+    252:             return None
+    253:         tmp_path = tempfile.mktemp(suffix=".png")
+    254:         result = self._zint.generate_qrcode(data, tmp_path, size)
+    255:         if not result.get("success"):
+    256:             raise RuntimeError(f"ZINT 生成失败: {result.get('error')}")
+
+
+[P2-硬编码-硬编码密码] - 1 处
+--------------------------------------------------------------------------------
+  services\api_server_v2.py:48
+  services\api_server_v2.py:48
+    47:     PORT = 18900
+    48:     _DEFAULT_SECRET = "qhi-default-secret-key-change-in-production"
+    49:     _cached_secret: Optional[str] = None
+    50:     JWT_EXPIRY_HOURS = 24
+    51:     RATE_LIMIT_REQUESTS = 100  # 每分钟最大请求数
+

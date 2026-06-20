@@ -9,15 +9,28 @@ import sys
 import os
 import io
 import types
+import traceback
+import tempfile
 
 
 def _ensure_stderr():
+    """将stderr/stdout重定向到已知日志文件而非devnull"""
     for attr in ('stderr', 'stdout'):
         if getattr(sys, attr, None) is None:
             try:
-                setattr(sys, attr, open(os.devnull, "w", encoding="utf-8"))
+                # 尝试写到项目同级目录
+                if getattr(sys, 'frozen', False):
+                    exe_dir = os.path.dirname(sys.executable)
+                else:
+                    exe_dir = os.path.dirname(os.path.abspath(__file__)) + os.sep + '..'
+                log_path = os.path.join(exe_dir, f'{attr}.log')
+                setattr(sys, attr, open(log_path, "a", encoding="utf-8", errors="replace"))
             except Exception:
-                setattr(sys, attr, io.StringIO())
+                try:
+                    log_path = os.path.join(tempfile.gettempdir(), f'qhi_{attr}.log')
+                    setattr(sys, attr, open(log_path, "a", encoding="utf-8", errors="replace"))
+                except Exception:
+                    setattr(sys, attr, io.StringIO())
 
 
 def _patch_cparser_for_frozen():

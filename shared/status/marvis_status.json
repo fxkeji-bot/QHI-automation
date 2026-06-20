@@ -1,28 +1,14 @@
 {
   "agent": "marvis",
-  "role": "项目协调、核心开发、代码审查",
-  "status": "idle",
+  "status": "pending_tasks",
   "current_task": null,
-  "progress": 0,
-  "last_update": "2026-06-20T18:45:00",
-  "files_modified": ["tests/test_performance_benchmark.py"],
+  "progress": 100,
+  "last_update": "2026-06-20T23:19:55",
+  "last_scheduler_check": "2026-06-21T00:00:01.138371",
+  "collab_plan_version": "v1.0",
+  "pending_tasks_count": 4,
+  "files_modified": [],
   "issues_found": [],
   "next_tasks": [],
-  "completed_today": [
-    "安全漏洞修复",
-    "并发测试修复",
-    "预检模块语法修复",
-    "ERP同步服务开发",
-    "WebSocket安全加固",
-    "API文档生成",
-    "性能基准测试"
-  ],
-  "quality_check": {
-    "tests_passed": 696,
-    "tests_failed": 0,
-    "tests_skipped": 1,
-    "code_coverage": "95%",
-    "security_score": "9.0/10",
-    "performance_benchmark": "passed"
-  }
+  "notes": "All tasks in COLLABORATION_PLAN.md are marked completed. 3 stale pending files (pre-existing duplicates of already-completed tasks) moved to completed/. No new tasks for Marvis."
 }
