@@ -48,6 +48,8 @@ class MonitorConfig:
     check_interval: int = 5  # seconds
     stable_minutes: int = 2  # minutes
     enabled: bool = True
+    scan_subdirs: bool = True  # 扫描子目录
+    auto_select_printer: bool = True  # 自动选择打印机
 
 
 @dataclass
@@ -151,26 +153,41 @@ class HotFolderService:
                 self.log(f"扫描 {config.folder_path} 失败: {e}")
     
     def _scan_directory(self, config: MonitorConfig):
-        """扫描单个目录"""
+        """扫描单个目录（支持子目录）"""
         folder = Path(config.folder_path)
         if not folder.exists():
             return
         
         # 扫描PDF文件
-        for pdf_file in folder.glob(config.file_pattern):
-            # 检查是否已处理
-            if self._is_processed(pdf_file):
-                continue
-            
-            # 检查文件是否稳定
-            if not self._is_file_stable(pdf_file, config.stable_minutes):
-                continue
-            
-            # 发现新文件
-            self.log(f"发现新文件: {pdf_file.name}")
-            
-            # 创建打印作业
-            self._create_print_job(pdf_file, config)
+        if config.scan_subdirs:
+            # 递归扫描子目录
+            for pdf_file in folder.rglob(config.file_pattern):
+                self._process_file(pdf_file, config)
+        else:
+            # 仅扫描根目录
+            for pdf_file in folder.glob(config.file_pattern):
+                self._process_file(pdf_file, config)
+    
+    def _process_file(self, pdf_file: Path, config: MonitorConfig):
+        """处理单个文件"""
+        # 检查是否已处理
+        if self._is_processed(pdf_file):
+            return
+        
+        # 检查文件是否稳定
+        if not self._is_file_stable(pdf_file, config.stable_minutes):
+            return
+        
+        # 发现新文件
+        self.log(f"发现新文件: {pdf_file.name}")
+        
+        # 自动选择打印机（如果启用）
+        printer_ip = config.printer_ip
+        if config.auto_select_printer and not printer_ip:
+            printer_ip = self._auto_select_printer(pdf_file)
+        
+        # 创建打印作业
+        self._create_print_job(pdf_file, config, printer_ip)
     
     def _is_processed(self, file_path: Path) -> bool:
         """检查文件是否已处理"""
@@ -192,9 +209,31 @@ class HotFolderService:
         except:
             return False
     
-    def _create_print_job(self, file_path: Path, config: MonitorConfig):
+    def _auto_select_printer(self, file_path: Path) -> str:
+        """根据文件大小自动选择打印机"""
+        try:
+            file_size_mb = file_path.stat().st_size / (1024 * 1024)
+            
+            # 根据文件大小选择打印机
+            if file_size_mb < 10:
+                # 小文件 -> 工作打印机
+                return "192.168.1.32"
+            elif file_size_mb < 50:
+                # 中等文件 -> Océ 6000
+                return "192.168.1.210"
+            else:
+                # 大文件 -> Océ 6000（支持更大纸张）
+                return "192.168.1.210"
+        except:
+            return "192.168.1.210"  # 默认打印机
+    
+    def _create_print_job(self, file_path: Path, config: MonitorConfig, printer_ip: str = None):
         """创建打印作业（带JDF重试）"""
         job_id = f"JOB_{hashlib.md5(str(file_path).encode()).hexdigest()[:12]}"
+        
+        # 使用指定的打印机IP或配置中的IP
+        if printer_ip is None:
+            printer_ip = config.printer_ip
         
         # JDF生成带重试
         jdf_content = None
@@ -220,7 +259,7 @@ class HotFolderService:
         job = PrintJob(
             job_id=job_id,
             file_path=str(file_path),
-            printer_ip=config.printer_ip,
+            printer_ip=printer_ip,
             status="pending",
             created_at=datetime.now().isoformat(),
             jdf_path=str(jdf_path),
@@ -229,7 +268,7 @@ class HotFolderService:
         with self._lock:
             self._jobs[job_id] = job
         
-        self.log(f"打印作业已创建: {job_id}")
+        self.log(f"打印作业已创建: {job_id} -> {printer_ip}")
         
         # 自动提交
         if config.auto_print:
@@ -432,3 +471,25 @@ startxref
                 "monitors": len(self._monitors),
                 "running": self._running,
             }
+    
+    def get_printer_status(self) -> List[Dict]:
+        """获取所有打印机状态"""
+        printers = [
+            {"ip": "192.168.1.210", "name": "Océ VarioPrint 6000", "max_size": "330×488mm"},
+            {"ip": "192.168.1.100", "name": "HP Indigo 12000", "max_size": "750×530mm"},
+            {"ip": "192.168.1.101", "name": "HP Indigo 7900", "max_size": "464×320mm"},
+            {"ip": "192.168.1.32", "name": "工作打印机", "max_size": "A4"},
+        ]
+        
+        import socket
+        for printer in printers:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                result = sock.connect_ex((printer["ip"], 9100))
+                sock.close()
+                printer["status"] = "online" if result == 0 else "offline"
+            except:
+                printer["status"] = "unknown"
+        
+        return printers
