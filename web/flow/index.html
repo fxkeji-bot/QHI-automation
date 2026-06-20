@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>时友快印 生产业务中心</title>
+<style>
+  :root {
+    --primary: #1a73e8;
+    --primary-light: #e8f0fe;
+    --success: #0d904f;
+    --warning: #e37400;
+    --danger: #d93025;
+    --bg: #f5f7fa;
+    --card-bg: #ffffff;
+    --text: #202124;
+    --text-secondary: #5f6368;
+    --border: #e0e0e0;
+    --radius: 12px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Microsoft YaHei", "Helvetica Neue", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── 头部 ── */
+  .header {
+    background: linear-gradient(135deg, #1a73e8 0%, #1557b0 100%);
+    color: #fff;
+    padding: 16px 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(26,115,232,0.25);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+  .header .sub {
+    font-size: 12px;
+    opacity: 0.85;
+    margin-top: 2px;
+  }
+
+  /* ── 容器 ── */
+  .container {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+
+  /* ── 卡片 ── */
+  .card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 18px;
+    background: var(--primary);
+    border-radius: 2px;
+  }
+
+  /* ── 工单信息网格 ── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .info-item {
+    display: flex;
+    flex-direction: column;
+  }
+  .info-item.full {
+    grid-column: 1 / -1;
+  }
+  .info-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+  }
+  .info-value {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .info-value.amount {
+    color: var(--danger);
+    font-weight: 700;
+    font-size: 18px;
+  }
+
+  /* ── 当前流程状态标签 ── */
+  .flow-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    gap: 6px;
+  }
+  .flow-badge .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .flow-badge.step-1 { background: #e3f2fd; color: #1565c0; }
+  .flow-badge.step-2 { background: #fce4ec; color: #c62828; }
+  .flow-badge.step-3 { background: #fff3e0; color: #e65100; }
+  .flow-badge.step-4 { background: #e8f5e9; color: #2e7d32; }
+  .flow-badge.step-5 { background: #f3e5f5; color: #6a1b9a; }
+  .flow-badge.step-6 { background: #e0f7fa; color: #00838f; }
+  .flow-badge.step-7 { background: #e8f5e9; color: #2e7d32; }
+  .flow-badge.step-8 { background: #fff8e1; color: #f57f17; }
+  .flow-badge.step-9 { background: #fce4ec; color: #c62828; }
+  .flow-badge .dot.step-dot-1 { background: #1565c0; }
+  .flow-badge .dot.step-dot-2 { background: #c62828; }
+  .flow-badge .dot.step-dot-3 { background: #e65100; }
+  .flow-badge .dot.step-dot-4 { background: #2e7d32; }
+  .flow-badge .dot.step-dot-5 { background: #6a1b9a; }
+  .flow-badge .dot.step-dot-6 { background: #00838f; }
+  .flow-badge .dot.step-dot-7 { background: #2e7d32; }
+  .flow-badge .dot.step-dot-8 { background: #f57f17; }
+  .flow-badge .dot.step-dot-9 { background: #c62828; }
+
+  /* ── 表单区域 ── */
+  .form-group {
+    margin-bottom: 16px;
+  }
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .select-wrapper {
+    position: relative;
+  }
+  .select-wrapper select {
+    width: 100%;
+    padding: 12px 40px 12px 14px;
+    font-size: 16px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--text);
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    font-family: inherit;
+  }
+  .select-wrapper select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+  }
+  .select-wrapper::after {
+    content: "";
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid var(--text-secondary);
+    border-bottom: 2px solid var(--text-secondary);
+    transform: translateY(-60%) rotate(45deg);
+    pointer-events: none;
+  }
+
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    letter-spacing: 0.5px;
+  }
+  .btn-primary {
+    background: var(--primary);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background: #1557b0;
+    box-shadow: 0 4px 12px rgba(26,115,232,0.3);
+  }
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+  .btn-primary:disabled {
+    background: #c4c7cc;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  /* ── 更新结果提示 ── */
+  .toast {
+    padding: 14px 18px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .toast.success {
+    background: #e6f4ea;
+    color: #137333;
+    border: 1px solid #a8dab5;
+  }
+  .toast.error {
+    background: #fce8e6;
+    color: #c5221f;
+    border: 1px solid #f5c6cb;
+  }
+  .toast .icon {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  /* ── 时间线 ── */
+  .timeline {
+    position: relative;
+    padding-left: 28px;
+  }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 10px;
+    top: 4px;
+    bottom: 4px;
+    width: 2px;
+    background: var(--border);
+  }
+  .timeline-item {
+    position: relative;
+    padding: 8px 0;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .timeline-item::before {
+    content: "";
+    position: absolute;
+    left: -18px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px var(--primary);
+  }
+  .timeline-item:first-child::before {
+    background: var(--success);
+    box-shadow: 0 0 0 2px var(--success);
+    width: 12px;
+    height: 12px;
+  }
+  .timeline-flow {
+    font-weight: 500;
+  }
+  .timeline-time {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    margin-left: 12px;
+  }
+
+  /* ── 空状态 ── */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+  }
+  .empty-state .emoji {
+    font-size: 48px;
+    margin-bottom: 12px;
+  }
+  .empty-state p {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── 加载 ── */
+  .loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+  }
+  .spinner {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── 底部 ── */
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-secondary);
+    padding: 20px 16px;
+    opacity: 0.6;
+  }
+
+  /* ── 暗色模式适配 ── */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a2e;
+      --card-bg: #16213e;
+      --text: #e0e0e0;
+      --text-secondary: #a0a0b0;
+      --border: #2a2a4a;
+    }
+    .btn-primary:disabled { background: #3a3a5a; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 头部 -->
+<div class="header">
+  <h1>时友快印 生产业务中心</h1>
+  <div class="sub">扫码查看工单 · 更改生产流程</div>
+</div>
+
+<!-- 主容器 -->
+<div class="container" id="app">
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>加载工单信息...</p>
+  </div>
+
+  <!-- 工单详情卡片（初始隐藏） -->
+  <div class="card" id="orderCard" style="display:none;">
+    <div class="card-title">工单详情</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="info-label">工单编号</span>
+        <span class="info-value" id="orderId">---</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">客户名称</span>
+        <span class="info-value" id="customerName">---</span>
+      </div>
+      <div class="info-item full">
+        <span class="info-label">品名</span>
+        <span class="info-value" id="productName">---</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">数量</span>
+        <span class="info-value" id="quantity">---</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">金额</span>
+        <span class="info-value amount" id="amount">---</span>
+      </div>
+      <div class="info-item full">
+        <span class="info-label">当前流程</span>
+        <span id="currentFlowBadge">---</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 更新流程卡片 -->
+  <div class="card" id="updateCard" style="display:none;">
+    <div class="card-title">更改生产流程</div>
+    <div class="form-group">
+      <label for="flowSelect">选择新流程</label>
+      <div class="select-wrapper">
+        <select id="flowSelect">
+          <option value="">请选择流程...</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="updateBtn" onclick="updateFlow()">
+      更新流程
+    </button>
+    <div id="toastContainer"></div>
+  </div>
+
+  <!-- 流程变更历史 -->
+  <div class="card" id="historyCard" style="display:none;">
+    <div class="card-title">流程变更历史</div>
+    <div class="timeline" id="timeline"></div>
+  </div>
+
+  <!-- 错误状态 -->
+  <div class="card" id="errorCard" style="display:none;">
+    <div class="empty-state">
+      <div class="emoji">📋</div>
+      <p id="errorMsg">无法加载工单信息</p>
+    </div>
+  </div>
+</div>
+
+<div class="footer">时友快印 · 生产业务中心</div>
+
+<script>
+// ── 流程分类 ──
+const FLOW_LIST = [
+  "排队", "审单中", "前期", "机房", "后道",
+  "外发", "完工", "寄快递", "未付"
+];
+
+// ── 工具函数 ──
+function getQueryParam(name) {
+  const url = new URL(window.location.href);
+  return url.searchParams.get(name);
+}
+
+function getStep(flow) {
+  const idx = FLOW_LIST.indexOf(flow);
+  return idx >= 0 ? idx + 1 : 0;
+}
+
+function renderFlowBadge(flow) {
+  if (!flow) return '<span style="color:#999;">未设置</span>';
+  const step = getStep(flow);
+  return `<span class="flow-badge step-${step}"><span class="dot step-dot-${step}"></span>${flow}</span>`;
+}
+
+// ── API 调用 ──
+const API_BASE = window.location.origin;
+
+async function fetchOrder(orderId) {
+  const resp = await fetch(`${API_BASE}/api/flow/order?order_id=${encodeURIComponent(orderId)}`);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
+}
+
+async function postUpdate(orderId, newFlow) {
+  const resp = await fetch(`${API_BASE}/api/flow/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ order_id: orderId, new_flow: newFlow }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
+  return data;
+}
+
+// ── 填充下拉框 ──
+function populateFlowSelect(currentFlow) {
+  const sel = document.getElementById("flowSelect");
+  sel.innerHTML = '<option value="">请选择流程...</option>';
+  FLOW_LIST.forEach(flow => {
+    const opt = document.createElement("option");
+    opt.value = flow;
+    opt.textContent = flow;
+    if (flow === currentFlow) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// ── 渲染时间线 ──
+function renderTimeline(history) {
+  const container = document.getElementById("timeline");
+  if (!history || history.length === 0) {
+    container.innerHTML = '<div style="color:#999;font-size:13px;">暂无变更记录</div>';
+    return;
+  }
+  // 倒序显示（最新在前）
+  const items = [...history].reverse();
+  container.innerHTML = items.map((item, i) => `
+    <div class="timeline-item">
+      <span class="timeline-flow">${item.flow}</span>
+      <span class="timeline-time">${item.time}</span>
+    </div>
+  `).join("");
+}
+
+// ── 显示 Toast ──
+function showToast(type, message) {
+  const container = document.getElementById("toastContainer");
+  const icon = type === "success" ? "&#10003;" : "&#10007;";
+  container.innerHTML = `
+    <div class="toast ${type}">
+      <span class="icon">${icon}</span>
+      <span>${message}</span>
+    </div>
+  `;
+  setTimeout(() => { container.innerHTML = ""; }, 4000);
+}
+
+// ── 加载工单 ──
+async function loadOrder() {
+  const orderId = getQueryParam("order_id");
+
+  if (!orderId) {
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("errorCard").style.display = "block";
+    document.getElementById("errorMsg").textContent = "缺少工单编号参数（?order_id=xxx）";
+    return;
+  }
+
+  try {
+    const data = await fetchOrder(orderId);
+
+    document.getElementById("loading").style.display = "none";
+
+    // 填充工单信息（当前从 URL 参数获取基本信息，后续可扩展为从 ERP 查询）
+    document.getElementById("orderId").textContent = orderId;
+    // 尝试从 data 中读取额外信息，没有则显示默认值
+    document.getElementById("customerName").textContent = data.customer_name || "---";
+    document.getElementById("productName").textContent = data.product_name || "---";
+    document.getElementById("quantity").textContent = data.quantity || "---";
+    document.getElementById("amount").textContent = data.amount ? `¥${data.amount}` : "---";
+    document.getElementById("currentFlowBadge").innerHTML = renderFlowBadge(data.current_flow);
+
+    // 下拉框
+    populateFlowSelect(data.current_flow);
+
+    // 历史时间线
+    renderTimeline(data.history);
+
+    // 显示卡片
+    document.getElementById("orderCard").style.display = "block";
+    document.getElementById("updateCard").style.display = "block";
+    if (data.history && data.history.length > 0) {
+      document.getElementById("historyCard").style.display = "block";
+    }
+
+  } catch (err) {
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("errorCard").style.display = "block";
+    document.getElementById("errorMsg").textContent = `加载失败: ${err.message}`;
+  }
+}
+
+// ── 更新流程 ──
+async function updateFlow() {
+  const orderId = getQueryParam("order_id");
+  const newFlow = document.getElementById("flowSelect").value;
+  const btn = document.getElementById("updateBtn");
+
+  if (!newFlow) {
+    showToast("error", "请先选择新的生产流程");
+    return;
+  }
+
+  if (!orderId) {
+    showToast("error", "缺少工单编号");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "更新中...";
+
+  try {
+    const result = await postUpdate(orderId, newFlow);
+
+    // 更新当前流程标签
+    document.getElementById("currentFlowBadge").innerHTML = renderFlowBadge(result.current_flow);
+
+    // 重新选中当前流程
+    const sel = document.getElementById("flowSelect");
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === result.current_flow) {
+        sel.selectedIndex = i;
+        break;
+      }
+    }
+
+    // 更新时间线
+    renderTimeline(result.history);
+    document.getElementById("historyCard").style.display = "block";
+
+    showToast("success", `已更新为: ${result.current_flow}`);
+  } catch (err) {
+    showToast("error", `更新失败: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "更新流程";
+  }
+}
+
+// ── 启动 ──
+document.addEventListener("DOMContentLoaded", loadOrder);
+</script>
+</body>
+</html>

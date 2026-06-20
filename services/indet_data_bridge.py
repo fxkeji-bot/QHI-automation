@@ -299,7 +299,7 @@ def map_to_grf_template(order_data: Dict) -> Dict:
 
     # ── 工单追踪链接 ──
     order_code = order_data.get("OrderCode", "")
-    grf["order_tracking_url"] = f"http://192.168.1.22/qhi_tracker/?order_id={order_code}"
+    grf["order_tracking_url"] = f"http://192.168.1.45:8088/flow/?order_id={order_code}"
 
     # ── 明细表格 ──
     details = order_data.get("details", [])

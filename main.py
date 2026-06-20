@@ -185,13 +185,20 @@ def main():
     logger.info("=" * 70)
 
     # ===== 版权保护检查 =====
-    logger.info("[版权保护] 开始授权检查")
+    logger.info("[版权保护] 授权检查")
     _license_manager = None
-    try:
-        LicenseManager.verify_on_startup()
-    except Exception as e:
-        logger.warning(f"授权检查异常(非致命): {e}")
-    _license_manager = LicenseManager()
+    if getattr(sys, 'frozen', False):
+        logger.info("冻结环境: 跳过授权检查")
+    else:
+        try:
+            LicenseManager.verify_on_startup()
+        except Exception as e:
+            logger.warning(f"授权检查异常(非致命): {e}")
+        try:
+            _license_manager = LicenseManager()
+            logger.info(f"授权状态: {_license_manager.status}")
+        except Exception as e:
+            logger.warning(f"授权管理器初始化失败(非致命): {e}")
 
     # ===== 运行时日志 - 数据库兼容性检查开始 =====
     logger.info("[运行时] 开始数据库兼容性检查")

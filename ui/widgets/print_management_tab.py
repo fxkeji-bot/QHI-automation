@@ -388,6 +388,11 @@ class PrintManagementTab(QWidget):
         btn_cancel.clicked.connect(self._cancel_selected)
         layout.addWidget(btn_cancel)
 
+        btn_erp = QPushButton("ERP工单解析")
+        btn_erp.setObjectName("btn-process")
+        btn_erp.clicked.connect(self._erp_orders)
+        layout.addWidget(btn_erp)
+
         layout.addStretch()
 
         status_btn = QPushButton("打开Web监控")
@@ -518,6 +523,211 @@ class PrintManagementTab(QWidget):
 
     def _open_web_monitor(self):
         webbrowser.open("http://127.0.0.1:8080")
+
+    def _erp_orders(self):
+        """ERP工单解析 — 弹出对话框"""
+        from PyQt5.QtWidgets import QDialog, QTextEdit as QTE, QComboBox as QB
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("印特ERP工单解析")
+        dlg.setMinimumSize(800, 600)
+        dlg_layout = QVBoxLayout(dlg)
+
+        # 连接栏
+        conn_bar = QHBoxLayout()
+        btn_connect = QPushButton("连接ERP数据库")
+        btn_connect.setObjectName("btn-primary")
+        conn_bar.addWidget(btn_connect)
+
+        self._erp_status = QLabel("未连接")
+        self._erp_status.setStyleSheet("color: #f44336; font-weight: bold;")
+        conn_bar.addWidget(self._erp_status)
+        conn_bar.addStretch()
+        dlg_layout.addLayout(conn_bar)
+
+        # 客户筛选
+        filter_bar = QHBoxLayout()
+        filter_bar.addWidget(QLabel("客户:"))
+        erp_filter = QB()
+        erp_filter.addItem("全部", "all")
+        filter_bar.addWidget(erp_filter)
+        filter_bar.addStretch()
+        btn_refresh = QPushButton("刷新工单")
+        filter_bar.addWidget(btn_refresh)
+        dlg_layout.addLayout(filter_bar)
+
+        # 工单表格
+        order_table = QTableWidget()
+        order_table.setColumnCount(5)
+        order_table.setHorizontalHeaderLabels(["工单号", "客户", "日期", "raw_text预览", "解析状态"])
+        order_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        order_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        order_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        order_table.setAlternatingRowColors(True)
+        order_table.verticalHeader().setVisible(False)
+        dlg_layout.addWidget(order_table)
+
+        # 解析预览
+        preview = QTE()
+        preview.setReadOnly(True)
+        preview.setMaximumHeight(120)
+        preview.setStyleSheet("font-family: Consolas; font-size: 12px; background: #fafafa;")
+        dlg_layout.addWidget(QLabel("解析预览:"))
+        dlg_layout.addWidget(preview)
+
+        # 操作按钮
+        btn_bar = QHBoxLayout()
+        btn_bar.addStretch()
+
+        btn_parse = QPushButton("解析选中")
+        btn_parse.setObjectName("btn-process")
+        btn_bar.addWidget(btn_parse)
+
+        btn_batch = QPushButton("批量解析(Top 20)")
+        btn_batch.setObjectName("btn-process")
+        btn_bar.addWidget(btn_batch)
+
+        btn_send = QPushButton("发送到管线")
+        btn_send.setObjectName("btn-primary")
+        btn_bar.addWidget(btn_send)
+
+        dlg_layout.addLayout(btn_bar)
+
+        # 日志
+        log_text = QTE()
+        log_text.setReadOnly(True)
+        log_text.setMaximumHeight(80)
+        log_text.setStyleSheet("font-family: Consolas; font-size: 11px; background: #1e1e1e; color: #d4d4d4;")
+        dlg_layout.addWidget(log_text)
+
+        # === 逻辑 ===
+        bridge = [None]
+        orders_data = [[]]
+        parsed_results = [[]]
+
+        def log(msg):
+            from datetime import datetime
+            ts = datetime.now().strftime("%H:%M:%S")
+            log_text.append(f"[{ts}] {msg}")
+
+        def do_connect():
+            try:
+                from services.erp_order_bridge import ErpOrderBridge
+                bridge[0] = ErpOrderBridge()
+                stats = bridge[0].get_customer_stats()
+                total = sum(s["cnt"] for s in stats)
+                self._erp_status.setText(f"已连接 ({len(stats)}客户, {total}条)")
+                self._erp_status.setStyleSheet("color: #4CAF50; font-weight: bold;")
+                log(f"ERP连接成功: {len(stats)}客户, {total}记录")
+
+                erp_filter.blockSignals(True)
+                erp_filter.clear()
+                erp_filter.addItem("全部", "all")
+                for s in stats[:30]:
+                    erp_filter.addItem(f"{s['customer_name']}({s['customer_code']})", s["customer_code"])
+                erp_filter.blockSignals(False)
+
+                do_refresh()
+            except Exception as e:
+                log(f"连接失败: {e}")
+
+        def do_refresh():
+            if not bridge[0]:
+                log("请先连接ERP")
+                return
+            code = erp_filter.currentData()
+            if code == "all":
+                code = None
+            log("加载工单...")
+            orders = bridge[0].get_pending_orders(limit=100)
+            if code:
+                orders = [o for o in orders if o["customer_code"] == code]
+            orders_data[0] = orders[:50]
+            parsed_results[0] = []
+
+            order_table.setRowCount(len(orders_data[0]))
+            from services.multi_customer_parser import auto_detect_format
+            for i, o in enumerate(orders_data[0]):
+                order_table.setItem(i, 0, QTableWidgetItem(o["gd_no"][:20]))
+                order_table.setItem(i, 1, QTableWidgetItem(o["customer_name"][:10]))
+                order_table.setItem(i, 2, QTableWidgetItem(o["date"]))
+                raw = o.get("raw_text", "")
+                order_table.setItem(i, 3, QTableWidgetItem(raw[:60].replace("\n", " ")))
+                fmt = auto_detect_format(raw) if raw else "unknown"
+                status_item = QTableWidgetItem(fmt)
+                if fmt != "unknown":
+                    status_item.setForeground(QColor("#4CAF50"))
+                else:
+                    status_item.setForeground(QColor("#FF9800"))
+                order_table.setItem(i, 4, status_item)
+                o["_parsed_fmt"] = fmt
+            log(f"加载 {len(orders_data[0])} 条工单")
+
+        def on_select(row, col, prev_row, prev_col):
+            if row < 0 or row >= len(orders_data[0]):
+                return
+            o = orders_data[0][row]
+            lines = [
+                f"工单: {o['gd_no']}",
+                f"客户: {o['customer_name']} ({o['customer_code']})",
+                f"日期: {o['date']}",
+                f"---",
+                o.get("raw_text", "")[:500],
+            ]
+            ej = o.get("extracted_json", "")
+            if ej and ej != "{}":
+                try:
+                    import json
+                    d = json.loads(ej)
+                    lines.append("---")
+                    for k, v in d.items():
+                        if v:
+                            lines.append(f"{k}: {v}")
+                except:
+                    pass
+            preview.setText("\n".join(lines))
+
+        def do_parse():
+            if not bridge[0]:
+                return
+            rows = set(idx.row() for idx in order_table.selectedIndexes())
+            for row in rows:
+                if row < len(orders_data[0]):
+                    o = orders_data[0][row]
+                    result = bridge[0].process_order_from_erp(o)
+                    parsed_results[0].append(result)
+                    log(f"{result['gd_no']}: {result['status']} ({result['spec_count']} specs)")
+
+        def do_batch():
+            if not bridge[0]:
+                return
+            code = erp_filter.currentData()
+            if code == "all":
+                code = None
+            log("批量解析...")
+            results = bridge[0].batch_process_from_erp(limit=20, customer_code=code)
+            parsed = sum(1 for r in results if r["status"] == "parsed")
+            parsed_results[0] = results
+            log(f"批量完成: {len(results)}条, {parsed}条已解析")
+            for r in results[:10]:
+                log(f"  {r['gd_no']}: {r['status']} ({r['spec_count']} specs)")
+
+        def do_send():
+            cnt = len(parsed_results[0])
+            if cnt == 0:
+                log("请先解析工单")
+                return
+            log(f"已解析 {cnt} 条工单，可发送到订单管线")
+            QMessageBox.information(dlg, "管线", f"已解析 {cnt} 条工单\n请使用打印管理Tab的'新建订单'按钮提交")
+
+        btn_connect.clicked.connect(do_connect)
+        btn_refresh.clicked.connect(do_refresh)
+        btn_parse.clicked.connect(do_parse)
+        btn_batch.clicked.connect(do_batch)
+        btn_send.clicked.connect(do_send)
+        order_table.currentCellChanged.connect(on_select)
+
+        dlg.exec_()
 
     def _new_order_pipeline(self):
         """新建订单管线 - 弹出对话框输入要求"""

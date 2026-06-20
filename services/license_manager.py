@@ -95,7 +95,9 @@ class LicenseConfig:
         return seed
 
     # ── 路径 ──
-    CONFIG_DIR  = Path(__file__).resolve().parent.parent / "config"
+    # 冻结环境使用exe所在目录，否则使用源码config
+    _base = Path(os.path.dirname(sys.executable)) if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent.parent
+    CONFIG_DIR  = _base / "config"
     LICENSE_KEY = CONFIG_DIR / "license.key"
     MACHINE_ID  = CONFIG_DIR / ".machine_id"
 
@@ -111,7 +113,7 @@ class LicenseConfig:
     ]
 
     # ── 日志路径 ──
-    TAMPER_LOG = Path(__file__).resolve().parent.parent / "logs" / "integrity.log"
+    TAMPER_LOG = _base / "logs" / "integrity.log"
 
 
 # ============================================================
@@ -407,6 +409,8 @@ class IntegrityChecker:
 
     @classmethod
     def _project_root(cls) -> Path:
+        if getattr(sys, 'frozen', False):
+            return Path(os.path.dirname(sys.executable))
         return Path(__file__).resolve().parent.parent
 
     @classmethod
