@@ -64,9 +64,6 @@ try:
     FITZ_SUPPORT = True
 except ImportError:
     FITZ_SUPPORT = False
-    except Exception:
-        pass
-    return "0.0.0"
 
 
 class MainWindow(QMainWindow):  # noqa: F405
@@ -229,6 +226,20 @@ class MainWindow(QMainWindow):  # noqa: F405
             self.tabs.addTab(self.consumable_panel, " 耗材管理")
         except Exception as e:
             logger.warning(f"耗材管理面板加载失败: {e}")
+
+        # 热文件夹监控
+        try:
+            from services.hot_folder_service import HotFolderService
+            self.hot_folder_service = HotFolderService()
+            # 添加默认监控目录
+            self.hot_folder_service.add_monitor(
+                r"\\Server2\客户文件2\out",
+                printer_ip="192.168.1.210"
+            )
+            self.hot_folder_service.start()
+            logger.info("热文件夹监控已启动")
+        except Exception as e:
+            logger.warning(f"热文件夹监控加载失败: {e}")
 
         # 实时看板
         self.dashboard = DashboardWidget()
