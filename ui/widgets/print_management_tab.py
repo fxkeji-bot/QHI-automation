@@ -717,8 +717,21 @@ class PrintManagementTab(QWidget):
             if cnt == 0:
                 log("请先解析工单")
                 return
-            log(f"已解析 {cnt} 条工单，可发送到订单管线")
-            QMessageBox.information(dlg, "管线", f"已解析 {cnt} 条工单\n请使用打印管理Tab的'新建订单'按钮提交")
+            log(f"发送 {cnt} 条工单到订单管线...")
+            try:
+                from services.order_pipeline import OrderPipeline
+                pipeline = OrderPipeline()
+                for r in parsed_results[0]:
+                    if r.get("specs"):
+                        result = pipeline.process_order(
+                            files=[r.get("file_path", "")] if r.get("file_path") else None,
+                            requirement_text=r.get("raw_text", ""),
+                            customer_id=r.get("customer_code", "auto"),
+                        )
+                        log(f"  {result.order_code}: {result.status} ({len(result.specs)} specs)")
+                log(f"管线处理完成")
+            except Exception as e:
+                log(f"管线错误: {e}")
 
         btn_connect.clicked.connect(do_connect)
         btn_refresh.clicked.connect(do_refresh)

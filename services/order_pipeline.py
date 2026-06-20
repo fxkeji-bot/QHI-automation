@@ -235,3 +235,61 @@ class OrderPipeline:
                     created_at=progress.created_at,
                 )
         return None
+
+    def process_erp_order(self, erp_order: Dict) -> OrderResult:
+        """从ERP工单数据处理订单（自动提取raw_text+extracted_json）
+
+        Args:
+            erp_order: ERP工单字典 (含gd_no/customer_code/raw_text/extracted_json/file_path)
+        """
+        from services.erp_order_bridge import ErpOrderBridge
+        bridge = ErpOrderBridge(log_callback=self._log)
+        parsed = bridge.process_order_from_erp(erp_order)
+
+        # 提取文件路径
+        file_path = erp_order.get("file_path", "")
+        files = [file_path] if file_path and os.path.exists(file_path) else []
+
+        # 提取要求文本
+        raw_text = erp_order.get("raw_text", "")
+        specs = parsed.get("specs", [])
+        requirement_text = raw_text if raw_text else ""
+
+        # 填充customer_id
+        customer_id = erp_order.get("customer_code", "auto")
+
+        return self.process_order(
+            files=files,
+            requirement_text=requirement_text,
+            customer_id=customer_id,
+            printer_ip="",
+        )
+
+    def batch_from_erp(self, limit: int = 20, customer_code: str = None) -> List[OrderResult]:
+        """从ERP批量处理订单
+
+        Args:
+            limit: 最大处理数量
+            customer_code: 指定客户码（None=全部）
+        """
+        from services.erp_order_bridge import ErpOrderBridge
+        bridge = ErpOrderBridge(log_callback=self._log)
+        erp_orders = bridge.get_pending_orders(limit=limit)
+        if customer_code:
+            erp_orders = [o for o in erp_orders if o["customer_code"] == customer_code]
+
+        results = []
+        for i, order in enumerate(erp_orders):
+            self._log(f"处理ERP订单 {i+1}/{len(erp_orders)}: {order['gd_no']}")
+            try:
+                result = self.process_erp_order(order)
+                results.append(result)
+            except Exception as e:
+                self._log(f"处理失败: {order['gd_no']} - {e}")
+                results.append(OrderResult(
+                    order_code=order.get("gd_no", ""),
+                    customer_name=order.get("customer_name", ""),
+                    status="error",
+                    error=str(e),
+                ))
+        return results
