@@ -204,6 +204,119 @@ class OrderLifecycleService:
         return True
 
     # ------------------------------------------------------------------
+    # 审批工作流
+    # ------------------------------------------------------------------
+
+    def approve_order(self, order_id: str, approver: str = "", note: str = "") -> bool:
+        """批准订单"""
+        progress = self.get_progress(order_id)
+        if progress is None:
+            logger.warning(f"订单不存在: {order_id}")
+            return False
+
+        if progress.approval_status == ApprovalStatus.APPROVED.value:
+            logger.warning(f"订单 {order_id} 已批准")
+            return False
+
+        progress.approval_status = ApprovalStatus.APPROVED.value
+        progress.approver = approver
+        progress.approval_time = datetime.now().isoformat()
+        progress.updated_at = datetime.now().isoformat()
+
+        # 记录审批历史
+        progress.approval_history.append({
+            "action": "approve",
+            "approver": approver,
+            "time": progress.approval_time,
+            "note": note,
+        })
+
+        # 记录时间线
+        progress.timeline.append(TimelineEvent(
+            timestamp=progress.approval_time,
+            stage=progress.current_stage,
+            action="订单批准",
+            operator=approver,
+            note=note,
+        ))
+
+        self._save(progress)
+        self._log_callback(f"订单 {progress.order_code} 已批准 (审批人: {approver})")
+        return True
+
+    def reject_order(self, order_id: str, approver: str = "", reason: str = "") -> bool:
+        """驳回订单"""
+        progress = self.get_progress(order_id)
+        if progress is None:
+            logger.warning(f"订单不存在: {order_id}")
+            return False
+
+        if progress.approval_status == ApprovalStatus.REJECTED.value:
+            logger.warning(f"订单 {order_id} 已驳回")
+            return False
+
+        progress.approval_status = ApprovalStatus.REJECTED.value
+        progress.approver = approver
+        progress.approval_time = datetime.now().isoformat()
+        progress.rejection_reason = reason
+        progress.updated_at = datetime.now().isoformat()
+
+        # 记录审批历史
+        progress.approval_history.append({
+            "action": "reject",
+            "approver": approver,
+            "time": progress.approval_time,
+            "reason": reason,
+        })
+
+        # 记录时间线
+        progress.timeline.append(TimelineEvent(
+            timestamp=progress.approval_time,
+            stage=progress.current_stage,
+            action="订单驳回",
+            operator=approver,
+            note=reason,
+        ))
+
+        self._save(progress)
+        self._log_callback(f"订单 {progress.order_code} 已驳回 (审批人: {approver})")
+        return True
+
+    def request_revision(self, order_id: str, approver: str = "", reason: str = "") -> bool:
+        """要求修改"""
+        progress = self.get_progress(order_id)
+        if progress is None:
+            logger.warning(f"订单不存在: {order_id}")
+            return False
+
+        progress.approval_status = ApprovalStatus.REVISION.value
+        progress.approver = approver
+        progress.approval_time = datetime.now().isoformat()
+        progress.rejection_reason = reason
+        progress.updated_at = datetime.now().isoformat()
+
+        # 记录审批历史
+        progress.approval_history.append({
+            "action": "revision",
+            "approver": approver,
+            "time": progress.approval_time,
+            "reason": reason,
+        })
+
+        # 记录时间线
+        progress.timeline.append(TimelineEvent(
+            timestamp=progress.approval_time,
+            stage=progress.current_stage,
+            action="要求修改",
+            operator=approver,
+            note=reason,
+        ))
+
+        self._save(progress)
+        self._log_callback(f"订单 {progress.order_code} 要求修改 (审批人: {approver})")
+        return True
+
+    # ------------------------------------------------------------------
     # 取消订单
     # ------------------------------------------------------------------
 

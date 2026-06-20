@@ -27,6 +27,14 @@ class OrderStage(str, Enum):
     CANCELLED = "cancelled"      # 已取消
 
 
+class ApprovalStatus(str, Enum):
+    """审批状态"""
+    PENDING = "pending"          # 待审批
+    APPROVED = "approved"        # 已批准
+    REJECTED = "rejected"        # 已驳回
+    REVISION = "revision"        # 需修改
+
+
 # 阶段流转规则（状态机）
 # None 表示订单尚未创建，仅允许 RECEIVED
 VALID_TRANSITIONS: Dict[Optional[OrderStage], set] = {
@@ -90,6 +98,13 @@ class OrderProgress:
     updated_at: str = ""
     estimated_completion: str = ""
     elapsed_hours: float = 0.0
+    
+    # 审批字段
+    approval_status: str = ApprovalStatus.PENDING.value
+    approval_history: List[Dict] = field(default_factory=list)
+    approver: str = ""
+    approval_time: str = ""
+    rejection_reason: str = ""
 
     def to_dict(self) -> Dict:
         return {
@@ -108,6 +123,11 @@ class OrderProgress:
             "updated_at": self.updated_at,
             "estimated_completion": self.estimated_completion,
             "elapsed_hours": self.elapsed_hours,
+            "approval_status": self.approval_status,
+            "approval_history": self.approval_history,
+            "approver": self.approver,
+            "approval_time": self.approval_time,
+            "rejection_reason": self.rejection_reason,
         }
 
     @classmethod
@@ -130,6 +150,11 @@ class OrderProgress:
             updated_at=d.get("updated_at", ""),
             estimated_completion=d.get("estimated_completion", ""),
             elapsed_hours=d.get("elapsed_hours", 0.0),
+            approval_status=d.get("approval_status", ApprovalStatus.PENDING.value),
+            approval_history=d.get("approval_history", []),
+            approver=d.get("approver", ""),
+            approval_time=d.get("approval_time", ""),
+            rejection_reason=d.get("rejection_reason", ""),
         )
 
 
