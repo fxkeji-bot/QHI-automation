@@ -241,6 +241,16 @@ class MainWindow(QMainWindow):  # noqa: F405
         except Exception as e:
             logger.warning(f"热文件夹监控加载失败: {e}")
 
+        # 打印管理Tab
+        try:
+            from ui.widgets.print_management_tab import PrintManagementTab
+            self.print_mgmt_tab = PrintManagementTab(self)
+            self.print_mgmt_tab.set_hot_folder_service(self.hot_folder_service)
+            self.print_mgmt_tab.status_message.connect(self.statusBar().showMessage)
+            self.tabs.addTab(self.print_mgmt_tab, " 打印管理")
+        except Exception as e:
+            logger.warning(f"打印管理Tab加载失败: {e}")
+
         # Web监控面板
         try:
             from services.web_monitor import WebMonitor
