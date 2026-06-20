@@ -279,13 +279,17 @@ class HotFolderService:
                 for attempt in range(job.max_retries):
                     try:
                         dest = Path(hot_folder) / Path(job.file_path).name
-                        import shutil
-                        shutil.copy2(job.file_path, str(dest))
                         
-                        # 同时复制JDF文件
-                        if job.jdf_path and Path(job.jdf_path).exists():
-                            jdf_dest = Path(hot_folder) / Path(job.jdf_path).name
-                            shutil.copy2(job.jdf_path, str(jdf_dest))
+                        # 跳过源文件和目标文件相同的情况
+                        if Path(job.file_path).resolve() != dest.resolve():
+                            import shutil
+                            shutil.copy2(job.file_path, str(dest))
+                            
+                            # 同时复制JDF文件
+                            if job.jdf_path and Path(job.jdf_path).exists():
+                                jdf_dest = Path(hot_folder) / Path(job.jdf_path).name
+                                if Path(job.jdf_path).resolve() != jdf_dest.resolve():
+                                    shutil.copy2(job.jdf_path, str(jdf_dest))
                         
                         with self._lock:
                             job.status = "completed"
