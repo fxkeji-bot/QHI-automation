@@ -220,6 +220,16 @@ class MainWindow(QMainWindow):  # noqa: F405
         self.monitor_panel = MonitorPanel(self)
         self.tabs.addTab(self.monitor_panel, " 监控目录")
 
+        # 耗材管理
+        try:
+            from ui.widgets.consumable_panel import ConsumablePanel
+            from services.consumable_manager import ConsumableManager
+            self.consumable_manager = ConsumableManager(db=self.db)
+            self.consumable_panel = ConsumablePanel(self.consumable_manager)
+            self.tabs.addTab(self.consumable_panel, " 耗材管理")
+        except Exception as e:
+            logger.warning(f"耗材管理面板加载失败: {e}")
+
         # 实时看板
         self.dashboard = DashboardWidget()
         self.dashboard.pause_requested.connect(self._on_dashboard_pause)
