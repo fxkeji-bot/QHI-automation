@@ -4,14 +4,15 @@
   "status": "idle",
   "current_task": null,
   "progress": 0,
-  "last_update": "2026-06-20T19:10:00",
-  "files_modified": ["ui/widgets/approval_panel.py"],
+  "last_update": "2026-06-20T19:25:00",
+  "files_modified": ["ui/widgets/consumable_chart.py"],
   "issues_found": [],
-  "next_tasks": ["T008"],
+  "next_tasks": [],
   "completed_today": [
     "耗材管理面板",
     "工作单模版",
     "小票打印",
-    "审批工作流UI"
+    "审批工作流UI",
+    "耗材监控图表"
   ]
 }
