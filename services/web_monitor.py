@@ -144,7 +144,7 @@ class WebMonitorHandler(BaseHTTPRequestHandler):
         .status-failed { color: #f44336; }
         .status-pending { color: #FF9800; }
         .status-printing { color: #2196F3; }
-        .printer-online { color: #4CAF50; }
+        .printer-online { color: #4CAF50; font-weight: bold; }
         .printer-offline { color: #f44336; }
         .refresh-btn { background: #2196F3; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
         .refresh-btn:hover { background: #1976D2; }
@@ -153,7 +153,7 @@ class WebMonitorHandler(BaseHTTPRequestHandler):
 <body>
     <div class="header">
         <h1>QHI Print Queue Monitor</h1>
-        <p>Real-time monitoring dashboard</p>
+        <p>Real-time monitoring dashboard - Oce 6000 (464x320mm) | HP12000 | HP7900 | XP-80</p>
     </div>
     
     <div class="container">

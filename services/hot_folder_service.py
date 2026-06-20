@@ -526,10 +526,11 @@ startxref
     def get_printer_status(self) -> List[Dict]:
         """获取所有打印机状态"""
         printers = [
-            {"ip": "192.168.1.210", "name": "Océ VarioPrint 6000", "max_size": "330×488mm"},
+            {"ip": "192.168.1.210", "name": "Océ VarioPrint 6000", "max_size": "464×320mm"},
             {"ip": "192.168.1.100", "name": "HP Indigo 12000", "max_size": "750×530mm"},
             {"ip": "192.168.1.101", "name": "HP Indigo 7900", "max_size": "464×320mm"},
             {"ip": "192.168.1.32", "name": "工作打印机", "max_size": "A4"},
+            {"ip": "192.168.1.215", "name": "XP-80", "max_size": "A3+"},
         ]
         
         import socket
