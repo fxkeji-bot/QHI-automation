@@ -1,10 +1,10 @@
 {
   "agent": "qclaw",
   "role": "数据处理、ERP对接、数据同步",
-  "status": "working",
-  "current_task": "T005",
-  "progress": 45,
-  "last_update": "2026-06-20T18:15:00",
+  "status": "idle",
+  "current_task": null,
+  "progress": 100,
+  "last_update": "2026-06-20T20:00:00",
   "files_modified": [
     "services/erp_bridge.py",
     "services/erp_sync_api_server.py"

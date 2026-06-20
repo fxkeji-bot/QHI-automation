@@ -1,0 +1,15 @@
+{
+  "task_id": "T010",
+  "task_name": "API文档生成",
+  "type": "documentation",
+  "priority": "P2",
+  "assigned_to": "marvis",
+  "status": "completed",
+  "progress": 100,
+  "created_at": "2026-06-20T18:05:00",
+  "started_at": "2026-06-20T18:30:00",
+  "completed_at": "2026-06-20T18:35:00",
+  "assigned_by": "smart_scheduler",
+  "description": "生成API文档，支持OpenAPI/Swagger格式",
+  "result": "生成30个API端点文档，覆盖认证/作业/设备/VDP/预检/色彩/订单/Webhook"
+}

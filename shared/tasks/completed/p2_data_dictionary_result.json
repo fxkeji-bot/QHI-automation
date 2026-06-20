@@ -1,0 +1,24 @@
+{
+  "task_id": "p2_data_dictionary",
+  "task_name": "数据字典标准化",
+  "status": "completed",
+  "completed_at": "2026-06-20T00:00:00+08:00",
+  "output_files": [
+    "E:\\qhi_processor\\docs\\data_dictionary.md"
+  ],
+  "summary": {
+    "tables_documented": 8,
+    "tables": [
+      {"name": "papers", "module": "运营大类", "fields": 14, "source": "core/database.py"},
+      {"name": "processes", "module": "运营大类", "fields": 13, "source": "core/database.py"},
+      {"name": "orders", "module": "工单", "fields": 26, "source": "core/database.py"},
+      {"name": "approval_orders", "module": "审批", "fields": 13, "source": "services/approval_workflow.py"},
+      {"name": "approval_records", "module": "审批", "fields": 11, "source": "services/approval_workflow.py"},
+      {"name": "price_history", "module": "报价", "fields": 6, "source": "core/database.py"},
+      {"name": "pricing_history", "module": "报价", "fields": 16, "source": "services/pricing_engine.py"},
+      {"name": "businesses", "module": "ERP映射", "fields": 4, "source": "services/erp_bridge.py (配置映射，非数据库表)"}
+    ],
+    "total_fields": 103,
+    "documentation_path": "E:\\qhi_processor\\docs\\data_dictionary.md"
+  }
+}
