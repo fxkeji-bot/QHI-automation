@@ -58,13 +58,15 @@ class PrintJob:
     job_id: str
     file_path: str
     printer_ip: str
-    status: str = "pending"  # pending/printing/completed/failed
+    status: str = "pending"  # pending/printing/completed/failed/dead_letter
     created_at: str = ""
     completed_at: str = ""
     jdf_path: str = ""
     error: str = ""
     retry_count: int = 0
     max_retries: int = 3
+    next_retry_time: float = 0.0  # 下次重试时间戳
+    original_printer_ip: str = ""  # 原始打印机IP（用于故障转移）
 
 
 class HotFolderService:
@@ -148,6 +150,8 @@ class HotFolderService:
         while self._running:
             try:
                 self._scan_all_monitors()
+                # 检查失败作业的自动重试
+                self._check_retry_queue()
             except Exception as e:
                 self.log(f"监控异常: {e}")
             
@@ -380,8 +384,19 @@ class HotFolderService:
                 with self._lock:
                     job.status = "failed"
                     job.error = f"提交失败，已重试{job.max_retries}次"
+                    job.next_retry_time = time.time() + 60
                     self._stats["total_failed"] += 1
-                self.log(f"作业提交最终失败: {job.job_id}")
+                self.log(f"作业提交最终失败: {job.job_id} (将在60秒后自动重试)")
+                if self._on_status_update:
+                    self._on_status_update(job)
+            else:
+                # 热文件夹不可用
+                with self._lock:
+                    job.status = "failed"
+                    job.error = f"打印机 {job.printer_ip} 不可用"
+                    job.next_retry_time = time.time() + 120
+                    self._stats["total_failed"] += 1
+                self.log(f"作业提交失败: {job.job_id} (打印机不可用)")
                 if self._on_status_update:
                     self._on_status_update(job)
     
@@ -529,3 +544,95 @@ startxref
                 printer["status"] = "unknown"
         
         return printers
+    
+    def _check_retry_queue(self):
+        """检查失败作业的自动重试"""
+        now = time.time()
+        with self._lock:
+            failed_jobs = [j for j in self._jobs.values() 
+                          if j.status == "failed" and j.retry_count < j.max_retries]
+        
+        for job in failed_jobs:
+            # 检查是否到达重试时间
+            if job.next_retry_time > 0 and now < job.next_retry_time:
+                continue
+            
+            # 计算重试延迟（指数退避）
+            retry_delay = min(300, 2 ** job.retry_count * 10)
+            
+            with self._lock:
+                job.status = "pending"
+                job.retry_count += 1
+                job.next_retry_time = now + retry_delay
+                job.error = ""
+            
+            self.log(f"作业自动重试: {job.job_id} (第{job.retry_count}次, 延迟{retry_delay}秒)")
+            
+            # 尝试故障转移
+            if job.retry_count > 1:
+                self._try_failover(job)
+            
+            # 重新提交
+            self._submit_job(job)
+    
+    def _try_failover(self, job: PrintJob):
+        """尝试故障转移到其他打印机"""
+        if not job.original_printer_ip:
+            job.original_printer_ip = job.printer_ip
+        
+        # 获取所有在线打印机
+        printers = self.get_printer_status()
+        online_printers = [p for p in printers if p["status"] == "online"]
+        
+        # 排除当前打印机
+        available = [p for p in online_printers if p["ip"] != job.printer_ip]
+        
+        if available:
+            # 选择第一个可用打印机
+            job.printer_ip = available[0]["ip"]
+            self.log(f"故障转移: {job.job_id} -> {job.printer_ip}")
+        else:
+            self.log(f"无可用打印机进行故障转移: {job.job_id}")
+    
+    def retry_job(self, job_id: str) -> bool:
+        """手动重试作业"""
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if not job:
+                return False
+            
+            if job.status not in ("failed", "dead_letter"):
+                return False
+            
+            job.status = "pending"
+            job.retry_count = 0
+            job.next_retry_time = 0
+            job.error = ""
+            
+            self.log(f"作业手动重试: {job_id}")
+            self._submit_job(job)
+            return True
+    
+    def cancel_job(self, job_id: str) -> bool:
+        """取消作业"""
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if not job:
+                return False
+            
+            if job.status in ("completed", "dead_letter"):
+                return False
+            
+            job.status = "cancelled"
+            job.completed_at = datetime.now().isoformat()
+            
+            self.log(f"作业已取消: {job_id}")
+            if self._on_status_update:
+                self._on_status_update(job)
+            return True
+    
+    def get_dead_letter_queue(self) -> List[Dict]:
+        """获取死信队列（永久失败的作业）"""
+        with self._lock:
+            return [j.__dict__ for j in self._jobs.values() 
+                    if j.status == "dead_letter"]
