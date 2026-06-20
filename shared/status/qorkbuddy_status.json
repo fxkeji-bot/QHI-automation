@@ -4,8 +4,8 @@
   "status": "idle",
   "current_task": null,
   "progress": 0,
-  "last_update": "2026-06-20T19:25:00",
-  "files_modified": ["ui/widgets/consumable_chart.py"],
+  "last_update": "2026-06-20T19:45:00",
+  "files_modified": ["locales/en_US/LC_MESSAGES/qhi_processor.po"],
   "issues_found": [],
   "next_tasks": [],
   "completed_today": [
@@ -13,6 +13,7 @@
     "工作单模版",
     "小票打印",
     "审批工作流UI",
-    "耗材监控图表"
+    "耗材监控图表",
+    "i18n国际化支持"
   ]
 }

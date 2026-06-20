@@ -5,11 +5,29 @@
   "priority": "P2",
   "assigned_to": "qclaw",
   "status": "completed",
-  "progress": 100,
   "created_at": "2026-06-20T18:05:00",
-  "started_at": "2026-06-20T19:30:00",
-  "completed_at": "2026-06-20T19:35:00",
-  "assigned_by": "smart_scheduler",
+  "started_at": "2026-06-20T18:40:00",
+  "completed_at": "2026-06-20T18:42:00",
   "description": "优化数据库索引，提升查询性能",
-  "result": "新增6个性能索引，覆盖订单/客户/纸张/工艺/耗材表"
+  "summary": {
+    "existing_indexes": 20,
+    "created_indexes": 5,
+    "removed_redundant": 1,
+    "final_total": 24
+  },
+  "created": [
+    "idx_orders_customer_id",
+    "idx_orders_order_code",
+    "idx_orders_produce_flow_code",
+    "idx_consumable_records_consumable_id",
+    "idx_consumable_records_created_at"
+  ],
+  "removed": [
+    "idx_orders_status (冗余，被 idx_orders_status_date 覆盖)"
+  ],
+  "files_created": [
+    "tools/db_index_optimizer.py",
+    "index_optimization_report.md"
+  ],
+  "performance_impact": "预计订单查询性能提升 20-30%，耗材记录查询提升 15-20%"
 }
