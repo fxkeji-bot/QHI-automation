@@ -361,7 +361,6 @@ class EnhancedPreflightChecker:
                         message=f"PDF版本 {ver} 较旧，建议升级到PDF 1.4+以获得更好兼容性",
                         recommendation="使用PDF 1.4或更高版本",
                     ))
-                else:
             else:
                 result.issues.append(PreflightIssue(
                     check_type=PreflightCheckType.PDF_VERSION.value,
@@ -410,7 +409,6 @@ class EnhancedPreflightChecker:
                 details={"missing_fields": missing},
                 recommendation="建议添加完整的文档元数据",
             ))
-        else:
     
     # ==================== 字体检查 ====================
     
@@ -469,7 +467,6 @@ class EnhancedPreflightChecker:
                 details={"fonts": list(not_embedded)},
                 recommendation="所有字体必须嵌入PDF以确保正确显示",
             ))
-        else:
     
     def _check_font_type3(self, reader: PdfReader, result: PreflightResult):
         """检查Type3字体"""
@@ -507,8 +504,6 @@ class EnhancedPreflightChecker:
                 details={"fonts": type3_fonts},
                 recommendation="将Type3字体转换为TrueType或PostScript字体",
             ))
-        else:
-    
     # ==================== 图像检查 ====================
     
     def _check_image_dpi(self, reader: PdfReader, result: PreflightResult):
@@ -584,8 +579,6 @@ class EnhancedPreflightChecker:
                 details={"images": low_dpi_images},
                 recommendation=f"将图像分辨率提高到{self.min_dpi}dpi以上",
             ))
-        else:
-    
     def _check_image_compression(self, reader: PdfReader, result: PreflightResult):
         """检查图像压缩"""
         uncompressed_images = []
@@ -627,8 +620,6 @@ class EnhancedPreflightChecker:
                 details={"images": uncompressed_images},
                 recommendation="使用JPEG或ZIP压缩以减小文件大小",
             ))
-        else:
-    
     # ==================== 色彩检查 ====================
     
     def _check_color_space(self, reader: PdfReader, result: PreflightResult):
@@ -668,8 +659,6 @@ class EnhancedPreflightChecker:
                 details={"rgb_spaces": rgb_spaces},
                 recommendation="将RGB色彩空间转换为CMYK",
             ))
-        else:
-    
     def _check_spot_colors(self, reader: PdfReader, result: PreflightResult):
         """检查专色"""
         spot_colors = []
@@ -706,8 +695,6 @@ class EnhancedPreflightChecker:
                 details={"spot_colors": spot_colors},
                 recommendation="确认RIP支持这些专色，或转换为CMYK",
             ))
-        else:
-    
     # ==================== 出血检查 ====================
     
     def _check_bleed(self, reader: PdfReader, result: PreflightResult):
@@ -750,8 +737,6 @@ class EnhancedPreflightChecker:
                 details={"pages": pages_without_bleed},
                 recommendation=f"增加出血位到 {self.required_bleed_mm}mm",
             ))
-        else:
-    
     # ==================== 透明度检查 ====================
     
     def _check_transparency(self, reader: PdfReader, result: PreflightResult):
@@ -779,8 +764,6 @@ class EnhancedPreflightChecker:
                 details={"pages": pages_with_transparency},
                 recommendation="透明度可能影响RIP处理速度",
             ))
-        else:
-    
     def _check_overprint(self, reader: PdfReader, result: PreflightResult):
         """检查叠印设置"""
         # 简化检查：检查是否存在叠印指令
@@ -804,8 +787,6 @@ class EnhancedPreflightChecker:
                 message="检测到叠印(Overprint)设置",
                 recommendation="确认叠印设置符合印刷要求",
             ))
-        else:
-    
     # ==================== PDF/X检查 ====================
     
     def _check_output_intent(self, reader: PdfReader, result: PreflightResult):
@@ -826,6 +807,11 @@ class EnhancedPreflightChecker:
             pass
         
         if has_output_intent:
+            result.issues.append(PreflightIssue(
+                check_type=PreflightCheckType.OUTPUT_INTENT.value,
+                severity=PreflightSeverity.PASS.value,
+                message="已找到输出意图(Output Intent)",
+            ))
         else:
             result.issues.append(PreflightIssue(
                 check_type=PreflightCheckType.OUTPUT_INTENT.value,
@@ -861,6 +847,11 @@ class EnhancedPreflightChecker:
             pass
         
         if is_pdfx:
+            result.issues.append(PreflightIssue(
+                check_type=PreflightCheckType.PDFX_CONFORMANCE.value,
+                severity=PreflightSeverity.PASS.value,
+                message="文件声明PDF/X合规性",
+            ))
         else:
             result.issues.append(PreflightIssue(
                 check_type=PreflightCheckType.PDFX_CONFORMANCE.value,
@@ -888,8 +879,6 @@ class EnhancedPreflightChecker:
                     severity=PreflightSeverity.ERROR.value,
                     message="PDF文件已加密且无法读取",
                 ))
-        else:
-    
     # ==================== 引用检查 ====================
     
     def _check_nested_pdf(self, reader: PdfReader, result: PreflightResult):
@@ -930,8 +919,6 @@ class EnhancedPreflightChecker:
                 details={"forms": nested_pdfs},
                 recommendation="确认嵌套PDF正确显示",
             ))
-        else:
-    
     # ==================== 总墨量检测 (ISO 12647-2) ====================
 
     def _check_ink_coverage(self, reader: PdfReader, result: PreflightResult):
@@ -1078,8 +1065,6 @@ class EnhancedPreflightChecker:
                 details={"pages": overprint_pages},
                 recommendation="确认叠印设置符合印刷要求，必要时生成叠印预览",
             ))
-        else:
-
     # ==================== 统计 ====================
     
     def _calculate_stats(self, result: PreflightResult):

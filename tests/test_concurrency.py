@@ -127,13 +127,10 @@ class TestPipelineConcurrency(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             files = [self._make_fake_pdf(f"worker_{i}.pdf", td) for i in range(5)]
 
-            pool = QThreadPool.globalInstance()
-            original_max = pool.maxThreadCount()
-
             self.pipeline.start(files, output_dir=td, max_workers=3)
-            self.assertEqual(pool.maxThreadCount(), 3, "线程池应设置为3线程")
-
-            pool.setMaxThreadCount(original_max)
+            
+            # 检查管线内部的线程池（使用专用线程池而非全局）
+            self.assertEqual(self.pipeline._pool.maxThreadCount(), 3, "线程池应设置为3线程")
 
     def test_status_consistency_during_concurrency(self):
         """并发处理期间状态查询应保持一致性（无竞态）"""
