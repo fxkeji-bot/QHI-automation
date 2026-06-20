@@ -166,6 +166,7 @@ E:\qhi_processor\shared\
 | 14 | 统一打印机对接（printer_integration.py） | P2 | Marvis | ✅ 已完成 |
 | 15 | 生产管理Web前端 | P2 | QorkBuddy | ✅ 已完成 |
 | 16 | GitHub同步配置 | P2 | Marvis | ✅ 已完成 |
+| 17 | 新建订单UI | P2 | QorkBuddy | ✅ 已完成 | PyQt5对话框 + 菜单入口，调用printing_system MySQL订单API |
 
 ### 自动化运维
 
@@ -284,4 +285,4 @@ Register-ScheduledTask -TaskName "QHI_ERP_Sync" -Trigger $trigger -Action $actio
 ---
 
 **方案制定**: MiMo Code Agent
-**最后更新**: 2026-06-20
+**最后更新**: 2026-06-21

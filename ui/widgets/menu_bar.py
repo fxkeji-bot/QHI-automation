@@ -41,6 +41,12 @@ class MainWindowMenuBar:
         new_order_action.triggered.connect(self._on_new_order)
         production_menu.addAction(new_order_action)
 
+        new_mysql_order_action = QAction("新建订单...", self._parent)
+        new_mysql_order_action.setShortcut("Ctrl+Shift+N")
+        new_mysql_order_action.setStatusTip("创建新的 MySQL 订单（同步到 printing_system）")
+        new_mysql_order_action.triggered.connect(self._on_new_mysql_order)
+        production_menu.addAction(new_mysql_order_action)
+
         production_menu.addSeparator()
 
         order_list_action = QAction("工单列表", self._parent)
@@ -80,6 +86,18 @@ class MainWindowMenuBar:
         except Exception as e:
             from PyQt5.QtWidgets import QMessageBox
             QMessageBox.critical(self._parent, "错误", f"打开新建工单对话框失败:\n{e}")
+
+    def _on_new_mysql_order(self):
+        """新建 MySQL 订单"""
+        try:
+            from ui.dialogs.order_mysql_dialog import OrderMySQLCreateDialog
+            dlg = OrderMySQLCreateDialog(self._parent)
+            if dlg.exec_():
+                order_data = dlg.get_order_data()
+                self._parent.log(f"订单已创建: {order_data}")
+        except Exception as e:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(self._parent, "错误", f"打开新建订单对话框失败:\n{e}")
 
     def _on_order_list(self):
         """工单列表（待实现）"""
