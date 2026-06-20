@@ -372,6 +372,11 @@ class PrintManagementTab(QWidget):
         btn_test.clicked.connect(self._test_print)
         layout.addWidget(btn_test)
 
+        btn_new_order = QPushButton("新建订单(管线)")
+        btn_new_order.setObjectName("btn-primary")
+        btn_new_order.clicked.connect(self._new_order_pipeline)
+        layout.addWidget(btn_new_order)
+
         btn_retry = QPushButton("重试选中")
         btn_retry.setObjectName("btn-retry")
         btn_retry.clicked.connect(self._retry_selected)
@@ -511,3 +516,120 @@ class PrintManagementTab(QWidget):
     def _open_web_monitor(self):
         import webbrowser
         webbrowser.open("http://127.0.0.1:8080")
+
+    def _new_order_pipeline(self):
+        """新建订单管线 - 弹出对话框输入要求"""
+        from PyQt5.QtWidgets import QDialog, QTextEdit, QComboBox as QB, QFileDialog
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("新建订单 - 管线处理")
+        dlg.setMinimumSize(600, 500)
+        layout = QVBoxLayout(dlg)
+
+        layout.addWidget(QLabel("客户:"))
+        customer_combo = QB()
+        customer_combo.addItem("自动识别", "auto")
+        for cid, name in [
+            ("7385", "闻印"), ("7388", "多彩印刷"), ("1105", "上海典欧"),
+            ("5815", "印丰"), ("2725", "松山印刷"), ("4320", "可鑫印刷"),
+        ]:
+            customer_combo.addItem(f"{name}({cid})", cid)
+        layout.addWidget(customer_combo)
+
+        layout.addWidget(QLabel("要求文本:"))
+        text_edit = QTextEdit()
+        text_edit.setPlaceholderText(
+            "示例(闻印):\n"
+            "封面320g爱尔蒂 （封二封三改黑白）\n"
+            "内页100g象牙白道林 黑白机打 双面\n"
+            "骑马钉 A5 加印 52本\n\n"
+            "示例(可鑫):\n"
+            "A001064_14E  数量20本 成品尺寸：210*297mm\n"
+            "封面： 用250克白卡纸四色印刷 4P\n"
+            "内页：用80克双胶纸单色印刷\n"
+            "装订：无线胶装\n"
+            "页数：162p\n\n"
+            "示例(典欧/印丰/松山 Tab分隔):\n"
+            "机型\\t纸张\\t单双\\t数量\n"
+            "惠普\\t250铜板\\t单面\\t133"
+        )
+        text_edit.setStyleSheet("font-family: Consolas; font-size: 13px;")
+        layout.addWidget(text_edit)
+
+        file_layout = QHBoxLayout()
+        file_label = QLabel("文件: 未选择")
+        file_label.setStyleSheet("color: #888;")
+        file_layout.addWidget(file_label)
+        selected_files = []
+
+        def browse_files():
+            files, _ = QFileDialog.getOpenFileNames(
+                dlg, "选择PDF文件", "", "PDF文件 (*.pdf);;所有文件 (*)"
+            )
+            if files:
+                selected_files.clear()
+                selected_files.extend(files)
+                names = ", ".join(Path(f).name for f in files[:3])
+                if len(files) > 3:
+                    names += f" +{len(files)-3}个"
+                file_label.setText(f"文件: {names}")
+
+        btn_browse = QPushButton("浏览文件...")
+        btn_browse.clicked.connect(browse_files)
+        file_layout.addWidget(btn_browse)
+        file_layout.addStretch()
+        layout.addLayout(file_layout)
+
+        result_label = QLabel("")
+        result_label.setStyleSheet("font-size: 11px; color: #666;")
+        result_label.setWordWrap(True)
+        layout.addWidget(result_label)
+
+        btn_bar = QHBoxLayout()
+        btn_bar.addStretch()
+
+        btn_cancel = QPushButton("取消")
+        btn_cancel.clicked.connect(dlg.reject)
+        btn_bar.addWidget(btn_cancel)
+
+        btn_submit = QPushButton("提交处理")
+        btn_submit.setObjectName("btn-primary")
+        btn_bar.addWidget(btn_submit)
+        layout.addLayout(btn_bar)
+
+        def on_submit():
+            text = text_edit.toPlainText().strip()
+            cid = customer_combo.currentData()
+            if not text and not selected_files:
+                result_label.setText("[ERROR] 请输入要求文本或选择文件")
+                return
+
+            result_label.setText("处理中...")
+            btn_submit.setEnabled(False)
+
+            try:
+                from services.order_pipeline import OrderPipeline
+                pipeline = OrderPipeline()
+
+                result = pipeline.process_order(
+                    files=selected_files[:] if selected_files else None,
+                    requirement_text=text,
+                    customer_id=cid,
+                )
+
+                lines = []
+                lines.append(f"订单: {result.order_code} | 客户: {result.customer_name}")
+                lines.append(f"状态: {result.status} | 打印机: {result.printer_ip or 'N/A'}")
+                lines.append(f"规格数: {len(result.specs)}")
+                for msg in result.messages:
+                    lines.append(msg)
+                if result.error:
+                    lines.append(f"错误: {result.error}")
+                result_label.setText("\n".join(lines))
+            except Exception as e:
+                result_label.setText(f"[ERROR] {e}")
+            finally:
+                btn_submit.setEnabled(True)
+
+        btn_submit.clicked.connect(on_submit)
+        dlg.exec_()
