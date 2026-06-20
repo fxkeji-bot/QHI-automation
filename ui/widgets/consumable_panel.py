@@ -51,11 +51,11 @@ class ConsumablePanel(QWidget):
         # 统计卡片
         stats_layout = QHBoxLayout()
         
-        self._stats_total = self._create_stat_card("总耗材", "0", "#2196F3")
-        self._stats_low = self._create_stat_card("低余量", "0", "#F44336")
-        self._stats_value = self._create_stat_card("总价值", "¥0", "#4CAF50")
-        self._stats_expiring = self._create_stat_card("即将过期", "0", "#FF9800")
-        
+        self._stats_total, self._stats_total_val = self._create_stat_card("总耗材", "0", "#2196F3")
+        self._stats_low, self._stats_low_val = self._create_stat_card("低余量", "0", "#F44336")
+        self._stats_value, self._stats_value_val = self._create_stat_card("总价值", "¥0", "#4CAF50")
+        self._stats_expiring, self._stats_expiring_val = self._create_stat_card("即将过期", "0", "#FF9800")
+
         stats_layout.addWidget(self._stats_total)
         stats_layout.addWidget(self._stats_low)
         stats_layout.addWidget(self._stats_value)
@@ -110,8 +110,8 @@ class ConsumablePanel(QWidget):
         
         layout.addWidget(splitter)
     
-    def _create_stat_card(self, title: str, value: str, color: str) -> QFrame:
-        """创建统计卡片"""
+    def _create_stat_card(self, title: str, value: str, color: str):
+        """创建统计卡片，返回 (card, value_label)"""
         card = QFrame()
         card.setStyleSheet(f"""
             QFrame {{
@@ -134,18 +134,20 @@ class ConsumablePanel(QWidget):
         layout.addWidget(title_label)
         
         value_label = QLabel(value)
-        value_label.setObjectName("value")
         value_label.setStyleSheet("font-size: 18px; font-weight: bold; background: transparent;")
         layout.addWidget(value_label)
         
-        return card
+        return card, value_label
     
     def _refresh_data(self):
         """刷新数据"""
         # 更新统计
         stats = self._manager.get_consumption_stats()
-        
-        self._findChild(QLabel, "value").setText(str(stats["total_consumables"]))
+
+        self._stats_total_val.setText(str(stats["total_consumables"]))
+        self._stats_low_val.setText(str(stats.get("low_level_count", 0)))
+        self._stats_value_val.setText(f"¥{stats.get('total_value', 0):.0f}")
+        self._stats_expiring_val.setText(str(stats.get("expiring_soon_count", 0)))
         
         # 更新表格
         consumables = self._manager.list_consumables()
