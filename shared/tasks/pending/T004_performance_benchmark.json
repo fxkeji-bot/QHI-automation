@@ -1,0 +1,11 @@
+{
+  "task_id": "T004",
+  "task_name": "性能基准测试",
+  "type": "testing",
+  "priority": "P2",
+  "assigned_to": "marvis",
+  "status": "pending",
+  "created_at": "2026-06-20T18:05:00",
+  "assigned_by": "smart_scheduler",
+  "description": "创建性能基准测试，防止性能回归"
+}

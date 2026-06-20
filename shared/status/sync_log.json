@@ -1,18 +1,38 @@
 {
-  "last_update": "2026-06-20T17:59:01.588530",
-  "sync_count": 2,
-  "last_sync": {
-    "timestamp": "2026-06-20T17:49:22",
-    "customers_synced": 0,
-    "orders_synced": 100,
-    "success": true
-  },
-  "agent_status": {
-    "marvis": "idle",
-    "qclaw": "idle",
-    "qorkbuddy": "idle"
-  },
-  "pending_tasks": 0,
-  "in_progress_tasks": 0,
-  "completed_tasks": 12
+  "timestamp": "2026-06-20T18:15:00",
+  "agent": "qclaw",
+  "summary": "完成 T001 数据字典标准化，T005 ERP实时同步服务开发中",
+  "completed": [
+    {
+      "task_id": "T001",
+      "task_name": "数据字典标准化",
+      "status": "completed",
+      "details": "验证 models/data_dictionary.py 已对齐 GWG 2025 规范"
+    }
+  ],
+  "in_progress": [
+    {
+      "task_id": "T005",
+      "task_name": "ERP实时同步",
+      "status": "in_progress",
+      "progress": 45,
+      "files_created": [
+        "services/erp_bridge.py (17KB)",
+        "services/erp_sync_api_server.py (11KB)"
+      ],
+      "remaining_steps": [
+        "在印特服务器部署 REST API 服务",
+        "配置 Windows 计划任务自动启动",
+        "测试双向同步功能",
+        "编写部署文档"
+      ]
+    }
+  ],
+  "next_up": [
+    {
+      "task_id": "T009",
+      "name": "数据库优化",
+      "priority": "P2"
+    }
+  ]
 }
