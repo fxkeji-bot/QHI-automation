@@ -1,0 +1,18 @@
+{
+  "last_update": "2026-06-20T17:59:01.588530",
+  "sync_count": 2,
+  "last_sync": {
+    "timestamp": "2026-06-20T17:49:22",
+    "customers_synced": 0,
+    "orders_synced": 100,
+    "success": true
+  },
+  "agent_status": {
+    "marvis": "idle",
+    "qclaw": "idle",
+    "qorkbuddy": "idle"
+  },
+  "pending_tasks": 0,
+  "in_progress_tasks": 0,
+  "completed_tasks": 12
+}

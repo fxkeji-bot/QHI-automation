@@ -1,0 +1,16 @@
+{
+  "agent": "qorkbuddy",
+  "role": "UI开发、界面优化、用户体验",
+  "status": "idle",
+  "current_task": null,
+  "progress": 0,
+  "last_update": "2026-06-20T17:57:00",
+  "files_modified": [],
+  "issues_found": [],
+  "next_tasks": [],
+  "completed_today": [
+    "耗材管理面板",
+    "工作单模版",
+    "小票打印"
+  ]
+}

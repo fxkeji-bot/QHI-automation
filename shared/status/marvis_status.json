@@ -1,0 +1,17 @@
+{
+  "agent": "marvis",
+  "role": "项目协调、核心开发、代码审查",
+  "status": "idle",
+  "current_task": null,
+  "progress": 0,
+  "last_update": "2026-06-20T17:57:00",
+  "files_modified": [],
+  "issues_found": [],
+  "next_tasks": [],
+  "completed_today": [
+    "安全漏洞修复",
+    "并发测试修复",
+    "预检模块语法修复",
+    "ERP同步服务开发"
+  ]
+}
