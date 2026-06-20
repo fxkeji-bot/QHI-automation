@@ -45,21 +45,21 @@ INDET_DB_CONFIG = {
 # 剪贴板文本默认路径
 CLIPBOARD_TEXT_PATH = r"\\Server2\客户文件2\out\剪贴板文本.txt"
 
-# GRF 字段 → 数据库列名映射
+# GRF 字段 → 数据库列名映射（对齐印特3系 PPM_JobBill 真实列名）
 GRF_TO_DB_COLUMN = {
-    "单据编号": "OrderCode",
-    "委托客户_名称": "CustomerName",
-    "业务日期": "BusinessDate",
-    "经手人": "HandlerName",
-    "本单联络": "ContactInfo",
-    "委托时间": "EntrustTime",
-    "标售金额": "ListedAmount",
-    "已结": "SettledAmount",
-    "实收金额": "ReceivedAmount",
+    "单据编号": "Code",
+    "委托客户_名称": "Acc4CustomerName",
+    "业务日期": "BusiDate",
+    "经手人": "Acc4ChargeUserName",
+    "本单联络": "CustomerContactMan",
+    "委托时间": "StartTime",
+    "标售金额": "StandardAmount",
+    "已结": "GatheringAmount",
+    "实收金额": "ReceiveAmount",
     "说明备注": "Remark",
     "客户备注": "CustomerRemark",
-    "制作任务": "ProductionTask",
-    "制作要求": "ProductionRequirement",
+    "制作任务": "Title",
+    "制作要求": "CustomerRemark",
 }
 
 
@@ -120,15 +120,15 @@ def query_order_by_id(order_id: str, conn=None) -> Optional[Dict]:
 
     try:
         cursor = conn.cursor()
-        # 主表查询（表名需根据印特实际 schema 调整）
+        # 主表查询（PPM_JobBill，印特3系工单主表）
         sql = """
         SELECT
-            OrderCode, CustomerName, BusinessDate,
-            HandlerName, ContactInfo, EntrustTime,
-            ListedAmount, SettledAmount, ReceivedAmount,
-            Remark, CustomerRemark, ProductionTask, ProductionRequirement
-        FROM Orders
-        WHERE OrderCode = ?
+            Code, Acc4CustomerName, BusiDate,
+            Acc4ChargeUserName, CustomerContactMan, StartTime,
+            StandardAmount, GatheringAmount, ReceiveAmount,
+            Remark, CustomerRemark, Title
+        FROM PPM_JobBill
+        WHERE Code = ?
         """
         cursor.execute(sql, (order_id,))
         row = cursor.fetchone()
@@ -139,13 +139,14 @@ def query_order_by_id(order_id: str, conn=None) -> Optional[Dict]:
         columns = [col[0] for col in cursor.description]
         order_data = dict(zip(columns, row))
 
-        # 查询明细行
+        # 查询明细行（PPM_JobBillDetail，印特3系工单明细表）
         detail_sql = """
         SELECT
-            ItemName, Quantity, Copies, DetailSpec, ItemRemark,
-            UnitPrice, SubTotal
-        FROM OrderDetails
-        WHERE OrderCode = ?
+            ProductName, Quantity, Unit,
+            Specification, Remark,
+            UnitPrice, Amount
+        FROM PPM_JobBillDetail
+        WHERE JobBillCode = ?
         ORDER BY LineNo
         """
         cursor.execute(detail_sql, (order_id,))
@@ -283,22 +284,22 @@ def map_to_grf_template(order_data: Dict) -> Dict:
     """
     grf = {}
 
-    # ── 单据头字段 ──
-    grf["单据编号"] = order_data.get("OrderCode", "")
-    grf["客户单位"] = order_data.get("CustomerName", "")
-    grf["业务日期"] = order_data.get("BusinessDate", "")
-    grf["经手人员"] = order_data.get("HandlerName", "")
-    grf["联络人员"] = order_data.get("ContactInfo", "")
-    grf["委托时间"] = order_data.get("EntrustTime", "")
-    grf["标售金额"] = order_data.get("ListedAmount", 0)
-    grf["已结金额"] = order_data.get("SettledAmount", 0)
-    grf["实收金额"] = order_data.get("ReceivedAmount", "")
+    # ── 单据头字段（从 PPM_JobBill 真实列名读取）──
+    grf["单据编号"] = order_data.get("Code", "")
+    grf["客户单位"] = order_data.get("Acc4CustomerName", "")
+    grf["业务日期"] = order_data.get("BusiDate", "")
+    grf["经手人员"] = order_data.get("Acc4ChargeUserName", "")
+    grf["联络人员"] = order_data.get("CustomerContactMan", "")
+    grf["委托时间"] = order_data.get("StartTime", "")
+    grf["标售金额"] = order_data.get("StandardAmount", 0)
+    grf["已结金额"] = order_data.get("GatheringAmount", 0)
+    grf["实收金额"] = order_data.get("ReceiveAmount", "")
     grf["备注"] = order_data.get("Remark", "") or order_data.get("CustomerRemark", "")
-    grf["制作任务"] = order_data.get("ProductionTask", "")
-    grf["制作要求"] = order_data.get("ProductionRequirement", "")
+    grf["制作任务"] = order_data.get("Title", "")
+    grf["制作要求"] = order_data.get("CustomerRemark", "")
 
     # ── 工单追踪链接 ──
-    order_code = order_data.get("OrderCode", "")
+    order_code = order_data.get("Code", "")
     grf["order_tracking_url"] = f"http://192.168.1.45:8088/flow/?order_id={order_code}"
 
     # ── 明细表格 ──
@@ -306,13 +307,13 @@ def map_to_grf_template(order_data: Dict) -> Dict:
     grf["明细"] = []
     for d in details:
         grf["明细"].append({
-            "经营项目": d.get("ItemName", ""),
+            "经营项目": d.get("ProductName", ""),
             "数量": d.get("Quantity", 0),
-            "份": d.get("Copies", 0),
-            "明细": d.get("DetailSpec", ""),
-            "说明": d.get("ItemRemark", ""),
+            "份": d.get("Unit", 0),
+            "明细": d.get("Specification", ""),
+            "说明": d.get("Remark", ""),
             "标价": d.get("UnitPrice", 0),
-            "小计": d.get("SubTotal", 0),
+            "小计": d.get("Amount", 0),
         })
 
     return grf
@@ -336,7 +337,7 @@ def export_receipt_data(order_data: Dict) -> Dict:
         小票数据字典
     """
     # ── 自动检测并补齐映射 ──
-    if "单据编号" not in order_data and "OrderCode" in order_data:
+    if "单据编号" not in order_data and "Code" in order_data:
         order_data = map_to_grf_template(order_data)
 
     # ── 统一字段读取 ──
@@ -347,17 +348,17 @@ def export_receipt_data(order_data: Dict) -> Dict:
                 return v
         return default
 
-    order_code = _g("单据编号", "OrderCode", default="---")
-    customer_name = _g("客户单位", "CustomerName", default="---")
-    business_date = _g("业务日期", "BusinessDate",
+    order_code = _g("单据编号", "Code", default="---")
+    customer_name = _g("客户单位", "Acc4CustomerName", default="---")
+    business_date = _g("业务日期", "BusiDate",
                        default=datetime.now().strftime("%Y-%m-%d"))
-    handler = _g("经手人员", "经手人", "HandlerName", default="---")
-    contact = _g("联络人员", "本单联络", "ContactInfo", default="---")
-    entrust_time = _g("委托时间", "EntrustTime", default="")
+    handler = _g("经手人员", "经手人", "Acc4ChargeUserName", default="---")
+    contact = _g("联络人员", "本单联络", "CustomerContactMan", default="---")
+    entrust_time = _g("委托时间", "StartTime", default="")
     remark = _g("备注", "说明备注", "CustomerRemark", "Remark", default="")
-    production_task = _g("制作任务", "ProductionTask", default="未分配")
-    production_req = _g("制作要求", "ProductionRequirement", default="")
-    listed_amount = _g("标售金额", "ListedAmount", default=0)
+    production_task = _g("制作任务", "Title", default="未分配")
+    production_req = _g("制作要求", "CustomerRemark", default="")
+    listed_amount = _g("标售金额", "StandardAmount", default=0)
 
     # ── 明细行拼合 ──
     details = order_data.get("明细") or order_data.get("details") or []
@@ -365,9 +366,9 @@ def export_receipt_data(order_data: Dict) -> Dict:
     total_qty = 0
     total_amount = 0.0
     for d in details:
-        name = d.get("经营项目", "") or d.get("ItemName", "")
+        name = d.get("经营项目", "") or d.get("ProductName", "")
         qty = int(d.get("数量", 0) or d.get("Quantity", 0) or 0)
-        sub = float(d.get("小计", 0) or d.get("SubTotal", 0) or 0)
+        sub = float(d.get("小计", 0) or d.get("Amount", 0) or 0)
         if name:
             titles.append(name)
         total_qty += qty
@@ -418,7 +419,7 @@ def get_order_for_print(order_id: str) -> Optional[Dict]:
     # 通道2：剪贴板文本
     orders = parse_clipboard_text()
     for o in orders:
-        if o.get("OrderCode") == order_id or o.get("单据编号") == order_id:
+        if o.get("Code") == order_id or o.get("订单编号") == order_id:
             logger.info(f"剪贴板文本通道获取工单 {order_id} 成功")
             return export_receipt_data(o)
 

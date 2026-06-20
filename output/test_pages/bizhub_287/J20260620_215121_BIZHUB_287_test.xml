@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "generated_by": "QHI-HotfolderDispatcher/2.0",
+  "generated_at": "2026-06-20T21:51:31.856262",
+  "job_params": {
+    "copies": 1,
+    "paper": "A4_test",
+    "duplex": false,
+    "color_mode": "CMYK",
+    "finishing": "",
+    "order_code": "TEST-20260620_215121",
+    "customer": "QHI-系统测试",
+    "priority": "low"
+  }
+}

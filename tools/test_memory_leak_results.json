@@ -1,0 +1,66 @@
+[
+  {
+    "scenario": "MetadataManager LRU=500",
+    "mb_before": 52.25,
+    "mb_after": 66.61,
+    "mb_gc": 68.25,
+    "leaked": false,
+    "details": "cache=500/500, LRU=OK"
+  },
+  {
+    "scenario": "MetadataManager remove()",
+    "mb_before": 0,
+    "mb_after": 100,
+    "mb_gc": 50,
+    "leaked": false,
+    "details": "before=100, after=50, expected=50"
+  },
+  {
+    "scenario": "RuleNodeItem Lifecycle",
+    "mb_before": 95.42,
+    "mb_after": 124.16,
+    "mb_gc": 124.25,
+    "leaked": false,
+    "details": "alive_after_gc=0/100"
+  },
+  {
+    "scenario": "ConnectionPathItem Lifecycle",
+    "mb_before": 139.73,
+    "mb_after": 155.61,
+    "mb_gc": 155.43,
+    "leaked": false,
+    "details": "conn_residual=0, node_residual=0"
+  },
+  {
+    "scenario": "Signal leak - remove_node",
+    "mb_before": 0,
+    "mb_after": 0,
+    "mb_gc": 0,
+    "leaked": false,
+    "details": "alive=0/30"
+  },
+  {
+    "scenario": "Signal leak - scene.clear()",
+    "mb_before": 0,
+    "mb_after": 0,
+    "mb_gc": 0,
+    "leaked": false,
+    "details": "alive=0/30"
+  },
+  {
+    "scenario": "from_dict repeated load",
+    "mb_before": 171.7,
+    "mb_after": 186.19,
+    "mb_gc": 202.1,
+    "leaked": true,
+    "details": "delta=14.5MB after 20 loads"
+  },
+  {
+    "scenario": "ProcessingController signal leak",
+    "mb_before": 0,
+    "mb_after": 0,
+    "mb_gc": 0,
+    "leaked": false,
+    "details": "cleanup() called or no leak pattern"
+  }
+]

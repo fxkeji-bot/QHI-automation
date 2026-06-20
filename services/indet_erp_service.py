@@ -129,6 +129,481 @@ def _deep_merge(base: Dict, override: Dict):
 
 
 # ============================================================
+# WMI + PowerShell 远程 SQL 查询服务 (方案A' - 命名实例专用)
+# ============================================================
+class WmiSqlClient:
+    """通过 WMI + PowerShell 在 Server2 远程执行 SQL 查询。
+
+    适用场景：SQL Server 使用命名实例（如 GT_YINTE_EMS）且仅支持
+    Windows 集成认证(SSPI)时，外部机器无法通过 pyodbc 直连
+    （ODBC 驱动无法通过 SQL Browser 解析命名实例端口）。
+
+    原理：
+    1. 通过 WMI Win32_Process 在 Server2 上远程启动 PowerShell
+    2. PowerShell 使用 .NET SqlClient (System.Data.SqlClient) 连接本地 SQL Server
+    3. 查询结果写入临时文件，通过 C$ 管理共享读取
+
+    Credentials: administrator / dell-123，通过配置或环境变量管理。
+
+    参考：job_bill_service.py 中的已验证方案。
+    """
+
+    # 默认配置
+    DEFAULT_HOST = "192.168.1.22"
+    DEFAULT_USER = "administrator"
+    DEFAULT_PASS = "dell-123"   # TODO: 移至环境变量 WMI_REMOTE_PASS
+    DEFAULT_CONN_STRING = r"Server=.\GT_YINTE_EMS;Database=EMSXDB;Integrated Security=SSPI;"
+    DEFAULT_QUERY_TIMEOUT = 30
+    REMOTE_TEMP_DIR = r"C:\Windows\Temp"
+
+    def __init__(
+        self,
+        host: Optional[str] = None,
+        user: Optional[str] = None,
+        password: Optional[str] = None,
+        conn_string: Optional[str] = None,
+        query_timeout: int = DEFAULT_QUERY_TIMEOUT,
+    ):
+        self.host = host or os.environ.get("WMI_REMOTE_HOST", self.DEFAULT_HOST)
+        self.user = user or os.environ.get("WMI_REMOTE_USER", self.DEFAULT_USER)
+        self.password = password or os.environ.get("WMI_REMOTE_PASS", self.DEFAULT_PASS)
+        self.conn_string = conn_string or os.environ.get(
+            "WMI_DB_CONN", self.DEFAULT_CONN_STRING
+        )
+        self.query_timeout = query_timeout
+        self._share = f"\\\\{self.host}\\C$"
+        self._available: Optional[bool] = None
+
+    def test_connection(self) -> bool:
+        """测试 WMI 远程连接和 SQL 查询是否可用"""
+        try:
+            result = self.query("SELECT 1 AS test_value")
+            self._available = result is not None and len(result) > 0
+            if self._available:
+                logger.info("WMI 远程 SQL 查询测试成功: %s", self.host)
+            return self._available
+        except Exception as e:
+            logger.warning("WMI 远程 SQL 查询测试失败: %s", e)
+            self._available = False
+            return False
+
+    def is_available(self) -> bool:
+        """检查 WMI 远程方案是否可用"""
+        if self._available is None:
+            self.test_connection()
+        return self._available or False
+
+    # ── 核心查询方法 ──
+
+    def query(self, sql: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """执行 SELECT 查询并返回字典列表。
+
+        Args:
+            sql: SQL 查询语句（支持参数化占位符 @param_name）
+            params: 参数字典 {param_name: value}
+
+        Returns:
+            查询结果行列表
+        """
+        import uuid
+
+        script_id = uuid.uuid4().hex[:8]
+        remote_ps1 = f"{self.REMOTE_TEMP_DIR}\\qhi_erp_{script_id}.ps1"
+        remote_txt = f"{self.REMOTE_TEMP_DIR}\\qhi_erp_{script_id}.txt"
+
+        # 构建参数化 PowerShell 脚本
+        ps_script = self._build_query_script(sql, params, remote_txt)
+
+        try:
+            # 步骤1: 建立 SMB 连接并写入脚本
+            self._smb_connect()
+            self._smb_write(remote_ps1, ps_script)
+            # 清理可能残留的结果文件
+            try:
+                self._smb_delete(remote_txt)
+            except Exception:
+                pass
+
+            # 步骤2: 通过 WMI 远程执行 PowerShell
+            self._wmi_execute(remote_ps1)
+
+            # 步骤3: 等待并读取结果
+            results = self._wait_and_read(remote_txt)
+
+            return results
+
+        finally:
+            # 清理远程临时文件
+            for tmp in [remote_ps1, remote_txt]:
+                try:
+                    self._smb_delete(tmp)
+                except Exception:
+                    pass
+
+    def execute(self, sql: str, params: Optional[Dict[str, Any]] = None) -> int:
+        """执行 INSERT/UPDATE/DELETE 写操作，返回影响行数。
+
+        通过 PowerShell SqlCommand.ExecuteNonQuery() 实现。
+
+        Args:
+            sql: SQL 语句
+            params: 参数字典
+
+        Returns:
+            影响行数
+        """
+        import uuid
+
+        script_id = uuid.uuid4().hex[:8]
+        remote_ps1 = f"{self.REMOTE_TEMP_DIR}\\qhi_erp_w_{script_id}.ps1"
+        remote_txt = f"{self.REMOTE_TEMP_DIR}\\qhi_erp_w_{script_id}.txt"
+
+        ps_script = self._build_exec_script(sql, params, remote_txt)
+
+        try:
+            self._smb_connect()
+            self._smb_write(remote_ps1, ps_script)
+            try:
+                self._smb_delete(remote_txt)
+            except Exception:
+                pass
+
+            self._wmi_execute(remote_ps1)
+
+            # 读取影响行数
+            result_content = self._wait_and_read_raw(remote_txt)
+            if result_content:
+                return int(result_content.strip())
+            return 0
+
+        finally:
+            for tmp in [remote_ps1, remote_txt]:
+                try:
+                    self._smb_delete(tmp)
+                except Exception:
+                    pass
+
+    # ── 业务查询方法 ──
+
+    def get_job_bills(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        flow_code: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        customer_name: Optional[str] = None,
+    ) -> List[Dict]:
+        """获取工单列表（从 PPM_JobBill）"""
+        sql = """
+            SELECT TOP (@limit) Code, Acc4CustomerName, Title,
+                   ProduceFlowSpecCode, CustomerRemark,
+                   BusiDate, Sys4CreateTime, FilePath,
+                   Style, Tag, StandardAmount, ReceiveAmount,
+                   GatheringAmount, NBSOrderBillCode, Project
+            FROM PPM_JobBill
+            WHERE 1=1
+        """
+        params = {"limit": limit + offset}
+
+        if flow_code:
+            sql += " AND ProduceFlowSpecCode = @flow_code"
+            params["flow_code"] = flow_code
+        if date_from:
+            sql += " AND BusiDate >= @date_from"
+            params["date_from"] = date_from
+        if date_to:
+            sql += " AND BusiDate <= @date_to"
+            params["date_to"] = date_to
+        if customer_name:
+            sql += " AND Acc4CustomerName LIKE @customer_name"
+            params["customer_name"] = f"%{customer_name}%"
+
+        sql += " ORDER BY BusiDate DESC OFFSET @offset ROWS FETCH NEXT @limit_rows ROWS ONLY"
+        params["offset"] = offset
+        params["limit_rows"] = limit
+
+        return self.query(sql, params)
+
+    def get_job_bill_by_code(self, code: str) -> Optional[Dict]:
+        """按工单编号查询单条工单"""
+        results = self.query(
+            """SELECT Code, Acc4CustomerName, Title, ProduceFlowSpecCode,
+                      CustomerRemark, BusiDate, Sys4CreateTime, FilePath,
+                      Style, Tag, StandardAmount, ReceiveAmount,
+                      GatheringAmount, Remark, CustomerContactMan,
+                      CustomerPhone, CustomerAddress, StartTime,
+                      DeliveryTime, NBSOrderBillCode, Project
+               FROM PPM_JobBill WHERE Code = @code""",
+            {"code": code},
+        )
+        return results[0] if results else None
+
+    def update_job_flow(self, order_code: str, flow_code: str) -> int:
+        """更新工单流程状态码（写回印特 ProduceFlowSpecCode 字段实现转单）
+
+        Args:
+            order_code: 工单编号
+            flow_code: 流程分类Code（10=排队/15=审单中/20=前期/21=机房/
+                       30=后道/35=外发/45=完工/65=寄快递/70=未付）
+
+        Returns:
+            影响行数
+        """
+        return self.execute(
+            """UPDATE PPM_JobBill
+               SET ProduceFlowSpecCode = @flow_code,
+                   Sys4Version = Sys4Version + 1
+               WHERE Code = @code""",
+            {"flow_code": flow_code, "code": order_code},
+        )
+
+    def update_job_title(self, order_code: str, title: str) -> int:
+        """更新工单标题"""
+        return self.execute(
+            "UPDATE PPM_JobBill SET Title = @title WHERE Code = @code",
+            {"title": title, "code": order_code},
+        )
+
+    def get_flow_specs(self) -> List[Dict]:
+        """获取流程分类列表（PPM_ProduceFlowSpec）"""
+        return self.query(
+            "SELECT Code, Name, Color, IsVisible4ProduceCenter FROM PPM_ProduceFlowSpec ORDER BY Code"
+        )
+
+    def get_customers(self, keyword: Optional[str] = None, limit: int = 500) -> List[Dict]:
+        """获取客户列表（CRM_Customer）"""
+        sql = "SELECT TOP (@limit) Code, Name FROM CRM_Customer"
+        params = {"limit": limit}
+        if keyword:
+            sql += " WHERE Name LIKE @keyword"
+            params["keyword"] = f"%{keyword}%"
+        sql += " ORDER BY Name"
+        return self.query(sql, params)
+
+    def get_business_list(self, keyword: Optional[str] = None, limit: int = 100) -> List[Dict]:
+        """获取业务单列表（RSM_Business）"""
+        sql = "SELECT TOP (@limit) Code, Name, NameFPI, Tags FROM RSM_Business"
+        params = {"limit": limit}
+        if keyword:
+            sql += " WHERE Name LIKE @keyword OR NameFPI LIKE @keyword"
+            params["keyword"] = f"%{keyword}%"
+        sql += " ORDER BY Name"
+        return self.query(sql, params)
+
+    # ── 内部实现 ──
+
+    def _build_query_script(self, sql: str, params: Optional[Dict[str, Any]],
+                            output_path: str) -> str:
+        """构建 PowerShell SELECT 查询脚本（参数化，防 SQL 注入）"""
+        param_lines = ""
+        if params:
+            for pname, pvalue in params.items():
+                if isinstance(pvalue, int):
+                    param_lines += (
+                        f"$cmd.Parameters.Add((New-Object System.Data.SqlClient.SqlParameter"
+                        f"('@{pname}', [System.Data.SqlDbType]::Int))).Value = {pvalue}\n"
+                    )
+                elif isinstance(pvalue, float):
+                    param_lines += (
+                        f"$cmd.Parameters.Add((New-Object System.Data.SqlClient.SqlParameter"
+                        f"('@{pname}', [System.Data.SqlDbType]::Float))).Value = {pvalue}\n"
+                    )
+                else:
+                    escaped = str(pvalue).replace("'", "''")
+                    param_lines += (
+                        f"$cmd.Parameters.Add((New-Object System.Data.SqlClient.SqlParameter"
+                        f"('@{pname}', [System.Data.SqlDbType]::NVarChar, 4000))).Value = '{escaped}'\n"
+                    )
+
+        return f'''
+$ErrorActionPreference = "Stop"
+try {{
+    $c = New-Object System.Data.SqlClient.SqlConnection("{self.conn_string}")
+    $c.Open()
+    $cmd = $c.CreateCommand()
+    $cmd.CommandTimeout = {self.query_timeout}
+    $cmd.CommandText = @'
+{sql}
+'@
+{param_lines}
+    $rd = $cmd.ExecuteReader()
+    $sb = [System.Text.StringBuilder]::new()
+    $cols = @()
+    for ($i = 0; $i -lt $rd.FieldCount; $i++) {{ $cols += $rd.GetName($i) }}
+    $null = $sb.AppendLine(($cols -join "§"))
+    while ($rd.Read()) {{
+        $vs = @()
+        for ($i = 0; $i -lt $rd.FieldCount; $i++) {{
+            if ($rd.IsDBNull($i)) {{ $vs += "<<NULL>>" }}
+            else {{ $vs += $rd[$i].ToString().Replace("§","-").Replace("`r"," ").Replace("`n"," ") }}
+        }}
+        $null = $sb.AppendLine(($vs -join "§"))
+    }}
+    $rd.Close()
+    $c.Close()
+    [System.IO.File]::WriteAllText("{output_path}", $sb.ToString(), [System.Text.Encoding]::UTF8)
+}} catch {{
+    [System.IO.File]::WriteAllText("{output_path}", "ERROR: " + $_.Exception.Message, [System.Text.Encoding]::UTF8)
+    exit 1
+}}
+'''
+
+    def _build_exec_script(self, sql: str, params: Optional[Dict[str, Any]],
+                           output_path: str) -> str:
+        """构建 PowerShell INSERT/UPDATE/DELETE 执行脚本"""
+        param_lines = ""
+        if params:
+            for pname, pvalue in params.items():
+                if isinstance(pvalue, int):
+                    param_lines += (
+                        f"$cmd.Parameters.Add((New-Object System.Data.SqlClient.SqlParameter"
+                        f"('@{pname}', [System.Data.SqlDbType]::Int))).Value = {pvalue}\n"
+                    )
+                elif isinstance(pvalue, float):
+                    param_lines += (
+                        f"$cmd.Parameters.Add((New-Object System.Data.SqlClient.SqlParameter"
+                        f"('@{pname}', [System.Data.SqlDbType]::Float))).Value = {pvalue}\n"
+                    )
+                else:
+                    escaped = str(pvalue).replace("'", "''")
+                    param_lines += (
+                        f"$cmd.Parameters.Add((New-Object System.Data.SqlClient.SqlParameter"
+                        f"('@{pname}', [System.Data.SqlDbType]::NVarChar, 4000))).Value = '{escaped}'\n"
+                    )
+
+        return f'''
+$ErrorActionPreference = "Stop"
+try {{
+    $c = New-Object System.Data.SqlClient.SqlConnection("{self.conn_string}")
+    $c.Open()
+    $cmd = $c.CreateCommand()
+    $cmd.CommandTimeout = {self.query_timeout}
+    $cmd.CommandText = @'
+{sql}
+'@
+{param_lines}
+    $rows = $cmd.ExecuteNonQuery()
+    $c.Close()
+    [System.IO.File]::WriteAllText("{output_path}", $rows.ToString(), [System.Text.Encoding]::UTF8)
+}} catch {{
+    [System.IO.File]::WriteAllText("{output_path}", "ERROR: " + $_.Exception.Message, [System.Text.Encoding]::UTF8)
+    exit 1
+}}
+'''
+
+    def _smb_connect(self):
+        """建立 SMB 管理共享连接"""
+        subprocess.run(
+            ['net', 'use', self._share, '/user:' + self.user, self.password],
+            shell=False, capture_output=True, timeout=10,
+        )
+
+    def _smb_write(self, remote_path: str, content: str):
+        """通过 C$ 共享写入文件"""
+        local_path = remote_path.replace(r"C:\", self._share + "\\")
+        Path(local_path).write_text(content, encoding="utf-8")
+
+    def _smb_delete(self, remote_path: str):
+        """通过 C$ 共享删除文件"""
+        local_path = remote_path.replace(r"C:\", self._share + "\\")
+        try:
+            os.remove(local_path)
+        except FileNotFoundError:
+            pass
+
+    def _wmi_execute(self, remote_ps1: str):
+        """通过 WMI Win32_Process 远程执行 PowerShell 脚本"""
+        cmd_line = (
+            f'cmd.exe /c powershell.exe -ExecutionPolicy Bypass '
+            f'-File {remote_ps1} > nul 2>&1'
+        )
+        ps_wmi_cmd = (
+            f'$cred = New-Object System.Management.Automation.PSCredential('
+            f"'{self.user}',"
+            f"(ConvertTo-SecureString '{self.password}' -AsPlainText -Force));"
+            f"Invoke-WmiMethod -Class Win32_Process -Name Create "
+            f"-ComputerName {self.host} -Credential $cred "
+            f"-ArgumentList '{cmd_line}' | Out-Null"
+        )
+        result = subprocess.run(
+            ["powershell.exe", "-ExecutionPolicy", "Bypass", "-Command", ps_wmi_cmd],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode != 0 and result.stderr.strip():
+            raise RuntimeError(f"WMI 远程执行失败: {result.stderr.strip()[:300]}")
+
+    def _wait_and_read(self, remote_txt: str, max_wait: int = 30) -> List[Dict[str, Any]]:
+        """等待并解析远程查询结果"""
+        import time
+
+        waited = 0
+        interval = 1
+        while waited < max_wait:
+            time.sleep(interval)
+            waited += interval
+            try:
+                content = self._smb_read_text(remote_txt)
+                if not content:
+                    continue
+                if content.startswith("ERROR:"):
+                    raise RuntimeError(content[6:].strip())
+                return self._parse_output(content)
+            except (FileNotFoundError, OSError):
+                continue
+
+        raise TimeoutError(f"WMI 查询超时 ({max_wait}s): {remote_txt}")
+
+    def _wait_and_read_raw(self, remote_txt: str, max_wait: int = 30) -> str:
+        """等待并读取原始文本结果（用于 ExecuteNonQuery 返回值）"""
+        import time
+
+        waited = 0
+        interval = 1
+        while waited < max_wait:
+            time.sleep(interval)
+            waited += interval
+            try:
+                content = self._smb_read_text(remote_txt)
+                if not content:
+                    continue
+                if content.startswith("ERROR:"):
+                    raise RuntimeError(content[6:].strip())
+                return content
+            except (FileNotFoundError, OSError):
+                continue
+
+        raise TimeoutError(f"WMI 执行超时 ({max_wait}s): {remote_txt}")
+
+    def _smb_read_text(self, remote_path: str) -> str:
+        """通过 C$ 共享读取文本文件"""
+        local_path = remote_path.replace(r"C:\", self._share + "\\")
+        return Path(local_path).read_text(encoding="utf-8").strip()
+
+    @staticmethod
+    def _parse_output(content: str) -> List[Dict[str, Any]]:
+        """解析远程查询输出为字典列表
+
+        格式：首行为 § 分隔的列名，后续每行为 § 分隔的值。
+        <<NULL>> 表示数据库 NULL。
+        """
+        lines = content.strip().splitlines()
+        if len(lines) < 1:
+            return []
+        headers = lines[0].split("§")
+        results = []
+        for line in lines[1:]:
+            values = line.split("§")
+            if len(values) != len(headers):
+                continue
+            row = {}
+            for h, v in zip(headers, values):
+                row[h] = "" if v == "<<NULL>>" else v
+            results.append(row)
+        return results
+
+
+# ============================================================
 # SQL Server 直连服务 (方案A)
 # ============================================================
 class SQLServerDirectConnector:
@@ -511,21 +986,26 @@ class IndetERPService:
         self._initialized = True
         self.config = IndetERPConfig(config_path)
         self._direct: Optional[SQLServerDirectConnector] = None
+        self._wmi: Optional[WmiSqlClient] = None
         self._api: Optional[APIIntermediateService] = None
-        self._mode = "auto"  # auto | direct | api
+        self._mode = "auto"  # auto | direct | wmi | api
         self._init_connectors()
 
     def _init_connectors(self):
         self._direct = SQLServerDirectConnector(self.config)
+        self._wmi = WmiSqlClient()
         self._api = APIIntermediateService(self.config)
 
-        # 自动检测并选择方案
+        # 自动检测并选择方案：直连 > WMI远程 > API降级
         if self._direct.is_available():
             self._mode = "direct"
             logger.info("印特ERP服务: 方案A (SQL Server直连) 已激活")
+        elif self._wmi.is_available():
+            self._mode = "wmi"
+            logger.info("印特ERP服务: 方案A' (WMI远程SQL查询) 已激活")
         else:
             self._mode = "api"
-            logger.warning("印特ERP服务: 方案A不可用，降级至方案B (API中间层)")
+            logger.warning("印特ERP服务: 方案A/A'不可用，降级至方案B (API中间层)")
 
     @property
     def mode(self) -> str:
@@ -545,6 +1025,11 @@ class IndetERPService:
                 self._mode = "direct"
             else:
                 raise ConnectionError("SQL Server 直连不可用")
+        elif mode == "wmi":
+            if self._wmi and self._wmi.is_available():
+                self._mode = "wmi"
+            else:
+                raise ConnectionError("WMI 远程 SQL 查询不可用")
         elif mode == "api":
             self._mode = "api"
         else:
@@ -552,6 +1037,8 @@ class IndetERPService:
 
     # ---- 委托方法 ----
     def get_business_list(self, **kwargs):
+        if self._mode == "wmi":
+            return self._wmi.get_business_list(**kwargs)
         return self.connector.get_business_list(**kwargs)
 
     def get_business_detail(self, bill_id: int):
@@ -560,10 +1047,14 @@ class IndetERPService:
         return {}
 
     def get_job_bills(self, **kwargs):
+        if self._mode == "wmi":
+            return self._wmi.get_job_bills(**kwargs)
         return self.connector.get_job_bills(**kwargs)
 
-    def update_job_flow(self, order_code: str, flow_code: str, flow_name: str):
-        """更新工单流程 - 如果直连可用则直接写回印特"""
+    def update_job_flow(self, order_code: str, flow_code: str, flow_name: str = ""):
+        """更新工单流程 - 支持直连写回 / WMI写回 / API回调"""
+        if self._mode == "wmi" and self._wmi:
+            return self._wmi.update_job_flow(order_code, flow_code)
         if self._mode == "direct":
             return self._direct.update_job_flow(order_code, flow_code, flow_name)
         # API 模式: 尝试 POST 回 API
@@ -576,12 +1067,42 @@ class IndetERPService:
             return result.get("affected", 0) if result else 0
         return 0
 
+    def update_job_title(self, order_code: str, title: str):
+        """更新工单标题 - WMI 远程写回"""
+        if self._mode == "wmi" and self._wmi:
+            return self._wmi.update_job_title(order_code, title)
+        if self._mode == "direct":
+            return self._direct.execute(
+                "UPDATE PPM_JobBill SET Title = ? WHERE Code = ?",
+                (title, order_code)
+            )
+        return 0
+
+    def get_job_bill_by_code(self, order_code: str):
+        """按工单编号查询单条工单"""
+        if self._mode == "wmi" and self._wmi:
+            return self._wmi.get_job_bill_by_code(order_code)
+        if self._mode == "direct" and self._direct:
+            return self._direct.query(
+                "SELECT * FROM PPM_JobBill WHERE Code = ?",
+                (order_code,)
+            )
+        return None
+
+    def get_flow_specs(self):
+        """获取流程分类列表"""
+        if self._mode == "wmi" and self._wmi:
+            return self._wmi.get_flow_specs()
+        return []
+
     def update_job_progress(self, order_code: str, progress_data: Dict):
         if self._mode == "direct":
             return self._direct.update_job_progress(order_code, progress_data)
         return 0
 
     def get_customers(self, **kwargs):
+        if self._mode == "wmi":
+            return self._wmi.get_customers(**kwargs)
         return self.connector.get_customers(**kwargs)
 
     def get_paper_list(self, **kwargs):

@@ -94,8 +94,8 @@ class JobBillQueryWorker(QThread):
         # 使用 @p0, @p1, ... 作为参数占位符
         placeholders = ", ".join([f"@p{i}" for i in range(len(codes))])
         sql = (
-            f"SELECT Code, CustomerRemark, Remark, FilePath, Title, "
-            f"Acc4CustomerName, CustomerContactMan, CustomerPhone, CustomerAddress "
+            f"SELECT Code, Acc4CustomerName, CustomerRemark, Title, "
+            f"Tag, Style, ProduceFlowSpecCode, Acc4ChargeUserName, BusiDate "
             f"FROM PPM_JobBill WHERE Code IN ({placeholders})"
         )
 

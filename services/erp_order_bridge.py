@@ -130,15 +130,27 @@ class ErpOrderBridge:
         customer_code = order.get("customer_code", "auto")
         gd_no = order.get("gd_no", "")
         file_path = order.get("file_path", "")
+        extracted_json = order.get("extracted_json", "")
 
         self._log(f"处理ERP工单: {gd_no} ({order.get('customer_name', '')})")
 
-        # 解析要求文本
+        # 优先用raw_text解析（更可靠）
         specs = []
-        if raw_text:
+        if raw_text and raw_text.strip():
+            from services.multi_customer_parser import parse_requirement, auto_detect_format
             detected = customer_code if customer_code != "auto" else auto_detect_format(raw_text)
-            if detected and detected != "unknown":
+            if detected and detected not in ("unknown",):
                 specs = parse_requirement(detected, raw_text)
+            if not specs:
+                specs = parse_requirement("auto", raw_text)
+
+        # 回退到extracted_json（如果raw_text没解析成功）
+        if not specs and extracted_json and extracted_json != "{}":
+            try:
+                from services.multi_customer_parser import parse_from_extracted_json
+                specs = parse_from_extracted_json(extracted_json)
+            except Exception:
+                pass
 
         # 构建订单结果
         result = {

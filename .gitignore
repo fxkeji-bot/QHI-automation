@@ -1,72 +1,50 @@
-# Python
+# QHI Processor — Git Ignore
+# ========================================
+
+# 日志文件
+logs/
+
+# Python 编译文件
+*.pyc
+*.pyo
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# PyInstaller
-*.manifest
-*.spec
+# 敏感配置
+config/indet_erp_config.json
+config/printer_config.json
+config/license.key
 
-# IDE
-.vscode/
+# 环境变量
+.env
+
+# 共享文件夹
+shared/
+
+# IDE / 编辑器
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
 
-# OS
+# 操作系统
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-
-# Data
-data/
-*.db
-*.sqlite3
-
-# Temporary
-tmp/
+# 临时文件
 temp/
+tmp/
+*.tmp
+*.temp
 
-# Output
-output/
+# 输出目录（可选，视项目需要）
+# output/
 
-# Debug / temp files
-_debug_fromdict*.py
-test_*.txt
-test_*.json
-test_err.txt
-test_out.txt
-test_output.txt
-test_stderr.txt
-test_stdout.txt
-app.log
-qt.log
-crash.log
-variables_*.evs
-workbuddy/
-.workbuddy/
-.pytest_cache/
+# 测试文件
+test_*.py
+*_test.py
 
-# Local config / data (不入库)
-qhi_config.json
-客户库.txt
+# 构建产物
+dist/
+build/
+*.egg-info/
