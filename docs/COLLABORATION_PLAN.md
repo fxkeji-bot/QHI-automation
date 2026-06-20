@@ -1,7 +1,7 @@
 # QHI 拼版处理器 — 多智能体合作方案
 
-**版本**: v1.0
-**更新时间**: 2026-06-20
+**版本**: v2.0
+**更新时间**: 2026-06-21
 **参与智能体**: Marvis | Qclaw | QorkBuddy
 **协调者**: MiMo Code Agent
 
@@ -160,6 +160,12 @@ E:\qhi_processor\shared\
 | 8 | 耗材图表 | P2 | QorkBuddy | ✅ 已完成 |
 | 9 | API文档 | P2 | Marvis | ✅ 已完成 |
 | 10 | 添加工作打印机(bizhub 287) | P2 | Marvis | ✅ 已完成 |
+| 11 | 印特ERP数据库直连（WMI远程SQL） | P2 | Marvis | ✅ 已完成 |
+| 12 | 智能拼版整合（smart_imposition.py） | P2 | Marvis | ✅ 已完成 |
+| 13 | 印特ERP接管（indet_erp_full.py） | P2 | Marvis | ✅ 已完成 |
+| 14 | 统一打印机对接（printer_integration.py） | P2 | Marvis | ✅ 已完成 |
+| 15 | 生产管理Web前端 | P2 | QorkBuddy | ✅ 已完成 |
+| 16 | GitHub同步配置 | P2 | Marvis | ✅ 已完成 |
 
 ### 自动化运维
 
@@ -174,6 +180,9 @@ E:\qhi_processor\shared\
 | 设备名称 | IP地址 | 类型 | 状态 |
 |----------|--------|------|------|
 | bizhub 287 | 192.168.1.32 | 多功能打印机 | ✅ 已配置 |
+| XP-80 热敏票据 | \\\\Asus121\\XP-80 | 票据打印机 | ✅ 已配置 |
+| Oce VarioPrint 6000 | \\\\Server2\\热文件夹\\Oce | 工业印刷机 | ✅ 已配置 |
+| HP Indigo Digital Press | \\\\Server2\\热文件夹\\HP_Indigo | 数码印刷机 | ✅ 已配置 |
 
 ---
 
@@ -259,8 +268,8 @@ Register-ScheduledTask -TaskName "QHI_ERP_Sync" -Trigger $trigger -Action $actio
 
 ## 九、版本控制
 
-- **当前版本**: v1.3.0
-- **下次更新**: v1.4.0
+- **当前版本**: v2.0
+- **下次更新**: v2.1.0
 - **更新频率**: 每日
 - **同步方式**: Git + 共享目录
 

@@ -2,6 +2,15 @@
 
 ## Execution History
 
+### 2026-06-21 01:28
+- Checked COLLABORATION_PLAN.md: all tasks marked ✅ 已完成, no new tasks
+- Checked shared/tasks/pending/: 3 stale files found (auto-generated duplicates dated 20260621)
+  - task_p0_001_20260621.json (Marvis/安全漏洞修复) → moved to completed
+  - task_p1_001_20260621.json (qclaw/ERP数据同步) → moved to completed
+  - task_p1_003_20260621.json (qclaw/纸张工艺库完善) → moved to completed
+- Updated marvis_status.json: status=idle, pending_tasks_count=0
+- Result: 无新任务
+
 ### 2026-06-20 23:19
 - Checked COLLABORATION_PLAN.md: all tasks marked ✅ 已完成, no new tasks
 - Checked shared/tasks/pending/: 3 stale files found (auto-generated duplicates of already-completed tasks)

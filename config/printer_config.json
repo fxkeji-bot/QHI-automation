@@ -1,31 +1,71 @@
 {
-  "receipt": {
-    "printer_name": "XP-80",
-    "printer_type": "network_shared",
-    "host": "Asus121",
-    "system_path": "\\\\Asus121\\XP-80",
-    "paper_type": "thermal",
-    "paper_width_mm": 80,
-    "default": true,
-    "description": "热敏纸小票输出专用",
-    "dpi": 203,
-    "chars_per_line": 48,
-    "fallback_pdf_dir": "E:\\qhi_processor\\output\\receipts"
+  "version": "2.0",
+  "printers": {
+    "bizhub_287": {
+      "name": "Konica Minolta bizhub 287",
+      "type": "raw_socket",
+      "host": "192.168.1.32",
+      "port": 9100,
+      "protocol": "RAW",
+      "color": false,
+      "duplex": true,
+      "max_paper_size": "A3",
+      "speed_ppm": 28,
+      "status": "configured",
+      "suitable_for": ["黑白文档", "报表", "合同", "标书"],
+      "module": "services.bizhub_service"
+    },
+    "xp_80": {
+      "name": "XP-80 热敏票据打印机",
+      "type": "network_share",
+      "share_path": "\\\\Asus121\\XP-80",
+      "paper_width_mm": 80,
+      "paper_length_mm": 297,
+      "color": false,
+      "duplex": false,
+      "max_paper_size": "80mm热敏",
+      "status": "configured",
+      "suitable_for": ["小票", "工单号", "标签"],
+      "module": "services.receipt_printer_service"
+    },
+    "oce_varioprint_6000": {
+      "name": "Oce VarioPrint 6000",
+      "type": "hotfolder",
+      "hotfolder_path": "\\\\Server2\\热文件夹\\Oce",
+      "color": false,
+      "duplex": true,
+      "max_paper_size": "A3",
+      "speed_ppm": 115,
+      "status": "configured",
+      "suitable_for": ["大批量黑白印刷", "书籍", "手册"],
+      "module": "services.oce_varioprint_service",
+      "note": "SMB不可达时降级为本地模拟，需现场配置权限"
+    },
+    "hp_indigo": {
+      "name": "HP Indigo Digital Press",
+      "type": "hotfolder",
+      "hotfolder_path": "\\\\Server2\\热文件夹\\HP_Indigo",
+      "color": true,
+      "duplex": true,
+      "max_paper_size": "SRA3",
+      "speed_ppm": 60,
+      "status": "configured",
+      "suitable_for": ["彩色商业印刷", "画册", "包装"],
+      "module": "services.hp_indigo_service",
+      "note": "支持JDF/JMF双向通信"
+    }
   },
-  "bizhub_287": {
-    "printer_type": "network_raw",
-    "host": "192.168.1.32",
-    "port": 9100,
-    "protocol": "raw",
-    "snmp_community": "public",
-    "snmp_device_index": 1,
-    "queue_name": "KONICA MINOLTA bizhub 287 PCL",
-    "lpr_fallback_port": 515,
-    "lpr_queue": "PRINT",
-    "hotfolder_fallback": "\\\\192.168.1.32\\bizhub\\Hotfolder\\QHI",
-    "brand": "Konica Minolta",
-    "model": "bizhub 287"
+  "hotfolder_config": {
+    "dispatcher_module": "services.hotfolder_dispatcher",
+    "poll_interval_seconds": 5,
+    "watch_paths": [
+      "\\\\Server2\\热文件夹\\Oce",
+      "\\\\Server2\\热文件夹\\HP_Indigo"
+    ]
   },
-  "last_updated": "2026-06-20T21:30:00",
-  "version": "2.0.0"
+  "fleet_monitor": {
+    "module": "services.fleet_monitor",
+    "poll_interval_seconds": 30,
+    "auto_refresh": true
+  }
 }

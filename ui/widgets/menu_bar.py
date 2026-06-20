@@ -32,6 +32,22 @@ class MainWindowMenuBar:
         """创建并返回菜单栏"""
         menubar = self._parent.menuBar()
 
+        # ── 生产菜单 ──
+        production_menu = menubar.addMenu("生产")
+
+        new_order_action = QAction("新建工单...", self._parent)
+        new_order_action.setShortcut("Ctrl+N")
+        new_order_action.setStatusTip("创建新的 GD 工单（同步到 printing_system）")
+        new_order_action.triggered.connect(self._on_new_order)
+        production_menu.addAction(new_order_action)
+
+        production_menu.addSeparator()
+
+        order_list_action = QAction("工单列表", self._parent)
+        order_list_action.setStatusTip("查看和管理 GD 工单列表")
+        order_list_action.triggered.connect(self._on_order_list)
+        production_menu.addAction(order_list_action)
+
         # ── 帮助菜单 ──
         help_menu = menubar.addMenu("帮助")
 
@@ -49,6 +65,30 @@ class MainWindowMenuBar:
         help_menu.addAction(help_action)
 
         return menubar
+
+    # ── 生产菜单回调 ──────────────────────────────────
+
+    def _on_new_order(self):
+        """新建工单"""
+        try:
+            from ui.dialogs.order_dialog import OrderCreateDialog
+            db = self._parent.db
+            dlg = OrderCreateDialog(db, self._parent)
+            if dlg.exec_():
+                order_data = dlg.get_order_data()
+                self._parent.log(f"工单已创建: {order_data}")
+        except Exception as e:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(self._parent, "错误", f"打开新建工单对话框失败:\n{e}")
+
+    def _on_order_list(self):
+        """工单列表（待实现）"""
+        from PyQt5.QtWidgets import QMessageBox
+        QMessageBox.information(
+            self._parent, "工单列表",
+            "工单列表功能即将上线，\n当前可通过 printing_system Web 界面查看。\n\n"
+            "Web: http://127.0.0.1:8000/home/"
+        )
 
     # ── 向导相关 ──────────────────────────────────────
 

@@ -1,14 +1,14 @@
 {
   "agent": "marvis",
-  "status": "pending_tasks",
+  "status": "idle",
   "current_task": null,
   "progress": 100,
-  "last_update": "2026-06-20T23:19:55",
-  "last_scheduler_check": "2026-06-21T00:55:01.138009",
+  "last_update": "2026-06-21T01:28:49",
+  "last_scheduler_check": "2026-06-21T01:28:49",
   "collab_plan_version": "v1.0",
-  "pending_tasks_count": 4,
+  "pending_tasks_count": 0,
   "files_modified": [],
   "issues_found": [],
   "next_tasks": [],
-  "notes": "All tasks in COLLABORATION_PLAN.md are marked completed. 3 stale pending files (pre-existing duplicates of already-completed tasks) moved to completed/. No new tasks for Marvis."
+  "notes": "巡检完成：COLLABORATION_PLAN.md 中所有任务均已完成。pending 目录中 3 个 20260621 自动生成的重复任务文件已移至 completed/（task_p0_001/安全漏洞修复→Marvis, task_p1_001/ERP数据同步→Qclaw, task_p1_003/纸张工艺库完善→Qclaw）。无新任务。"
 }
