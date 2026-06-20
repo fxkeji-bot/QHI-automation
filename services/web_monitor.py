@@ -57,6 +57,12 @@ class WebMonitorHandler(BaseHTTPRequestHandler):
             self._serve_printers()
         elif path == '/api/stats':
             self._serve_stats()
+        elif path == '/api/erp/customers':
+            self._serve_erp_customers()
+        elif path == '/api/erp/orders':
+            self._serve_erp_orders()
+        elif path == '/api/erp/stats':
+            self._serve_erp_stats()
         else:
             self._send_error(404, "Not Found")
     
@@ -101,6 +107,49 @@ class WebMonitorHandler(BaseHTTPRequestHandler):
         else:
             self._send_error(503, "Service not available")
     
+    def _serve_erp_customers(self):
+        """ERP客户统计"""
+        try:
+            import sys, os
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+            from services.erp_order_bridge import ErpOrderBridge
+            bridge = ErpOrderBridge()
+            stats = bridge.get_customer_stats()
+            self._send_json({"customers": stats[:30], "count": len(stats)})
+        except Exception as e:
+            self._send_json({"error": str(e)})
+
+    def _serve_erp_orders(self):
+        """ERP工单列表"""
+        try:
+            import sys, os
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+            from services.erp_order_bridge import ErpOrderBridge
+            bridge = ErpOrderBridge()
+            orders = bridge.get_pending_orders(limit=50)
+            cleaned = [{k: v for k, v in o.items() if k != 'extracted_json'} for o in orders]
+            self._send_json({"orders": cleaned, "count": len(cleaned)})
+        except Exception as e:
+            self._send_json({"error": str(e)})
+
+    def _serve_erp_stats(self):
+        """ERP统计"""
+        try:
+            import sqlite3
+            db = r'\\Server2\客户文件2\out\customer_info.db'
+            conn = sqlite3.connect(db, timeout=10)
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM customer_info")
+            total = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(DISTINCT gd_no) FROM customer_info")
+            orders = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(DISTINCT customer_code) FROM customer_info")
+            customers = cur.fetchone()[0]
+            conn.close()
+            self._send_json({"total": total, "orders": orders, "customers": customers})
+        except Exception as e:
+            self._send_json({"error": str(e)})
+
     def _send_response(self, code: int, content: str, content_type: str = 'text/plain'):
         """发送响应"""
         self.send_response(code)
@@ -210,6 +259,38 @@ class WebMonitorHandler(BaseHTTPRequestHandler):
                 </tbody>
             </table>
         </div>
+
+        <div class="card">
+            <h2>ERP Data (印特ERP)</h2>
+            <div class="stats" style="margin-bottom:15px">
+                <div class="stat-card">
+                    <div class="stat-value" id="erp-total">--</div>
+                    <div class="stat-label">Total Records</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="erp-orders" style="color:#4CAF50">--</div>
+                    <div class="stat-label">Orders</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="erp-customers" style="color:#FF9800">--</div>
+                    <div class="stat-label">Customers</div>
+                </div>
+            </div>
+            <table id="erp-table">
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Name</th>
+                        <th>Orders</th>
+                        <th>Records</th>
+                        <th>First Date</th>
+                        <th>Last Date</th>
+                    </tr>
+                </thead>
+                <tbody id="erp-body">
+                </tbody>
+            </table>
+        </div>
     </div>
     
     <script>
@@ -256,6 +337,32 @@ class WebMonitorHandler(BaseHTTPRequestHandler):
                         `;
                     });
                 });
+
+            fetch('/api/erp/stats')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('erp-total').textContent = data.total || '--';
+                    document.getElementById('erp-orders').textContent = data.orders || '--';
+                    document.getElementById('erp-customers').textContent = data.customers || '--';
+                }).catch(() => {});
+
+            fetch('/api/erp/customers')
+                .then(r => r.json())
+                .then(data => {
+                    const tbody = document.getElementById('erp-body');
+                    tbody.innerHTML = '';
+                    (data.customers || []).slice(0, 15).forEach(c => {
+                        const row = tbody.insertRow();
+                        row.innerHTML = `
+                            <td>${c.customer_code}</td>
+                            <td>${c.customer_name}</td>
+                            <td>${c.order_count}</td>
+                            <td>${c.cnt}</td>
+                            <td>${c.first_date || ''}</td>
+                            <td>${c.last_date || ''}</td>
+                        `;
+                    });
+                }).catch(() => {});
         }
         
         // Auto-refresh every 5 seconds
