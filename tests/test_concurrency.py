@@ -87,10 +87,15 @@ class TestPipelineConcurrency(unittest.TestCase):
     def test_pause_resume(self):
         """暂停/恢复管线不应丢失文件"""
         with tempfile.TemporaryDirectory() as td:
-            files = [self._make_fake_pdf(f"pause_{i}.pdf", td) for i in range(6)]
+            files = [self._make_fake_pdf(f"pause_{i}.pdf", td) for i in range(10)]
 
-            self.pipeline.start(files, output_dir=td, max_workers=2)
-            time.sleep(1.0)
+            self.pipeline.start(files, output_dir=td, max_workers=1)
+            time.sleep(0.5)
+            
+            # 检查是否有文件正在处理
+            status = self.pipeline.get_status()
+            initial_processing = status.get("processing", 0) + status.get("done", 0)
+            
             self.pipeline.pause()
             time.sleep(0.5)
 
@@ -101,6 +106,7 @@ class TestPipelineConcurrency(unittest.TestCase):
             status = self.pipeline.get_status()
             self.assertFalse(status["paused"], "管线应已恢复")
 
+            # 等待处理完成
             timeout = 30
             elapsed = 0
             while self.pipeline.is_running() and elapsed < timeout:
@@ -108,7 +114,9 @@ class TestPipelineConcurrency(unittest.TestCase):
                 elapsed += 0.5
 
             status = self.pipeline.get_status()
-            self.assertGreater(status["done"], 0, "暂停恢复后应有处理完成")
+            # 管线应已完成所有文件
+            self.assertEqual(status["total"], 10, "总文件数应为10")
+            self.assertEqual(status["done"] + status.get("failed", 0), 10, "所有文件应已处理")
 
     def test_cancel_stops_processing(self):
         """取消管线应立即停止所有后续处理"""
