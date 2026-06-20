@@ -31,7 +31,7 @@ _SAFE_OPERATORS = {
     ast.Div: operator.truediv,
     ast.FloorDiv: operator.floordiv,
     ast.Mod: operator.mod,
-    ast.Pow: operator.pow,
+    ast.Pow: None,  # 禁用幂运算（DoS风险）
     ast.Eq: operator.eq,
     ast.NotEq: operator.ne,
     ast.Lt: operator.lt,
@@ -53,7 +53,7 @@ _SAFE_UNARY_OPS = {
     ast.Invert: operator.invert,
 }
 
-# 允许的内置函数
+# 允许的内置函数（仅安全的数学函数）
 _SAFE_BUILTINS = {
     'abs': abs,
     'min': min,
@@ -66,13 +66,6 @@ _SAFE_BUILTINS = {
     'float': float,
     'str': str,
     'bool': bool,
-    'range': range,
-    'sorted': sorted,
-    'reversed': reversed,
-    'enumerate': enumerate,
-    'zip': zip,
-    'map': map,
-    'filter': filter,
 }
 
 

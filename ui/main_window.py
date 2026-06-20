@@ -56,6 +56,7 @@ from ui.controllers.dialog_controller import DialogController
 from models.constants import DB_PATH, QI_EXE, METADATA_PATH
 from models.metadata import MetadataManager
 from services.job_bill_service import JobBillService
+from utils.version import load_app_version as _load_app_version
 
 # Application-specific capability flags
 try:
@@ -63,15 +64,6 @@ try:
     FITZ_SUPPORT = True
 except ImportError:
     FITZ_SUPPORT = False
-
-
-def _load_app_version() -> str:
-    """从 version.json 加载应用版本号"""
-    try:
-        version_json = Path(__file__).resolve().parent.parent / "resources" / "version.json"
-        if version_json.exists():
-            with open(version_json, "r", encoding="utf-8") as f:
-                return json.load(f).get("version", "0.0.0")
     except Exception:
         pass
     return "0.0.0"
@@ -258,7 +250,8 @@ class MainWindow(QMainWindow):  # noqa: F405
         else:
             logger.info(formatted_msg)
 
-        QApplication.processEvents()
+        # 注意：不调用 processEvents()，因为它在非主线程中不安全
+        # UI更新通过Qt信号槽机制在主线程中处理
 
     # ════════════════════════════════════════════════════════════
     # 菜单栏委托方法（保持向后兼容）

@@ -96,7 +96,8 @@ class Webhook:
     webhook_id: str
     url: str                             # 回调URL
     events: List[str] = field(default_factory=lambda: ["job.completed", "job.failed"])
-    secret: str = ""                     # 签名密钥（可选）
+    secret: str = ""                     # 签名密钥（存储哈希值，非明文）
+    secret_hash: str = ""                # 密钥的SHA256哈希
     enabled: bool = True
     created_at: str = ""
     last_triggered: str = ""
@@ -106,6 +107,16 @@ class Webhook:
     def __post_init__(self):
         if not self.created_at:
             self.created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # 如果提供了明文secret，生成哈希并清空明文
+        if self.secret and not self.secret_hash:
+            self.secret_hash = hashlib.sha256(self.secret.encode()).hexdigest()
+            self.secret = ""  # 清空明文
+
+    def verify_secret(self, provided_secret: str) -> bool:
+        """验证提供的密钥"""
+        if not self.secret_hash:
+            return True  # 无密钥要求时通过
+        return hashlib.sha256(provided_secret.encode()).hexdigest() == self.secret_hash
 
     def to_dict(self) -> Dict:
         return {
@@ -117,6 +128,7 @@ class Webhook:
             "last_triggered": self.last_triggered,
             "trigger_count": self.trigger_count,
             "failure_count": self.failure_count,
+            "has_secret": bool(self.secret_hash),
         }
 
 
@@ -185,6 +197,7 @@ class BatchWebhookService:
         with self._lock:
             job.status = JobStatus.CANCELLED
             job.completed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self._persist_jobs()
         self.log(f"作业已取消: {job_id}")
         return True
 
@@ -210,8 +223,10 @@ class BatchWebhookService:
             if processed + failed >= job.total_files and job.status == JobStatus.PROCESSING:
                 job.status = JobStatus.COMPLETED if failed == 0 else JobStatus.FAILED
                 job.completed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                # 触发Webhook
-                self._trigger_webhooks(job)
+            self._persist_jobs()
+        # 触发Webhook（在锁外触发，避免死锁）
+        if job.status in (JobStatus.COMPLETED, JobStatus.FAILED):
+            self._trigger_webhooks(job)
 
     def complete_job(self, job_id: str, result: Dict = None, error: str = None):
         """完成作业"""
@@ -224,6 +239,7 @@ class BatchWebhookService:
             job.result = result
             job.error = error
             job.progress = 100
+            self._persist_jobs()
         self._trigger_webhooks(job)
 
     # ==================== Webhook ====================
@@ -233,8 +249,25 @@ class BatchWebhookService:
         url: str,
         events: List[str] = None,
         secret: str = "",
+        require_signature: bool = True,
     ) -> Webhook:
-        """注册Webhook"""
+        """注册Webhook
+        
+        Args:
+            url: 回调URL
+            events: 触发事件列表
+            secret: 签名密钥（生产环境必须提供）
+            require_signature: 是否强制要求签名验证
+        """
+        # 生产环境强制要求签名
+        if require_signature and not secret:
+            import secrets
+            secret = secrets.token_hex(32)
+            logger.warning(
+                f"Webhook未提供签名密钥，已自动生成。"
+                f"请保存此密钥用于验证: {secret[:8]}..."
+            )
+        
         webhook = Webhook(
             webhook_id=f"wh_{uuid.uuid4().hex[:12]}",
             url=url,
@@ -295,13 +328,13 @@ class BatchWebhookService:
             try:
                 data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
-                # 生成签名（如果有密钥）
+                # 生成签名（如果有密钥哈希）
                 headers = {"Content-Type": "application/json"}
-                if webhook.secret:
-                    import hmac
-                    import hashlib
+                if webhook.secret_hash:
+                    # 使用密钥哈希的前32字节作为签名密钥
+                    sign_key = webhook.secret_hash[:32].encode()
                     signature = hmac.new(
-                        webhook.secret.encode(),
+                        sign_key,
                         data,
                         hashlib.sha256
                     ).hexdigest()

@@ -174,10 +174,11 @@ class RuleEngine:
 
         # ---- 页数范围 ----
         elif cond_type == 'page_between':
-            if '-' not in cond_value:
-                return False, "范围格式错误，需要包含'-'，如: 10-20"
+            match = re.match(r'^(\d+)-(\d+)$', cond_value)
+            if not match:
+                return False, f"无效的范围格式: {cond_value}（需要 '起始-结束'，如: 10-20）"
             try:
-                a, b = map(int, cond_value.split('-'))
+                a, b = int(match.group(1)), int(match.group(2))
                 if a > b:
                     return False, f"起始页 {a} 大于结束页 {b}"
                 if a <= metadata.current_page_count <= b:

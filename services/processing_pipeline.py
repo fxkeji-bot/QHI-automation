@@ -59,6 +59,7 @@ class PipeItem:
     result_path: str = ""
     started_at: float = 0.0
     finished_at: float = 0.0
+    page_count: int = 0
 
     @property
     def elapsed(self) -> float:
@@ -157,6 +158,14 @@ class _PipeWorker(QRunnable):
     def _execute_stage(self, stage: PipeStage, func: Callable):
         self.item.stage = stage
         self.item.progress_pct = int(list(PipeStage).index(stage) / (len(PipeStage) - 1) * 100)
+        
+        # 检查暂停状态（等待恢复或取消）
+        while self._pipeline_ref._paused and not self._cancelled:
+            time.sleep(0.1)
+        
+        if self._cancelled:
+            return
+        
         func()
 
     def _do_preflight(self):
@@ -466,7 +475,7 @@ class ProcessingPipeline(QObject):
             for i, fp in enumerate(files)
         ]
 
-        self._pool = QThreadPool.globalInstance()
+        self._pool = QThreadPool()
         self._pool.setMaxThreadCount(max_workers)
 
         self._workers = []

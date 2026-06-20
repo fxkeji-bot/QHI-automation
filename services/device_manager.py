@@ -916,12 +916,16 @@ class DeviceManager:
         
         metrics = device.metrics
         
+        # 无数据时返回0（非100%，避免误导）
+        if metrics.total_jobs == 0 and metrics.total_run_time == 0:
+            return {"oee": 0, "availability": 0, "performance": 0, "quality": 0, "no_data": True}
+        
         # 计算可用率 = 运行时间 / (运行时间 + 停机时间)
         total_time = metrics.total_run_time + metrics.total_downtime
         if total_time > 0:
             metrics.availability = (metrics.total_run_time / total_time) * 100
         else:
-            metrics.availability = 100.0
+            metrics.availability = 0.0
         
         # 计算性能率 = 实际产出 / 理论产出
         if metrics.total_run_time > 0 and device.capability.max_print_speed > 0:
@@ -930,15 +934,15 @@ class DeviceManager:
             if theoretical_output > 0:
                 metrics.performance = min(100, (actual_output / theoretical_output) * 100)
             else:
-                metrics.performance = 100.0
+                metrics.performance = 0.0
         else:
-            metrics.performance = 100.0
+            metrics.performance = 0.0
         
         # 计算质量率 = 良品数 / 总数
         if metrics.total_jobs > 0:
             metrics.quality = (metrics.completed_jobs / metrics.total_jobs) * 100
         else:
-            metrics.quality = 100.0
+            metrics.quality = 0.0
         
         # 计算OEE
         metrics.oee = (metrics.availability / 100) * (metrics.performance / 100) * (metrics.quality / 100) * 100

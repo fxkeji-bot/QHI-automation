@@ -44,24 +44,6 @@ class BillingMode(str, Enum):
     TIERED = "tiered"              # 阶梯计费
 
 
-class PaperCategory(str, Enum):
-    """纸张类别"""
-    COATED = "coated"              # 铜版纸
-    UNCOATED = "uncoated"          # 非涂布纸
-    SPECIAL = "special"            # 特种纸
-    DIGITAL = "digital"            # 数码印刷专用纸
-
-
-class ProcessCategory(str, Enum):
-    """工艺类别"""
-    PRINTING = "printing"          # 印刷
-    LAMINATING = "laminating"      # 覆膜
-    CUTTING = "cutting"            # 裁切
-    FOLDING = "folding"            # 折页
-    STITCHING = "stitching"        # 装订
-    PACKAGING = "packaging"        # 包装
-
-
 # ==================== 数据模型 ====================
 
 @dataclass
@@ -938,7 +920,10 @@ class BillingService:
         conn = self._get_conn()
         cursor = conn.cursor()
         
-        # 查询统计 - 使用LIKE匹配日期前缀
+        # 统一日期过滤：使用 < end_date+1day 代替 <= end_date+23:59:59
+        end_date_plus_one = (datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+        
+        # 查询统计
         cursor.execute("""
             SELECT 
                 COUNT(*) as total_jobs,
@@ -949,8 +934,8 @@ class BillingService:
                 COALESCE(SUM(total_cost), 0) as total_cost,
                 COALESCE(SUM(revenue), 0) as total_revenue
             FROM production_records
-            WHERE created_at >= ? || 'T00:00:00' AND created_at <= ? || 'T23:59:59'
-        """, (start_date, end_date))
+            WHERE created_at >= ? AND created_at < ?
+        """, (start_date, end_date_plus_one))
         
         row = cursor.fetchone()
         
@@ -960,9 +945,9 @@ class BillingService:
                    COUNT(*) as job_count,
                    COALESCE(SUM(run_time_minutes), 0) as run_time
             FROM production_records
-            WHERE created_at >= ? AND created_at <= ?
+            WHERE created_at >= ? AND created_at < ?
             GROUP BY device_id
-        """, (start_date, end_date + " 23:59:59"))
+        """, (start_date, end_date_plus_one))
         
         device_stats = {}
         for device_row in cursor.fetchall():
@@ -997,6 +982,11 @@ class BillingService:
         metric: str = "revenue",
     ) -> List[TrendData]:
         """获取每日趋势"""
+        # 验证 metric 参数（防止SQL注入）
+        allowed_metrics = {"revenue", "cost", "pages", "jobs"}
+        if metric not in allowed_metrics:
+            raise ValueError(f"无效的 metric 参数: {metric}，允许的值: {allowed_metrics}")
+        
         conn = self._get_conn()
         cursor = conn.cursor()
         

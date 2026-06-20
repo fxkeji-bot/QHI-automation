@@ -375,7 +375,7 @@ class JobQueue:
         cursor.executescript(self.CREATE_INDEXES)
         
         conn.commit()
-        conn.close()
+        self._close_conn(conn)
     
     def _get_conn(self) -> sqlite3.Connection:
         """获取数据库连接"""
@@ -465,7 +465,7 @@ class JobQueue:
                 conn.commit()
                 self.log(f"作业已提交: {job.job_id} - {job.name}")
             finally:
-                conn.close()
+                self._close_conn(conn)
         
         return job
     
@@ -481,7 +481,7 @@ class JobQueue:
                 return self._row_to_job(row, cursor.description)
             return None
         finally:
-            conn.close()
+            self._close_conn(conn)
     
     def list_jobs(
         self,
@@ -525,7 +525,7 @@ class JobQueue:
             
             return [self._row_to_job(row, cursor.description) for row in rows]
         finally:
-            conn.close()
+            self._close_conn(conn)
     
     def _row_to_job(self, row: tuple, description) -> Job:
         """将数据库行转换为Job"""
@@ -618,7 +618,7 @@ class JobQueue:
                 
                 return result
             finally:
-                conn.close()
+                self._close_conn(conn)
     
     def cancel_job(self, job_id: str) -> bool:
         """取消作业"""
@@ -640,7 +640,7 @@ class JobQueue:
                 conn.commit()
                 return cursor.rowcount > 0
             finally:
-                conn.close()
+                self._close_conn(conn)
     
     def delete_job(self, job_id: str) -> bool:
         """删除作业"""
@@ -652,7 +652,7 @@ class JobQueue:
                 conn.commit()
                 return cursor.rowcount > 0
             finally:
-                conn.close()
+                self._close_conn(conn)
     
     # ==================== 队列操作 ====================
     
@@ -698,7 +698,7 @@ class JobQueue:
                 
                 return None
             finally:
-                conn.close()
+                self._close_conn(conn)
     
     def get_next_jobs(self, count: int = 1) -> List[Job]:
         """获取下N个待处理作业"""
@@ -766,7 +766,7 @@ class JobQueue:
                 self._devices[device.device_id] = device
                 self.log(f"设备已注册: {device_id} - {name}")
             finally:
-                conn.close()
+                self._close_conn(conn)
         
         return device
     
@@ -796,7 +796,7 @@ class JobQueue:
                 
                 return cursor.rowcount > 0
             finally:
-                conn.close()
+                self._close_conn(conn)
     
     def _load_devices(self):
         """从数据库加载设备"""
@@ -821,7 +821,7 @@ class JobQueue:
                 device = Device(**{k: v for k, v in data.items() if k in Device.__dataclass_fields__})
                 self._devices[device.device_id] = device
         finally:
-            conn.close()
+            self._close_conn(conn)
     
     def assign_job_to_device(self, job_id: str, device_id: str) -> bool:
         """将作业分配给设备"""
@@ -836,7 +836,7 @@ class JobQueue:
                 conn.commit()
                 return cursor.rowcount > 0
             finally:
-                conn.close()
+                self._close_conn(conn)
     
     def get_device_queue(self, device_id: str) -> List[Job]:
         """获取指定设备的作业队列"""
@@ -891,7 +891,7 @@ class JobQueue:
                     self.log(f"作业失败，将重试: {job_id} ({new_retry_count}/{job.max_retries})")
                     return True
             finally:
-                conn.close()
+                self._close_conn(conn)
     
     def get_dead_letter_queue(self, limit: int = 100) -> List[Job]:
         """获取死信队列"""
@@ -909,7 +909,7 @@ class JobQueue:
                 self.log(f"已清空死信队列: {count} 个作业")
                 return count
             finally:
-                conn.close()
+                self._close_conn(conn)
     
     # ==================== 统计和监控 ====================
     
@@ -956,7 +956,7 @@ class JobQueue:
             
             return stats
         finally:
-            conn.close()
+            self._close_conn(conn)
     
     def get_job_history(self, limit: int = 50) -> List[Job]:
         """获取作业历史"""
@@ -1017,6 +1017,10 @@ class JobQueue:
                         # 指数退避
                         retry_delay = min(300, 2 ** job.retry_count * 10)
                         self.log(f"作业 {job.job_id} 将在 {retry_delay}秒后重试")
+                        # 实际执行重试：重新入队
+                        time.sleep(min(retry_delay, 5))  # 最多等待5秒
+                        self.retry_job(job.job_id)
+                        self.log(f"作业 {job.job_id} 已重新入队")
                 
                 # 等待一段时间
                 time.sleep(2)
@@ -1049,7 +1053,7 @@ class JobQueue:
                     self.log(f"已清理 {count} 个旧作业")
                 return count
             finally:
-                conn.close()
+                self._close_conn(conn)
     
     # ==================== Webhook 管理 ====================
     
@@ -1082,7 +1086,7 @@ class JobQueue:
                 conn.commit()
                 self.log(f"Webhook 已注册: {wh_id} → {url}")
             finally:
-                conn.close()
+                self._close_conn(conn)
         
         return wh_id
     
@@ -1100,7 +1104,7 @@ class JobQueue:
                 return self._row_to_webhook(row, cursor.description)
             return None
         finally:
-            conn.close()
+            self._close_conn(conn)
     
     def list_webhooks(self) -> List[Dict]:
         """列出所有 Webhook"""
@@ -1111,7 +1115,7 @@ class JobQueue:
             rows = cursor.fetchall()
             return [self._row_to_webhook(r, cursor.description).to_dict() for r in rows]
         finally:
-            conn.close()
+            self._close_conn(conn)
     
     def delete_webhook(self, webhook_id: str) -> bool:
         """删除 Webhook"""
@@ -1129,7 +1133,7 @@ class JobQueue:
                     return True
                 return False
             finally:
-                conn.close()
+                self._close_conn(conn)
     
     def _row_to_webhook(self, row: tuple, description) -> WebhookData:
         """将数据库行转换为 WebhookData"""
@@ -1230,7 +1234,7 @@ class JobQueue:
                     )
                 conn.commit()
             finally:
-                conn.close()
+                self._close_conn(conn)
     
     def _trigger_webhooks_for_job(self, job: Job, event: str):
         """

@@ -362,7 +362,6 @@ class EnhancedPreflightChecker:
                         recommendation="使用PDF 1.4或更高版本",
                     ))
                 else:
-                    result.passed_checks += 1
             else:
                 result.issues.append(PreflightIssue(
                     check_type=PreflightCheckType.PDF_VERSION.value,
@@ -412,7 +411,6 @@ class EnhancedPreflightChecker:
                 recommendation="建议添加完整的文档元数据",
             ))
         else:
-            result.passed_checks += 1
     
     # ==================== 字体检查 ====================
     
@@ -472,7 +470,6 @@ class EnhancedPreflightChecker:
                 recommendation="所有字体必须嵌入PDF以确保正确显示",
             ))
         else:
-            result.passed_checks += 1
     
     def _check_font_type3(self, reader: PdfReader, result: PreflightResult):
         """检查Type3字体"""
@@ -511,7 +508,6 @@ class EnhancedPreflightChecker:
                 recommendation="将Type3字体转换为TrueType或PostScript字体",
             ))
         else:
-            result.passed_checks += 1
     
     # ==================== 图像检查 ====================
     
@@ -538,10 +534,24 @@ class EnhancedPreflightChecker:
                         width = int(obj.get("/Width", 0))
                         height = int(obj.get("/Height", 0))
                         
-                        # 计算DPI（简化计算）
-                        # 假设图像在72dpi下显示
-                        img_width_inch = width / 72.0
-                        effective_dpi = width / max(img_width_inch, 0.01)
+                        # 计算DPI：从图像BBox获取物理尺寸
+                        bbox = obj.get("/BBox")
+                        if bbox and len(bbox) >= 4:
+                            # BBox 格式: [x1, y1, x2, y2] (PDF点, 72pt/inch)
+                            physical_width_pt = float(bbox[2]) - float(bbox[0])
+                            physical_height_pt = float(bbox[3]) - float(bbox[1])
+                        else:
+                            # 回退：使用页面尺寸作为参考
+                            physical_width_pt = rect.width
+                            physical_height_pt = rect.height
+                        
+                        physical_width_inch = physical_width_pt / 72.0 if physical_width_pt > 0 else 1.0
+                        physical_height_inch = physical_height_pt / 72.0 if physical_height_pt > 0 else 1.0
+                        
+                        # 取宽高中较小的DPI（更保守）
+                        dpi_x = width / physical_width_inch if physical_width_inch > 0 else 0
+                        dpi_y = height / physical_height_inch if physical_height_inch > 0 else 0
+                        effective_dpi = min(dpi_x, dpi_y) if dpi_x > 0 and dpi_y > 0 else max(dpi_x, dpi_y)
                         
                         if effective_dpi < self.min_dpi:
                             low_dpi_images.append({
@@ -575,7 +585,6 @@ class EnhancedPreflightChecker:
                 recommendation=f"将图像分辨率提高到{self.min_dpi}dpi以上",
             ))
         else:
-            result.passed_checks += 1
     
     def _check_image_compression(self, reader: PdfReader, result: PreflightResult):
         """检查图像压缩"""
@@ -619,7 +628,6 @@ class EnhancedPreflightChecker:
                 recommendation="使用JPEG或ZIP压缩以减小文件大小",
             ))
         else:
-            result.passed_checks += 1
     
     # ==================== 色彩检查 ====================
     
@@ -661,7 +669,6 @@ class EnhancedPreflightChecker:
                 recommendation="将RGB色彩空间转换为CMYK",
             ))
         else:
-            result.passed_checks += 1
     
     def _check_spot_colors(self, reader: PdfReader, result: PreflightResult):
         """检查专色"""
@@ -700,7 +707,6 @@ class EnhancedPreflightChecker:
                 recommendation="确认RIP支持这些专色，或转换为CMYK",
             ))
         else:
-            result.passed_checks += 1
     
     # ==================== 出血检查 ====================
     
@@ -745,7 +751,6 @@ class EnhancedPreflightChecker:
                 recommendation=f"增加出血位到 {self.required_bleed_mm}mm",
             ))
         else:
-            result.passed_checks += 1
     
     # ==================== 透明度检查 ====================
     
@@ -775,7 +780,6 @@ class EnhancedPreflightChecker:
                 recommendation="透明度可能影响RIP处理速度",
             ))
         else:
-            result.passed_checks += 1
     
     def _check_overprint(self, reader: PdfReader, result: PreflightResult):
         """检查叠印设置"""
@@ -801,7 +805,6 @@ class EnhancedPreflightChecker:
                 recommendation="确认叠印设置符合印刷要求",
             ))
         else:
-            result.passed_checks += 1
     
     # ==================== PDF/X检查 ====================
     
@@ -823,7 +826,6 @@ class EnhancedPreflightChecker:
             pass
         
         if has_output_intent:
-            result.passed_checks += 1
         else:
             result.issues.append(PreflightIssue(
                 check_type=PreflightCheckType.OUTPUT_INTENT.value,
@@ -859,7 +861,6 @@ class EnhancedPreflightChecker:
             pass
         
         if is_pdfx:
-            result.passed_checks += 1
         else:
             result.issues.append(PreflightIssue(
                 check_type=PreflightCheckType.PDFX_CONFORMANCE.value,
@@ -888,7 +889,6 @@ class EnhancedPreflightChecker:
                     message="PDF文件已加密且无法读取",
                 ))
         else:
-            result.passed_checks += 1
     
     # ==================== 引用检查 ====================
     
@@ -931,7 +931,6 @@ class EnhancedPreflightChecker:
                 recommendation="确认嵌套PDF正确显示",
             ))
         else:
-            result.passed_checks += 1
     
     # ==================== 总墨量检测 (ISO 12647-2) ====================
 
@@ -1021,7 +1020,6 @@ class EnhancedPreflightChecker:
                 recommendation="降低 CMYK 总墨量至 ISO 12647-2 标准范围内",
             ))
         else:
-            result.passed_checks += 1
             result.issues.append(PreflightIssue(
                 check_type=PreflightCheckType.INK_COVERAGE.value,
                 severity=PreflightSeverity.PASS.value,
@@ -1081,7 +1079,6 @@ class EnhancedPreflightChecker:
                 recommendation="确认叠印设置符合印刷要求，必要时生成叠印预览",
             ))
         else:
-            result.passed_checks += 1
 
     # ==================== 统计 ====================
     

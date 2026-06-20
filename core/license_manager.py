@@ -6,12 +6,12 @@ core/license_manager.py - QHI拼版处理器版权保护模块
 基于机器码绑定的授权管理系统，提供：
 - 硬件指纹生成（机器码）
 - 授权码生成与验证
+- AES-256-GCM 加密（兼容 QLG.py 授权码生成器）
 - 试用期管理
 - 授权状态检查
 - 安全存储
 
-参考: Z:\Fiery.py 授权码生成器
-改进: RSA签名、硬件绑定增强、离线验证
+兼容: Z:\QLG.py 授权码生成器 (v2.0)
 """
 from __future__ import annotations
 
@@ -19,7 +19,9 @@ import os
 import sys
 import json
 import time
+import struct
 import hashlib
+import hmac
 import base64
 import uuid
 import platform
@@ -31,23 +33,12 @@ from dataclasses import dataclass
 from enum import Enum
 
 from utils.logger import get_logger
+from utils.version import load_app_version as _load_app_version
 
 logger = get_logger(__name__)
 
 
 # ==================== 配置 ====================
-
-def _load_app_version() -> str:
-    """从 version.json 加载应用版本号"""
-    try:
-        version_json = Path(__file__).resolve().parent.parent / "resources" / "version.json"
-        if version_json.exists():
-            import json
-            with open(version_json, "r", encoding="utf-8") as f:
-                return json.load(f).get("version", "0.0.0")
-    except Exception:
-        pass
-    return "0.0.0"
 
 
 class LicenseConfig:
@@ -79,6 +70,137 @@ class LicenseStatus(str, Enum):
     INVALID = "invalid"          # 无效授权
     TAMPERED = "tampered"        # 授权被篡改
     MACHINE_MISMATCH = "machine_mismatch"  # 机器不匹配
+
+
+# ==================== 加密提供者 (兼容 QLG.py v2.0) ====================
+
+class CryptoProvider:
+    """AES-256-GCM 加密提供者 — 与 QLG.py 完全一致
+    
+    加密格式: version(1) + salt(16) + encrypted
+    - version=0x01: AES-256-GCM
+    - version=0x02: HMAC-SHA256 回退
+    """
+
+    _aesgcm_available = None
+
+    @classmethod
+    def _check_aesgcm(cls) -> bool:
+        if cls._aesgcm_available is None:
+            try:
+                from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+                cls._aesgcm_available = True
+            except ImportError:
+                cls._aesgcm_available = False
+        return cls._aesgcm_available
+
+    @staticmethod
+    def get_secret(machine_code: str = "") -> bytes:
+        """获取密钥种子 — 优先环境变量 QHI_LICENSE_SECRET"""
+        env_secret = os.environ.get("QHI_LICENSE_SECRET", "")
+        if env_secret:
+            seed = env_secret.encode()
+        else:
+            seed = hashlib.sha256(
+                (machine_code or "UNKNOWN").encode() + b"::QHI_FALLBACK_SEED"
+            ).digest()
+        return seed
+
+    @staticmethod
+    def derive_key(machine_code: str, secret: bytes = None) -> bytes:
+        """PBKDF2-HMAC-SHA256 派生 32 字节密钥
+        
+        盐值从 machine_code 派生，迭代 300000 轮
+        """
+        if secret is None:
+            secret = CryptoProvider.get_secret(machine_code)
+        salt = hashlib.sha256(machine_code.encode()).digest()[:16]
+        return hashlib.pbkdf2_hmac("sha256", secret, salt, 300000, dklen=32)
+
+    @staticmethod
+    def _encrypt_aesgcm(plaintext: bytes, key: bytes) -> bytes:
+        """AES-256-GCM 加密"""
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        nonce = os.urandom(12)
+        aesgcm = AESGCM(key)
+        ciphertext = aesgcm.encrypt(nonce, plaintext, None)
+        return nonce + ciphertext
+
+    @staticmethod
+    def _decrypt_aesgcm(payload: bytes, key: bytes) -> bytes:
+        """AES-256-GCM 解密"""
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        nonce = payload[:12]
+        ciphertext = payload[12:]
+        aesgcm = AESGCM(key)
+        return aesgcm.decrypt(nonce, ciphertext, None)
+
+    @staticmethod
+    def _hmac_stream_xor(data: bytes, key: bytes, nonce: bytes) -> bytes:
+        """HMAC 流式 XOR 加密"""
+        result = bytearray(len(data))
+        counter = 0
+        offset = 0
+        while offset < len(data):
+            ctr_bytes = struct.pack(">Q", counter)
+            block = hmac.new(key, nonce + ctr_bytes, hashlib.sha256).digest()
+            for i in range(len(block)):
+                if offset >= len(data):
+                    break
+                result[offset] = data[offset] ^ block[i]
+                offset += 1
+            counter += 1
+        return bytes(result)
+
+    @staticmethod
+    def _encrypt_hmac(plaintext: bytes, key: bytes) -> bytes:
+        """HMAC-SHA256 加密（回退方案）"""
+        nonce = os.urandom(16)
+        ciphertext = CryptoProvider._hmac_stream_xor(plaintext, key, nonce)
+        auth_tag = hmac.new(key, nonce + ciphertext, hashlib.sha256).digest()[:16]
+        return nonce + auth_tag + ciphertext
+
+    @staticmethod
+    def _decrypt_hmac(payload: bytes, key: bytes) -> bytes:
+        """HMAC-SHA256 解密（回退方案）"""
+        nonce = payload[:16]
+        auth_tag = payload[16:32]
+        ciphertext = payload[32:]
+        expected_tag = hmac.new(key, nonce + ciphertext, hashlib.sha256).digest()[:16]
+        if not hmac.compare_digest(auth_tag, expected_tag):
+            raise ValueError("HMAC 认证失败 — 数据可能被篡改")
+        return CryptoProvider._hmac_stream_xor(ciphertext, key, nonce)
+
+    @classmethod
+    def encrypt(cls, plaintext: bytes, machine_code: str) -> bytes:
+        """加密数据 — 机器码绑定密钥派生
+        
+        格式: version(1) + salt(16) + encrypted
+        """
+        salt = hashlib.sha256(machine_code.encode()).digest()[:16]
+        derived_key = cls.derive_key(machine_code)
+        if cls._check_aesgcm():
+            encrypted = cls._encrypt_aesgcm(plaintext, derived_key)
+            version = b"\x01"
+        else:
+            encrypted = cls._encrypt_hmac(plaintext, derived_key)
+            version = b"\x02"
+        return version + salt + encrypted
+
+    @classmethod
+    def decrypt(cls, payload: bytes, machine_code: str) -> bytes:
+        """解密数据 — 机器码绑定密钥派生"""
+        if len(payload) < 18:
+            raise ValueError("加密数据太短")
+        version = payload[0:1]
+        rest = payload[17:]  # 跳过 version(1) + salt(16)
+        derived_key = cls.derive_key(machine_code)
+        if version == b"\x01":
+            return cls._decrypt_aesgcm(rest, derived_key)
+        elif version == b"\x02":
+            return cls._decrypt_hmac(rest, derived_key)
+        else:
+            raise ValueError(f"未知加密版本: {version!r}")
 
 
 # ==================== 数据模型 ====================
@@ -161,7 +283,7 @@ class TrialInfo:
     def is_expired(self) -> bool:
         """是否过期"""
         if not self.first_launch:
-            return False
+            return True  # 未记录首次启动 = 已过期（防止绕过试用限制）
         try:
             first = datetime.fromisoformat(self.first_launch)
             expiry = first + timedelta(days=LicenseConfig.TRIAL_DAYS)
@@ -332,14 +454,10 @@ class LicenseGenerator:
             "license_version": LicenseConfig.LICENSE_VERSION,
         }
         
-        # 生成签名
-        sign_str = f"{machine_code}{expire_time}{self.secret}"
-        signature = hashlib.sha256(sign_str.encode()).hexdigest()[:32]
-        license_data["signature"] = signature
-        
-        # 编码为授权码
-        json_str = json.dumps(license_data, ensure_ascii=False)
-        license_key = base64.b64encode(json_str.encode()).decode()
+        # 使用 AES-256-GCM 加密（兼容 QLG.py）
+        plain = json.dumps(license_data, ensure_ascii=False).encode("utf-8")
+        encrypted = CryptoProvider.encrypt(plain, machine_code)
+        license_key = base64.b64encode(encrypted).decode()
         
         # 格式化：每64字符换行
         formatted = "\n".join([license_key[i:i+64] for i in range(0, len(license_key), 64)])
@@ -357,6 +475,10 @@ class LicenseGenerator:
     def verify_license(self, license_key: str, machine_code: str) -> Tuple[bool, str, Dict]:
         """
         验证授权码
+        
+        支持两种格式：
+        1. AES-256-GCM 加密格式（QLG.py v2.0）
+        2. Base64 编码格式（旧版兼容）
         
         Args:
             license_key: 授权码
@@ -376,26 +498,45 @@ class LicenseGenerator:
             
             # 解码
             decoded = base64.b64decode(clean_key)
-            data = json.loads(decoded.decode("utf-8"))
+            
+            # 检测格式：AES-256-GCM (version=0x01 或 0x02) vs 旧版 Base64
+            if len(decoded) > 17 and decoded[0:1] in (b"\x01", b"\x02"):
+                # AES-256-GCM 加密格式（QLG.py v2.0）
+                try:
+                    decrypted = CryptoProvider.decrypt(decoded, machine_code)
+                    data = json.loads(decrypted.decode("utf-8"))
+                except Exception as e:
+                    return False, f"解密失败: {e}", {}
+            else:
+                # 旧版 Base64 编码格式（向后兼容）
+                data = json.loads(decoded.decode("utf-8"))
+                # 验证旧版签名
+                sign_str = f"{data.get('machine', '')}{data.get('expire', 0)}{self.secret}"
+                expected_sig = hashlib.sha256(sign_str.encode()).hexdigest()[:32]
+                if data.get("signature") != expected_sig:
+                    return False, "旧版签名验证失败", data
             
             # 验证应用
             if data.get("app") != LicenseConfig.APP_NAME:
                 return False, "授权码不适用于此应用", data
             
-            # 验证签名
-            sign_str = f"{data['machine']}{data['expire']}{self.secret}"
-            expected_sig = hashlib.sha256(sign_str.encode()).hexdigest()[:32]
-            
-            if data.get("signature") != expected_sig:
-                return False, "签名验证失败（授权码可能被篡改）", data
-            
             # 验证机器码
-            expected_machine = machine_code.upper().replace(" ", "")
-            if data["machine"] != expected_machine:
+            expected_machine = machine_code.upper().replace("-", "").replace(" ", "")
+            data_machine = data.get("machine", "").upper().replace("-", "").replace(" ", "")
+            if data_machine != expected_machine:
                 return False, "机器码不匹配", data
             
             # 检查过期
-            if data["expire"] < time.time():
+            expire_time = data.get("expire", 0)
+            if isinstance(expire_time, str):
+                # 兼容旧版日期字符串格式
+                try:
+                    expire_dt = datetime.strptime(expire_time, "%Y-%m-%d %H:%M:%S")
+                    if datetime.now() > expire_dt:
+                        return False, "授权已过期", data
+                except:
+                    pass
+            elif expire_time < time.time():
                 return False, "授权已过期", data
             
             return True, "授权有效", data
@@ -467,17 +608,46 @@ class LicenseManager:
         return machine_code
     
     def _load_license(self) -> Optional[LicenseInfo]:
-        """加载授权信息"""
-        if not LicenseConfig.LICENSE_FILE.exists():
-            return None
+        """加载授权信息
         
-        try:
-            with open(LicenseConfig.LICENSE_FILE, 'r') as f:
-                data = json.load(f)
-                return LicenseInfo.from_dict(data)
-        except Exception as e:
-            self.log(f"加载授权文件失败: {e}")
-            return None
+        支持两种格式：
+        1. AES-256-GCM 加密文件 (license.key)
+        2. JSON 格式文件 (license.dat)
+        """
+        # 尝试加载 license.key (AES-256-GCM)
+        key_file = LicenseConfig.LICENSE_DIR / "license.key"
+        if key_file.exists():
+            try:
+                raw = key_file.read_bytes()
+                decrypted = CryptoProvider.decrypt(raw, self._machine_code)
+                data = json.loads(decrypted.decode("utf-8"))
+                
+                # 转换为 LicenseInfo 格式
+                return LicenseInfo(
+                    license_key="",  # AES加密格式不需要存储明文key
+                    customer_name=data.get("customer", ""),
+                    customer_id="",
+                    machine_code=data.get("machine_code", ""),
+                    created_at=data.get("created_at", ""),
+                    expires_at=data.get("expiry_date", ""),
+                    features=data.get("features", []),
+                    version=data.get("version", "2.0"),
+                    # 存储加密数据用于后续验证
+                    signature=json.dumps(data, ensure_ascii=False),
+                )
+            except Exception as e:
+                self.log(f"加载 license.key 失败: {e}")
+        
+        # 尝试加载 license.dat (JSON)
+        if LicenseConfig.LICENSE_FILE.exists():
+            try:
+                with open(LicenseConfig.LICENSE_FILE, 'r') as f:
+                    data = json.load(f)
+                    return LicenseInfo.from_dict(data)
+            except Exception as e:
+                self.log(f"加载授权文件失败: {e}")
+        
+        return None
     
     def _load_trial(self) -> TrialInfo:
         """加载试用信息"""
@@ -515,25 +685,56 @@ class LicenseManager:
         """验证授权状态"""
         # 优先检查正式授权
         if self._license_info:
-            generator = LicenseGenerator()
-            is_valid, message, data = generator.verify_license(
-                self._license_info.license_key,
-                self._machine_code
-            )
+            # 检查是否有加密数据（AES格式）或明文key（JSON格式）
+            if self._license_info.signature:
+                # AES加密格式：直接验证signature中存储的加密数据
+                try:
+                    data = json.loads(self._license_info.signature)
+                    # 验证机器码
+                    data_machine = data.get("machine_code", "").upper().replace("-", "").replace(" ", "")
+                    expected_machine = self._machine_code.upper().replace("-", "").replace(" ", "")
+                    
+                    if data_machine != expected_machine:
+                        self._status = LicenseStatus.MACHINE_MISMATCH
+                        return
+                    
+                    # 验证过期
+                    expiry_date = data.get("expiry_date", "")
+                    if expiry_date:
+                        try:
+                            if datetime.now() > datetime.fromisoformat(expiry_date):
+                                self._status = LicenseStatus.EXPIRED
+                                return
+                        except:
+                            pass
+                    
+                    self._status = LicenseStatus.VALID
+                    self._license_info.last_check = datetime.now().isoformat()
+                    return
+                except Exception as e:
+                    self.log(f"AES授权验证失败: {e}")
             
-            if is_valid:
-                self._status = LicenseStatus.VALID
-                self._license_info.last_check = datetime.now().isoformat()
-                return
-            elif "过期" in message:
-                self._status = LicenseStatus.EXPIRED
-                return
-            elif "不匹配" in message:
-                self._status = LicenseStatus.MACHINE_MISMATCH
-                return
-            else:
-                self._status = LicenseStatus.TAMPERED
-                return
+            # JSON格式：使用LicenseGenerator验证
+            elif self._license_info.license_key:
+                generator = LicenseGenerator()
+                is_valid, message, data = generator.verify_license(
+                    self._license_info.license_key,
+                    self._machine_code
+                )
+                
+                if is_valid:
+                    self._status = LicenseStatus.VALID
+                    self._license_info.last_check = datetime.now().isoformat()
+                    return
+                elif "过期" in message:
+                    self._status = LicenseStatus.EXPIRED
+                    return
+                elif "不匹配" in message:
+                    self._status = LicenseStatus.MACHINE_MISMATCH
+                    return
+                else:
+                    self._status = LicenseStatus.TAMPERED
+                    return
         
         # 检查试用期
         if self._trial_info and not self._trial_info.is_expired:

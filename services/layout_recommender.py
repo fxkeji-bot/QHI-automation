@@ -193,8 +193,14 @@ class LayoutRecommender:
         total_area_sqm = sheets_needed * sheet_area_sqm
 
         # 估算成本 (纸张重量 = 面积 × 克重)
-        # 假设默认157g铜版纸
-        weight_kg = total_area_sqm * 0.157  # 157g/m²
+        # 从纸张名称推断克重，回退到157g
+        weight_gsm = 157  # 默认克重
+        paper_name_lower = paper.name.lower()
+        for gsm in [42, 45, 48, 60, 70, 80, 100, 120, 128, 140, 157, 200, 250, 300, 350, 400]:
+            if str(gsm) in paper_name_lower:
+                weight_gsm = gsm
+                break
+        weight_kg = total_area_sqm * (weight_gsm / 1000)
         cost = weight_kg * paper_price / 1000  # 元/吨 → 元/kg
 
         # 生成描述
