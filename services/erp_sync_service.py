@@ -131,15 +131,15 @@ class ERPSyncService:
         return results
     
     def _sync_customers(self) -> int:
-        """同步客户数据"""
+        """同步客户数据（从ERP customer_info表提取唯一客户）"""
         if not self.config.erp_db_path or not self.config.qhi_db_path:
             return 0
         
         try:
-            # 读取ERP客户数据
+            # 从ERP customer_info表提取唯一客户
             erp_conn = sqlite3.connect(self.config.erp_db_path)
             erp_cur = erp_conn.cursor()
-            erp_cur.execute("SELECT customer_code, customer_name FROM customer_info")
+            erp_cur.execute("SELECT DISTINCT customer_code, customer_name FROM customer_info")
             erp_customers = {row[0]: row[1] for row in erp_cur.fetchall()}
             erp_conn.close()
             
@@ -165,7 +165,7 @@ class ERPSyncService:
             
             qhi_conn.close()
             
-            self.log(f"客户同步: 新增 {len(new_customers)} 条")
+            self.log(f"客户同步: ERP {len(erp_customers)} 个唯一客户, QHI {len(qhi_customers)} 个, 新增 {len(new_customers)} 个")
             return len(new_customers)
             
         except Exception as e:
