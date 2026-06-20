@@ -61,6 +61,8 @@ class PrintJob:
     completed_at: str = ""
     jdf_path: str = ""
     error: str = ""
+    retry_count: int = 0
+    max_retries: int = 3
 
 
 class HotFolderService:
@@ -191,16 +193,28 @@ class HotFolderService:
             return False
     
     def _create_print_job(self, file_path: Path, config: MonitorConfig):
-        """创建打印作业"""
+        """创建打印作业（带JDF重试）"""
         job_id = f"JOB_{hashlib.md5(str(file_path).encode()).hexdigest()[:12]}"
         
-        # 生成JDF
-        jdf_content = self._generate_jdf(file_path, config)
-        
-        # 保存JDF文件
+        # JDF生成带重试
+        jdf_content = None
         jdf_path = file_path.with_suffix('.jdf')
-        with open(jdf_path, 'w', encoding='utf-8') as f:
-            f.write(jdf_content)
+        
+        for attempt in range(3):
+            try:
+                jdf_content = self._generate_jdf(file_path, config)
+                with open(jdf_path, 'w', encoding='utf-8') as f:
+                    f.write(jdf_content)
+                self.log(f"JDF生成成功 (尝试 {attempt + 1}/3): {jdf_path.name}")
+                break
+            except Exception as e:
+                self.log(f"JDF生成失败 (尝试 {attempt + 1}/3): {e}")
+                if attempt < 2:
+                    time.sleep(1)
+        
+        if jdf_content is None:
+            self.log(f"JDF生成最终失败: {file_path.name}")
+            return
         
         # 创建作业
         job = PrintJob(
@@ -254,33 +268,134 @@ class HotFolderService:
         return jdf
     
     def _submit_job(self, job: PrintJob):
-        """提交打印作业"""
+        """提交打印作业（带重试）"""
         with self._lock:
             job.status = "printing"
         
-        # 复制文件到打印机热文件夹
+        # 复制文件到打印机热文件夹（带重试）
         if job.printer_ip:
             hot_folder = self._get_printer_hot_folder(job.printer_ip)
             if hot_folder:
-                try:
-                    dest = Path(hot_folder) / Path(job.file_path).name
-                    import shutil
-                    shutil.copy2(job.file_path, str(dest))
-                    
-                    with self._lock:
-                        job.status = "completed"
-                        job.completed_at = datetime.now().isoformat()
-                    
-                    self.log(f"作业已提交: {job.job_id} -> {job.printer_ip}")
-                    
-                    # 触发回调
-                    if self._on_job_completed:
-                        self._on_job_completed(job)
-                except Exception as e:
-                    with self._lock:
-                        job.status = "failed"
-                        job.error = str(e)
-                    self.log(f"作业提交失败: {job.job_id} - {e}")
+                for attempt in range(job.max_retries):
+                    try:
+                        dest = Path(hot_folder) / Path(job.file_path).name
+                        import shutil
+                        shutil.copy2(job.file_path, str(dest))
+                        
+                        # 同时复制JDF文件
+                        if job.jdf_path and Path(job.jdf_path).exists():
+                            jdf_dest = Path(hot_folder) / Path(job.jdf_path).name
+                            shutil.copy2(job.jdf_path, str(jdf_dest))
+                        
+                        with self._lock:
+                            job.status = "completed"
+                            job.completed_at = datetime.now().isoformat()
+                        
+                        self.log(f"作业已提交: {job.job_id} -> {job.printer_ip} (尝试 {attempt + 1})")
+                        
+                        # 触发回调
+                        if self._on_job_completed:
+                            self._on_job_completed(job)
+                        return
+                        
+                    except Exception as e:
+                        job.retry_count = attempt + 1
+                        self.log(f"作业提交失败 (尝试 {attempt + 1}/{job.max_retries}): {job.job_id} - {e}")
+                        if attempt < job.max_retries - 1:
+                            time.sleep(2)
+                
+                # 所有重试失败
+                with self._lock:
+                    job.status = "failed"
+                    job.error = f"提交失败，已重试{job.max_retries}次"
+                self.log(f"作业提交最终失败: {job.job_id}")
+    
+    def print_test_page(self, printer_ip: str) -> bool:
+        """打印测试样张"""
+        self.log(f"开始打印测试样张到 {printer_ip}")
+        
+        # 生成测试样张PDF
+        test_content = self._generate_test_page_content()
+        test_path = Path(self._get_printer_hot_folder(printer_ip)) / "test_page.pdf"
+        
+        try:
+            # 创建测试PDF（简单文本）
+            with open(test_path, 'w', encoding='utf-8') as f:
+                f.write(test_content)
+            
+            # 创建测试作业
+            job = PrintJob(
+                job_id=f"TEST_{hashlib.md5(str(time.time()).encode()).hexdigest()[:8]}",
+                file_path=str(test_path),
+                printer_ip=printer_ip,
+                status="pending",
+                created_at=datetime.now().isoformat(),
+            )
+            
+            with self._lock:
+                self._jobs[job.job_id] = job
+            
+            self._submit_job(job)
+            
+            self.log(f"测试样张已发送: {printer_ip}")
+            return True
+            
+        except Exception as e:
+            self.log(f"测试样张发送失败: {e}")
+            return False
+    
+    def _generate_test_page_content(self) -> str:
+        """生成测试样张内容"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return f"""%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+
+4 0 obj
+<< /Length 89 >>
+stream
+BT
+/F1 24 Tf
+100 700 Td
+(QHI Test Page) Tj
+/F1 12 Tf
+100 650 Td
+(Date: {timestamp}) Tj
+100 620 Td
+(Printer: Oce VarioPrint 6000) Tj
+100 590 Td
+(Status: OK) Tj
+ET
+endstream
+endobj
+
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000206 00000 n 
+0000000347 00000 n 
+
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+405
+%%EOF"""
     
     def _get_printer_hot_folder(self, printer_ip: str) -> Optional[str]:
         """获取打印机热文件夹路径"""
