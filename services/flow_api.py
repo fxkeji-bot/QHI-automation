@@ -14,18 +14,27 @@ from __future__ import annotations
 import json
 import os
 import sys
-import logging
-from datetime import datetime
+import time as _time_module
+from datetime import datetime, date
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
-logger = logging.getLogger("flow_api")
+# 使用统一日志系统
+try:
+    from utils.logger_config import get_logger
+    logger = get_logger("services.flow_api")
+except ImportError:
+    import logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+    )
+    logger = logging.getLogger("flow_api")
+
+# 服务启动时间（用于计算 uptime）
+_SERVER_START_TIME = datetime.now()
 
 # ---------------------------------------------------------------------------
 # 流程分类映射表（印特ERP PPM_ProduceFlowSpec 真实数据）
@@ -295,6 +304,308 @@ def update_order_flow(order_id: str, new_flow_code: str) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# 数据层 — 仪表盘 (GET /api/dashboard)
+# ---------------------------------------------------------------------------
+def _get_dashboard_data() -> Dict[str, Any]:
+    """获取仪表盘摘要数据。
+
+    优先通过 WmiSqlClient 查询 PPM_JobBill 真实数据，
+    WMI 不可用时返回默认数据。
+    """
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    today_str = date.today().strftime("%Y-%m-%d")
+
+    default = {
+        "today_orders": 0,
+        "in_progress": 0,
+        "completed": 0,
+        "today_revenue": 0.00,
+        "pending_review": 0,
+        "updated_at": now_str,
+        "source": "default",
+    }
+
+    if not _is_wmi_available():
+        # 尝试从本地 flow_changes.json 获取部分数据
+        log = load_flow_log()
+        if log:
+            completed = sum(
+                1 for r in log.values()
+                if r.get("current_flow_code") == "45"
+            )
+            default["completed"] = completed
+            default["source"] = "local_fallback"
+        return default
+
+    client = _get_wmi_client()
+    if client is None:
+        return default
+
+    try:
+        # 1. today_orders
+        today_orders = 0
+        try:
+            res = client.query(
+                "SELECT COUNT(*) AS cnt FROM PPM_JobBill "
+                "WHERE Sys4CreateTime >= @today",
+                {"today": today_str},
+            )
+            today_orders = res[0].get("cnt", 0) if res else 0
+        except Exception as e:
+            logger.warning("查询今日工单数失败: %s", e)
+
+        # 2. in_progress: flow 20/21/30/35
+        in_progress = 0
+        try:
+            res = client.query(
+                "SELECT COUNT(*) AS cnt FROM PPM_JobBill "
+                "WHERE ProduceFlowSpecCode IN ('20','21','30','35')"
+            )
+            in_progress = res[0].get("cnt", 0) if res else 0
+        except Exception as e:
+            logger.warning("查询进行中工单数失败: %s", e)
+
+        # 3. completed: flow 45
+        completed = 0
+        try:
+            res = client.query(
+                "SELECT COUNT(*) AS cnt FROM PPM_JobBill "
+                "WHERE ProduceFlowSpecCode = '45'"
+            )
+            completed = res[0].get("cnt", 0) if res else 0
+        except Exception as e:
+            logger.warning("查询已完工数失败: %s", e)
+
+        # 4. today_revenue
+        today_revenue = 0.00
+        try:
+            res = client.query(
+                "SELECT SUM(ReceiveAmount) AS total FROM PPM_JobBill "
+                "WHERE EndTime >= @today",
+                {"today": today_str},
+            )
+            today_revenue = float(res[0].get("total", 0) or 0) if res else 0.00
+        except Exception as e:
+            logger.warning("查询今日营收失败: %s", e)
+
+        # 5. pending_review: flow 15
+        pending_review = 0
+        try:
+            res = client.query(
+                "SELECT COUNT(*) AS cnt FROM PPM_JobBill "
+                "WHERE ProduceFlowSpecCode = '15'"
+            )
+            pending_review = res[0].get("cnt", 0) if res else 0
+        except Exception as e:
+            logger.warning("查询待审核数失败: %s", e)
+
+        return {
+            "today_orders": today_orders,
+            "in_progress": in_progress,
+            "completed": completed,
+            "today_revenue": round(today_revenue, 2),
+            "pending_review": pending_review,
+            "updated_at": now_str,
+            "source": "indet_db",
+        }
+
+    except Exception as e:
+        logger.error("仪表盘数据查询失败: %s", e)
+        default["updated_at"] = now_str
+        default["source"] = "error"
+        return default
+
+
+# ---------------------------------------------------------------------------
+# 数据层 — 打印机状态 (GET /api/fleet/status)
+# ---------------------------------------------------------------------------
+def _get_fleet_status() -> Dict[str, Any]:
+    """获取打印机队列状态。
+
+    从 PrinterIntegrationManager.get_all_status() 获取，
+    不可用时返回默认数据。
+    """
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 打印机 ID 映射（PrinterIntegrationManager → API 输出）
+    PRINTER_MAP = [
+        {"id": "bizhub_287",          "name": "Konica Minolta bizhub 287",  "source_id": "bizhub_287"},
+        {"id": "xp_80",               "name": "XP-80 热敏票据",            "source_id": "xp80"},
+        {"id": "oce_varioprint_6000", "name": "Oce VarioPrint 6000",       "source_id": "oce_varioprint_6000"},
+        {"id": "hp_indigo",           "name": "HP Indigo",                 "source_id": "hp_indigo"},
+    ]
+
+    default_printers = [
+        {"id": p["id"], "name": p["name"], "online": True,
+         "queue": 0, "pages_today": 0, "status": "idle"}
+        for p in PRINTER_MAP
+    ]
+
+    try:
+        from services.printer_integration import PrinterIntegrationManager
+        mgr = PrinterIntegrationManager()
+        all_status = mgr.get_all_status()
+
+        printers = []
+        for mapping in PRINTER_MAP:
+            src_id = mapping["source_id"]
+            st = all_status.get(src_id)
+            if st:
+                printers.append({
+                    "id": mapping["id"],
+                    "name": mapping["name"],
+                    "online": st.online,
+                    "queue": st.queue_length,
+                    "pages_today": st.today_pages,
+                    "status": st.status,
+                })
+            else:
+                printers.append({
+                    "id": mapping["id"],
+                    "name": mapping["name"],
+                    "online": True,
+                    "queue": 0,
+                    "pages_today": 0,
+                    "status": "idle",
+                })
+
+        return {"printers": printers, "updated_at": now_str}
+
+    except Exception as e:
+        logger.warning("获取打印机状态失败: %s，使用默认数据", e)
+        return {"printers": default_printers, "updated_at": now_str}
+
+
+# ---------------------------------------------------------------------------
+# 数据层 — 统计摘要 (GET /api/stats/summary)
+# ---------------------------------------------------------------------------
+def _get_stats_summary() -> Dict[str, Any]:
+    """返回统计数据（流程分布、月度营收）。
+
+    通过 WmiSqlClient 查询各流程工单数量。
+    """
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 流程分布默认
+    flow_labels = [
+        "排队", "审单中", "前期", "机房",
+        "后道", "外发", "完工", "寄快递", "未付",
+    ]
+    default_distribution = [
+        {"flow": label, "count": 0} for label in flow_labels
+    ]
+
+    if not _is_wmi_available():
+        return {
+            "flow_distribution": default_distribution,
+            "monthly_revenue": [],
+            "updated_at": now_str,
+            "source": "default",
+        }
+
+    client = _get_wmi_client()
+    if client is None:
+        return {
+            "flow_distribution": default_distribution,
+            "monthly_revenue": [],
+            "updated_at": now_str,
+            "source": "default",
+        }
+
+    try:
+        # 流程分布查询
+        results = client.query(
+            "SELECT ProduceFlowSpecCode, COUNT(*) AS cnt "
+            "FROM PPM_JobBill "
+            "GROUP BY ProduceFlowSpecCode "
+            "ORDER BY ProduceFlowSpecCode"
+        )
+
+        flow_map = {r.get("ProduceFlowSpecCode", ""): r.get("cnt", 0) for r in results} if results else {}
+
+        # 按 FLOW_CATEGORIES 顺序映射
+        code_to_label = {
+            "10": "排队", "15": "审单中", "20": "前期", "21": "机房",
+            "30": "后道", "35": "外发", "45": "完工", "65": "寄快递", "70": "未付",
+        }
+
+        flow_distribution = [
+            {"flow": label, "count": flow_map.get(code, 0)}
+            for code, label in code_to_label.items()
+        ]
+
+        # 月度营收（最近 12 个月）
+        monthly_revenue: List[Dict] = []
+        try:
+            rev_results = client.query(
+                "SELECT "
+                "  CONVERT(VARCHAR(7), BusiDate, 23) AS month_key, "
+                "  SUM(ReceiveAmount) AS total "
+                "FROM PPM_JobBill "
+                "WHERE BusiDate >= DATEADD(MONTH, -12, GETDATE()) "
+                "GROUP BY CONVERT(VARCHAR(7), BusiDate, 23) "
+                "ORDER BY month_key"
+            )
+            if rev_results:
+                monthly_revenue = [
+                    {"month": r.get("month_key", ""),
+                     "revenue": float(r.get("total", 0) or 0)}
+                    for r in rev_results
+                ]
+        except Exception as e:
+            logger.warning("月度营收查询失败: %s", e)
+
+        return {
+            "flow_distribution": flow_distribution,
+            "monthly_revenue": monthly_revenue,
+            "updated_at": now_str,
+            "source": "indet_db",
+        }
+
+    except Exception as e:
+        logger.error("统计数据查询失败: %s", e)
+        return {
+            "flow_distribution": default_distribution,
+            "monthly_revenue": [],
+            "updated_at": now_str,
+            "source": "error",
+        }
+
+
+# ---------------------------------------------------------------------------
+# 数据层 — 健康检查 (GET /api/health)
+# ---------------------------------------------------------------------------
+def _get_health_data() -> Dict[str, Any]:
+    """返回系统健康检查数据。"""
+    uptime_seconds = int((datetime.now() - _SERVER_START_TIME).total_seconds())
+    hours, rem = divmod(uptime_seconds, 3600)
+    minutes, seconds = divmod(rem, 60)
+    uptime_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    db_status = "connected" if _is_wmi_available() else "disconnected"
+
+    # 打印机状态
+    printer_total = 4
+    printer_online = 4
+    try:
+        from services.printer_integration import PrinterIntegrationManager
+        mgr = PrinterIntegrationManager()
+        all_status = mgr.get_all_status()
+        printer_total = len(all_status)
+        printer_online = sum(1 for s in all_status.values() if s.online)
+    except Exception:
+        pass
+
+    return {
+        "status": "ok",
+        "version": "2.1",
+        "database": db_status,
+        "printers": {"total": printer_total, "online": printer_online},
+        "uptime": uptime_str,
+    }
+
+
+# ---------------------------------------------------------------------------
 # HTTP 处理器
 # ---------------------------------------------------------------------------
 class FlowAPIHandler(BaseHTTPRequestHandler):
@@ -412,6 +723,26 @@ class FlowAPIHandler(BaseHTTPRequestHandler):
                 "orders": [],
                 "message": "数据库不可用，请检查 WMI 连接",
             })
+
+        # ── API: 仪表盘数据 ──
+        if parsed.path == "/api/dashboard":
+            data = _get_dashboard_data()
+            return self._send_json(data)
+
+        # ── API: 打印机队列状态 ──
+        if parsed.path == "/api/fleet/status":
+            data = _get_fleet_status()
+            return self._send_json(data)
+
+        # ── API: 统计数据 ──
+        if parsed.path == "/api/stats/summary":
+            data = _get_stats_summary()
+            return self._send_json(data)
+
+        # ── API: 系统健康检查 ──
+        if parsed.path == "/api/health":
+            data = _get_health_data()
+            return self._send_json(data)
 
         # ── 404 ──
         self._send_error("Not Found", 404)

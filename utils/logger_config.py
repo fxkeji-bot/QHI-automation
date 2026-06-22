@@ -1,164 +1,169 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-utils/logger_config.py — 统一日志配置
+utils/logger_config.py — 统一日志系统配置
 
-提供 RotatingFileHandler 日志系统:
-  - app.log      主应用日志
-  - error.log    错误日志（仅ERROR及以上）
-  - imposition.log 拼版日志
-  - print.log    打印日志
-  - erp.log      ERP操作日志
+提供 RotatingFileHandler 的统一日志管理。
+日志结构：
+  - logs/app.log        主应用日志
+  - logs/error.log      错误日志（ERROR+）
+  - logs/imposition.log 拼版日志
+  - logs/print.log      打印日志
+  - logs/erp.log        ERP 操作日志
 
 每个文件 10MB，保留 5 个备份。
+格式: %(asctime)s [%(levelname)s] %(name)s - %(message)s
+
+Author: QHI System
+Version: 1.0.0
 """
 
 import logging
 import os
-import sys
-from logging.handlers import RotatingFileHandler
 from datetime import datetime
-from pathlib import Path
-from typing import Optional
+from logging.handlers import RotatingFileHandler
+from typing import Dict
 
-# ============================================================
-# 配置
-# ============================================================
-LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
-MAX_BYTES = 10 * 1024 * 1024  # 10MB
-BACKUP_COUNT = 5
+
+# ── 配置常量 ──
+LOG_DIR = os.path.join(os.path.dirname(__file__), "..", "logs")
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s - %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+MAX_BYTES = 10 * 1024 * 1024   # 10 MB
+BACKUP_COUNT = 5
+LOG_LEVEL = logging.DEBUG
 
-# 日志文件定义
-LOG_FILES = {
-    "app":        {"file": "app.log",        "level": logging.DEBUG},
-    "error":      {"file": "error.log",      "level": logging.ERROR},
-    "imposition": {"file": "imposition.log", "level": logging.INFO},
-    "print":      {"file": "print.log",      "level": logging.INFO},
-    "erp":        {"file": "erp.log",        "level": logging.INFO},
+# ── 日志文件名映射 ──
+LOG_FILES: Dict[str, str] = {
+    "app":         "app.log",
+    "error":       "error.log",
+    "imposition":  "imposition.log",
+    "print":       "print.log",
+    "erp":         "erp.log",
 }
 
-_loggers_initialized = False
-_loggers: dict = {}
+# ── 日志名称到文件映射 ──
+LOGGER_FILE_MAP: Dict[str, str] = {
+    "":                       "app",
+    "services.imposition":    "imposition",
+    "services.smart_imposition": "imposition",
+    "services.gang_layout":   "imposition",
+    "services.trapping_engine": "imposition",
+    "services.printer":       "print",
+    "services.receipt_printer_service": "print",
+    "services.bizhub_service": "print",
+    "services.erp":           "erp",
+    "services.indet_erp_full": "erp",
+    "services.erp_sync_service": "erp",
+    "services.order_lifecycle_service": "erp",
+}
 
 
-def _create_handler(filename: str, level: int) -> RotatingFileHandler:
-    """创建 RotatingFileHandler"""
+def _ensure_log_dir():
+    """确保日志目录存在"""
+    os.makedirs(LOG_DIR, exist_ok=True)
+
+
+def _get_handler(log_name: str, level: int = LOG_LEVEL,
+                 error_only: bool = False) -> RotatingFileHandler:
+    """创建 RotatingFileHandler
+
+    Args:
+        log_name: 日志名称（对应 LOG_FILES 的键）
+        level: 日志级别
+        error_only: 是否仅记录 ERROR 及以上
+
+    Returns:
+        RotatingFileHandler 实例
+    """
+    _ensure_log_dir()
+    filename = LOG_FILES.get(log_name, f"{log_name}.log")
+    filepath = os.path.join(LOG_DIR, filename)
+
     handler = RotatingFileHandler(
-        filename,
+        filepath,
         maxBytes=MAX_BYTES,
         backupCount=BACKUP_COUNT,
         encoding="utf-8",
     )
-    handler.setLevel(level)
+    handler.setLevel(logging.ERROR if error_only else level)
+
     formatter = logging.Formatter(LOG_FORMAT, datefmt=DATE_FORMAT)
     handler.setFormatter(formatter)
+
     return handler
 
 
-def init_all_logs() -> None:
-    """初始化所有日志文件，创建日志目录并写入启动标记。
-
-    需在应用启动时调用一次。
-    """
-    global _loggers_initialized, _loggers
-
-    if _loggers_initialized:
-        return
-
-    # 创建日志目录
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-    startup_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    for name, cfg in LOG_FILES.items():
-        log_path = LOG_DIR / cfg["file"]
-
-        logger = logging.getLogger(f"qhi.{name}")
-        logger.setLevel(cfg["level"])
-        logger.propagate = False
-
-        # 避免重复添加 handler
-        if not logger.handlers:
-            handler = _create_handler(str(log_path), cfg["level"])
-            logger.addHandler(handler)
-
-        # 写入启动标记
-        logger.info("=" * 50)
-        logger.info("QHI 拼版处理器 — 系统日志启动")
-        logger.info(f"启动时间: {startup_time}")
-        logger.info(f"版本: v2.1")
-        logger.info(f"状态: 评审后修复初始化")
-        logger.info("=" * 50)
-
-        _loggers[name] = logger
-
-    _loggers_initialized = True
-
-    # 控制台输出初始化信息
-    print(f"[LOG] 日志系统已初始化，日志目录: {LOG_DIR}")
-
-
 def get_logger(name: str) -> logging.Logger:
-    """获取指定分类的日志记录器。
+    """获取指定名称的日志记录器
+
+    自动根据模块名路由到对应的日志文件。
+    例：get_logger("services.erp") → logs/erp.log
 
     Args:
-        name: 日志分类名，支持:
-            - "app" / "error" / "imposition" / "print" / "erp"
-            - 或任意自定义名称（将创建 app 分类的子 logger）
+        name: 日志记录器名称（通常用 __name__）
 
     Returns:
-        logging.Logger 实例
+        Logger 实例
     """
-    if not _loggers_initialized:
-        init_all_logs()
+    logger = logging.getLogger(name)
 
-    # 已有分类
-    if name in _loggers:
-        return _loggers[name]
+    if logger.handlers:
+        return logger
 
-    # 自定义名称 → 子 logger
-    logger = logging.getLogger(f"qhi.{name}")
-    if not logger.handlers:
-        logger.setLevel(logging.DEBUG)
-        logger.propagate = True
+    log_name = "app"
+    for prefix, dest in sorted(LOGGER_FILE_MAP.items(), key=lambda x: -len(x[0])):
+        if name.startswith(prefix):
+            log_name = dest
+            break
+
+    handler = _get_handler(log_name)
+    logger.addHandler(handler)
+
+    error_handler = _get_handler("error", error_only=True)
+    logger.addHandler(error_handler)
+
+    logger.setLevel(LOG_LEVEL)
+    logger.propagate = False
 
     return logger
 
 
-def shutdown_logs() -> None:
-    """安全关闭所有日志 handler"""
-    for logger in _loggers.values():
-        for handler in logger.handlers:
-            handler.flush()
-            handler.close()
+def init_all_logs() -> Dict[str, str]:
+    """初始化所有日志文件并写入启动标记
+
+    Returns:
+        {日志名: 文件路径} 映射
+    """
+    _ensure_log_dir()
+    init_time = datetime.now().strftime(DATE_FORMAT)
+    paths = {}
+
+    for log_name, filename in LOG_FILES.items():
+        filepath = os.path.join(LOG_DIR, filename)
+
+        if not os.path.exists(filepath):
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(f"{'=' * 60}\n")
+                f.write(f"QHI 拼版处理器 — {log_name.upper()} 日志\n")
+                f.write(f"启动时间: {init_time}\n")
+                f.write(f"版本: v2.1（评审后修复版本）\n")
+                f.write(f"{'=' * 60}\n\n")
+
+        paths[log_name] = filepath
+
+    return paths
 
 
-# ============================================================
-# CLI
-# ============================================================
+# ── 便捷初始化 ──
 if __name__ == "__main__":
-    init_all_logs()
+    log_paths = init_all_logs()
+    print(f"日志目录: {LOG_DIR}")
+    for name, path in log_paths.items():
+        exists = os.path.exists(path)
+        size = os.path.getsize(path) if exists else 0
+        print(f"  {name}: {path} {'✓' if exists else '✗'} ({size}B)")
 
-    logger = get_logger("app")
-    logger.info("测试: 主应用日志")
-    logger.debug("测试: 调试信息")
-
-    err_logger = get_logger("error")
-    err_logger.error("测试: 错误日志条目")
-
-    imp_logger = get_logger("imposition")
-    imp_logger.info("测试: 拼版日志")
-
-    print_logger = get_logger("print")
-    print_logger.info("测试: 打印日志")
-
-    erp_logger = get_logger("erp")
-    erp_logger.info("测试: ERP日志")
-
-    print("\n日志文件列表:")
-    for f in sorted(LOG_DIR.glob("*.log")):
-        print(f"  {f.name} ({f.stat().st_size} bytes)")
-
-    shutdown_logs()
+    test_logger = get_logger("services.erp")
+    test_logger.info("日志系统测试消息 — ERP 模块")
+    print("\n测试写入完成")

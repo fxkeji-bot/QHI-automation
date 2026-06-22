@@ -3,12 +3,12 @@
   "status": "pending_tasks",
   "current_task": null,
   "progress": 100,
-  "last_update": "2026-06-22T14:38:54",
-  "last_scheduler_check": "2026-06-22T15:10:00.358285",
+  "last_update": "2026-06-22T15:43:38",
+  "last_scheduler_check": "2026-06-22T16:10:00.474059",
   "collab_plan_version": "v1.0",
-  "pending_tasks_count": 4,
+  "pending_tasks_count": 12,
   "files_modified": [],
   "issues_found": [],
   "next_tasks": [],
-  "notes": "巡检完成：COLLABORATION_PLAN.md v2.0 中所有任务均已完成（P0/P1/P2 全部 ✅）。清理了6个过期自动生成副本（20260621+20260622各3个），pending 目录已清空（连续第16次干净巡检），无新任务分配给 Marvis。"
+  "notes": "巡检完成：COLLABORATION_PLAN.md v2.1 所有 P0 任务 ✅ 已完成，P2-19~P2-24 新增任务无对应 pending 文件。pending 目录中唯一 Marvis 任务 (task_p0_001/安全漏洞修复) 已为陈旧副本，已移入 completed/。无新任务分配给 Marvis。"
 }

@@ -277,6 +277,23 @@ def main():
         except Exception as e:
             logger.warning(f"更新检查启动失败: {e}")
 
+    # 4. Flow API 服务（扫码转单 HTTP API，后台启动）
+    flow_api_server = None
+    try:
+        from services.flow_api import FlowAPIHandler
+        import threading
+        from http.server import HTTPServer
+
+        flow_api_port = 8088
+        flow_api_server = HTTPServer(("0.0.0.0", flow_api_port), FlowAPIHandler)
+        flow_api_thread = threading.Thread(
+            target=flow_api_server.serve_forever, daemon=True
+        )
+        flow_api_thread.start()
+        logger.info(f"Flow API 服务已启动: http://0.0.0.0:{flow_api_port}")
+    except Exception as e:
+        logger.warning(f"Flow API 服务启动失败(非致命): {e}")
+
     # ===== 运行时日志 - 创建 Qt 应用 =====
     logger.info("[运行时] 开始创建 Qt 应用窗口")
     # ===== 创建应用 =====
@@ -380,7 +397,15 @@ def main():
     if api_server and api_server.running:
         api_server.stop()
         logger.info("API 服务已停止")
-    
+
+    # 清理：停止 Flow API 服务
+    try:
+        if flow_api_server:
+            flow_api_server.shutdown()
+            logger.info("Flow API 服务已停止")
+    except Exception:
+        pass
+
     logger.info("[运行时] 程序正常退出")
     sys.exit(exit_code)
 

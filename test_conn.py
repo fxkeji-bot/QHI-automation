@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """尝试多种方式连接印特 ERP SQL Server"""
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))
 import pyodbc
+from core.credentials import get_wmi_host, get_wmi_password
+
+_host = get_wmi_host()
+_pw = get_wmi_password()
 
 attempts = [
-    ("SA + dell-123", "DRIVER={SQL Server};SERVER=192.168.1.22\\GT_YINTE_EMS;DATABASE=EMSXDB;UID=sa;PWD=dell-123;Connect Timeout=10"),
-    ("SA + dell123", "DRIVER={SQL Server};SERVER=192.168.1.22\\GT_YINTE_EMS;DATABASE=EMSXDB;UID=sa;PWD=dell123;Connect Timeout=10"),
-    ("SA + 123456", "DRIVER={SQL Server};SERVER=192.168.1.22\\GT_YINTE_EMS;DATABASE=EMSXDB;UID=sa;PWD=123456;Connect Timeout=10"),
-    ("SA + sa", "DRIVER={SQL Server};SERVER=192.168.1.22\\GT_YINTE_EMS;DATABASE=EMSXDB;UID=sa;PWD=sa;Connect Timeout=10"),
-    ("Windows Auth + port", "DRIVER={SQL Server};SERVER=192.168.1.22\\GT_YINTE_EMS,1433;DATABASE=EMSXDB;UID=sa;PWD=dell-123;Connect Timeout=10"),
+    ("SA + configured", f"DRIVER={{SQL Server}};SERVER={_host}\\GT_YINTE_EMS;DATABASE=EMSXDB;UID=sa;PWD={_pw};Connect Timeout=10"),
+    ("SA + dell123", f"DRIVER={{SQL Server}};SERVER={_host}\\GT_YINTE_EMS;DATABASE=EMSXDB;UID=sa;PWD=dell123;Connect Timeout=10"),
+    ("SA + 123456", f"DRIVER={{SQL Server}};SERVER={_host}\\GT_YINTE_EMS;DATABASE=EMSXDB;UID=sa;PWD=123456;Connect Timeout=10"),
+    ("SA + sa", f"DRIVER={{SQL Server}};SERVER={_host}\\GT_YINTE_EMS;DATABASE=EMSXDB;UID=sa;PWD=sa;Connect Timeout=10"),
+    ("Windows Auth + port", f"DRIVER={{SQL Server}};SERVER={_host}\\GT_YINTE_EMS,1433;DATABASE=EMSXDB;UID=sa;PWD={_pw};Connect Timeout=10"),
 ]
 
 for name, conn_str in attempts:

@@ -22,6 +22,12 @@ _parent = Path(__file__).resolve().parent.parent.parent
 if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
+from core.credentials import get_api_password
+
+_parent = Path(__file__).resolve().parent.parent.parent
+if str(_parent) not in sys.path:
+    sys.path.insert(0, str(_parent))
+
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QPushButton,
     QLabel, QComboBox, QSpinBox, QDoubleSpinBox,
@@ -51,7 +57,7 @@ class OrderMySQLCreateDialog(QDialog):
                  api_username: str = "", api_password: str = ""):
         super().__init__(parent)
         self.api_username = api_username or "admin"
-        self.api_password = api_password or "admin123"
+        self.api_password = api_password or get_api_password("printing_system")
         self._result: Optional[Dict] = None
         self._customers: List[Dict] = []
 

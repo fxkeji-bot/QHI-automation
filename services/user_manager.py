@@ -1368,8 +1368,11 @@ class UserManager:
     
     # ==================== 初始化 ====================
     
-    def create_default_admin(self, username: str = "admin", password: str = "admin123"):
+    def create_default_admin(self, username: str = "admin", password: str = ""):
         """创建默认管理员"""
+        if not password:
+            from core.credentials import get_admin_password
+            password = get_admin_password() or "admin"
         # 检查是否已存在管理员
         admin_exists = any(
             UserRole.SUPER_ADMIN.value in u.roles

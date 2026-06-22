@@ -23,21 +23,34 @@
       "enabled": true,
       "condition_type": "name_contains",
       "condition_value": "封面",
-      "steps": []
+      "steps": [
+        {"type": "preflight", "action": "check_bleed", "params": {"min_bleed_mm": 3.0}},
+        {"type": "process", "action": "add_crop_marks", "params": {"style": "both"}},
+        {"type": "output", "action": "set_printer", "params": {"printer": "hp_indigo"}}
+      ]
     },
     {
       "name": "内文处理",
       "enabled": true,
       "condition_type": "name_contains",
       "condition_value": "内文",
-      "steps": []
+      "steps": [
+        {"type": "preflight", "action": "check_dpi", "params": {"min_dpi": 150}},
+        {"type": "process", "action": "optimize_color", "params": {"mode": "cmyk"}},
+        {"type": "output", "action": "set_printer", "params": {"printer": "oce_varioprint_6000"}}
+      ]
     },
     {
       "name": "骑马钉书刊",
       "enabled": true,
       "condition_type": "machine_match",
       "condition_value": "骑马钉",
-      "steps": []
+      "steps": [
+        {"type": "preflight", "action": "check_page_count", "params": {"must_be_divisible_by": 4}},
+        {"type": "process", "action": "gang_impose", "params": {"mode": "auto", "sheet_size": "A3"}},
+        {"type": "finishing", "action": "saddle_stitch", "params": {"staples": 2}},
+        {"type": "output", "action": "set_printer", "params": {"printer": "bizhub_287"}}
+      ]
     }
   ],
   "ui_settings": {
@@ -101,6 +114,5 @@
       "location": "工作区",
       "added_at": "2026-06-20"
     }
-  ],
-  "test_key": "test_value"
+  ]
 }

@@ -10,10 +10,19 @@ tools/github_sync.py — GitHub 仓库同步工具
 - 计划：每周日凌晨 3:00 自动执行
 - 逻辑：git pull → git add . → git commit → git push
 
+环境变量设置方法：
+  Windows (PowerShell):
+    $env:GITHUB_TOKEN = "ghp_xxxxxxxxxxxxxxxxxxxx"
+  Windows (CMD):
+    set GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+  Linux/macOS:
+    export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
+  或在系统环境变量中永久设置。
+
 依赖：GitPython（优先）或 subprocess git 命令（fallback）
 
 Author: QHI System
-Version: 1.0.0
+Version: 1.0.1
 """
 
 import logging
@@ -31,7 +40,7 @@ logger = logging.getLogger(__name__)
 # 配置
 # ============================================================
 REPO_URL = "https://github.com/fxkeji-bot/QHI-automation"
-GITHUB_TOKEN = "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"
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 REPO_DIR = Path(__file__).resolve().parent.parent  # E:\qhi_processor
 
 # 认证 URL（含 token）

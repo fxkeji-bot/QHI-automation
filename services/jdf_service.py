@@ -84,6 +84,7 @@ class JDFService:
         hot_folder: str = None,
         config: Dict = None,
         log_callback=None,
+        ws_server=None,
     ):
         """
         初始化JDF服务
@@ -94,13 +95,16 @@ class JDFService:
             hot_folder: JDF热文件夹路径
             config: 配置字典
             log_callback: 日志回调函数
+            ws_server: WebSocket 服务器实例（用于推送通知）
         """
         self.db = db
         self.processing_pipeline = processing_pipeline
         self.hot_folder = hot_folder
         self.config = config or {}
         self.log = log_callback or logger.info
-        
+        self.ws_server = ws_server
+        self._jmf_push = None  # JMFPushService 实例（可选注入）
+
         # 处理器实例
         self.jdf_handler = JDFHandler(log_callback=self.log)
         self.jdf_generator = JDFGenerator(self.jdf_handler)
@@ -113,6 +117,10 @@ class JDFService:
         # 工单记录存储
         self._ticket_records: Dict[str, JDFTicketRecord] = {}
         self._lock = threading.RLock()
+
+    def set_jmf_push_service(self, push_service):
+        """注入 JMF Push Service 实例"""
+        self._jmf_push = push_service
         
         # 热文件夹监控线程
         self._monitor_thread = None
@@ -542,16 +550,44 @@ class JDFService:
         }
     
     def _send_completion_notification(self, record: JDFTicketRecord):
-        """发送完成通知"""
-        notification = self.jmf_handler.generate_notification(
-            notification_type="QueueEntryCompleted",
-            job_id=record.ticket.job_id,
-            queue_entry_id=record.record_id,
-            status="Completed",
-        )
-        
-        # TODO: 发送通知到外部系统
-        self.log(f"完成通知已生成: {record.record_id}")
+        """发送完成通知到外部系统
+
+        优先通过 JMF Push Service 推送（WebSocket），不可用时降级为日志记录。
+        """
+        sent = False
+
+        # 优先通过 JMF Push Service（统一推送链路）
+        if self._jmf_push:
+            try:
+                self._jmf_push._on_job_completed(
+                    job_id=record.ticket.job_id,
+                    output_path=record.ticket.output_path or "",
+                )
+                sent = True
+            except Exception as e:
+                self.log(f"JMF Push 推送失败: {e}")
+
+        # 降级：直接通过 WebSocket 广播
+        if not sent and self.ws_server:
+            try:
+                notification = self.jmf_handler.generate_notification(
+                    notification_type="QueueEntryCompleted",
+                    job_id=record.ticket.job_id,
+                    queue_entry_id=record.record_id,
+                    status="Completed",
+                )
+                self.ws_server.broadcast({
+                    "type": "jmf_notification",
+                    "data": notification,
+                })
+                sent = True
+            except Exception as e:
+                self.log(f"WebSocket 推送失败: {e}")
+
+        if sent:
+            self.log(f"完成通知已推送: {record.record_id}")
+        else:
+            self.log(f"完成通知已记录(无外部接收方): {record.record_id}")
     
     # ==================== 热文件夹监控 ====================
     

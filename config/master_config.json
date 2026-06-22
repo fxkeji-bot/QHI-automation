@@ -3,132 +3,103 @@
   "company": "时友快印",
   "printers": {
     "bizhub_287": {
-      "name": "Konica Minolta bizhub 287",
-      "type": "raw_socket",
-      "host": "192.168.1.32",
-      "port": 9100,
-      "protocol": "RAW",
-      "color": false,
-      "duplex": true,
+      "name": "bizhub 287",
+      "ip": "192.168.1.32",
+      "type": "multifunction",
+      "driver": "KONICA MINOLTA C287SeriesPCL",
+      "color_mode": "CMYK",
       "max_paper_size": "A3",
-      "speed_ppm": 28,
-      "status": "configured",
-      "suitable_for": ["黑白文档", "报表", "合同", "标书"],
-      "module": "services.bizhub_service",
-      "capabilities": ["bw_print", "duplex", "a3", "a4"],
-      "max_resolution": "1200x1200",
-      "priority": 1
-    },
-    "xp_80": {
-      "name": "XP-80 热敏票据打印机",
-      "type": "network_share",
-      "share_path": "\\\\Asus121\\XP-80",
-      "paper_width_mm": 80,
-      "paper_length_mm": 297,
-      "color": false,
-      "duplex": false,
-      "max_paper_size": "80mm热敏",
-      "status": "configured",
-      "suitable_for": ["小票", "工单号", "标签"],
-      "module": "services.receipt_printer_service",
-      "capabilities": ["receipt", "80mm", "thermal"],
-      "max_resolution": "203x203",
-      "priority": 4
-    },
-    "oce_varioprint_6000": {
-      "name": "Oce VarioPrint 6000",
-      "type": "hotfolder",
-      "hotfolder_path": "\\\\Server2\\热文件夹\\Oce",
-      "color": false,
       "duplex": true,
+      "stapling": false,
+      "hole_punch": false,
+      "input_trays": 2,
+      "status": "active"
+    },
+    "bizhub_367": {
+      "name": "bizhub 367",
+      "ip": "192.168.1.33",
+      "type": "multifunction",
+      "driver": "KONICA MINOLTA 367SeriesPCL",
+      "color_mode": "CMYK",
       "max_paper_size": "A3",
-      "speed_ppm": 115,
-      "status": "configured",
-      "suitable_for": ["大批量黑白印刷", "书籍", "手册"],
-      "module": "services.oce_varioprint_service",
-      "note": "SMB不可达时降级为本地模拟，需现场配置权限",
-      "capabilities": ["bw_print", "duplex", "high_volume", "a3", "a4"],
-      "max_resolution": "1200x1200",
-      "priority": 2
-    },
-    "hp_indigo": {
-      "name": "HP Indigo Digital Press",
-      "type": "hotfolder",
-      "hotfolder_path": "\\\\Server2\\热文件夹\\HP_Indigo",
-      "color": true,
       "duplex": true,
+      "stapling": true,
+      "hole_punch": false,
+      "input_trays": 3,
+      "status": "active"
+    },
+    "bizhub_C658": {
+      "name": "bizhub C658",
+      "ip": "192.168.1.34",
+      "type": "production",
+      "driver": "KONICA MINOLTA C658SeriesPCL",
+      "color_mode": "CMYK",
       "max_paper_size": "SRA3",
-      "speed_ppm": 60,
-      "status": "configured",
-      "suitable_for": ["彩色商业印刷", "画册", "包装"],
-      "module": "services.hp_indigo_service",
-      "note": "支持JDF/JMF双向通信",
-      "capabilities": ["color_print", "high_quality", "a3", "a4", "variable_data"],
-      "max_resolution": "2400x2400",
-      "priority": 3
+      "duplex": true,
+      "stapling": true,
+      "hole_punch": true,
+      "booklet": true,
+      "input_trays": 4,
+      "status": "active"
+    },
+    "receipt_printer": {
+      "name": "Receipt Printer",
+      "ip": "192.168.1.35",
+      "type": "thermal",
+      "driver": "EPSON TM-T88V",
+      "color_mode": "BW",
+      "paper_width": "58mm",
+      "auto_cut": true,
+      "status": "active"
     }
   },
   "hotfolder": {
-    "dispatcher_module": "services.hotfolder_dispatcher",
+    "enabled": true,
+    "watch_dir": "E:\\qhi_processor\\hotfolder",
     "poll_interval_seconds": 5,
-    "watch_paths": [
-      "\\\\Server2\\热文件夹\\Oce",
-      "\\\\Server2\\热文件夹\\HP_Indigo"
-    ],
-    "fallback_local": "E:\\qhi_processor\\hotfolder_fallback"
+    "file_patterns": ["*.pdf", "*.zip", "*.tif", "*.jpg", "*.png"],
+    "output_dir": "\\\\Server2\\客户文件2\\输出",
+    "archive_dir": "E:\\qhi_processor\\hotfolder_archive"
   },
   "fleet_monitor": {
-    "module": "services.fleet_monitor",
+    "enabled": true,
     "poll_interval_seconds": 30,
-    "auto_refresh": true
+    "snmp_enabled": true,
+    "snmp_community": "public",
+    "alert_thresholds": {
+      "toner_low_pct": 10,
+      "paper_empty": true,
+      "error_retry_count": 3
+    }
   },
   "imposition": {
     "KPSM_v2_path": "Z:\\fxkeji\\KPSM_v2.0",
     "KPSM_v3_path": "Z:\\fxkeji\\KPSM_v3.0",
-    "qhi_template_dir": "Z:\\fxkeji\\KPSM_v3.0\\xml_templates",
+    "qhi_template_dir": "Z:\\fxkeji\\KPSM_v3.0\\XML",
+    "xml_template_fallback": "Z:\\fxkeji\\KPSM_v2.0\\xml",
     "hot_imposing_exe": "Quite Hot Imposing 5",
-    "qhi_exe": "C:\\Program Files (x86)\\Quite\\Quite Hot Imposing 5\\qi_applycommands.exe",
-    "output_dir": "\\\\Server2\\客户文件2\\输出",
-    "fallback_output_dir": "E:\\qhi_processor\\output",
-    "template_mapping": {
-      "环衬拼版": "1+2---环衬（软精装 不带封面.xml",
-      "替换后环衬": "替换后环衬.xml",
-      "康轩删面底": "康轩删面底 尺寸A4缩放.xml",
-      "内页提取合拼": "4-内页-提取再多本合拼.xml",
-      "康轩多本连拼": "康轩多本连拼 万2 拼4.xml",
-      "3-环衬-拼": "3-环衬-拼.xml",
-      "3-环衬-拼-修正": "3-环衬-拼-.xml"
-    }
+    "default_bleed_mm": 3,
+    "default_gripper_mm": 8
+  },
+  "trapping": {
+    "enabled": true,
+    "default_width_pt": 0.25,
+    "density_threshold": 0.30,
+    "black_density_limit": 1.60,
+    "black_width_factor": 0.5,
+    "spot_densities": {}
   },
   "erp": {
     "database": "EMSXDB",
     "instance": "GT_YINTE_EMS",
     "remote_host": "192.168.1.22",
     "wmi_user": "administrator",
-    "api_port": 8088,
-    "table_job_bill": "PPM_JobBill",
-    "table_produce_flow": "PPM_ProduceFlowRecord",
-    "sync_interval_minutes": 6
-  },
-  "color_management": {
-    "icc_profile_dir": "E:\\qhi_processor\\config\\icc",
-    "default_cmyk_profile": "ISOcoated_v2_eci.icc",
-    "fogra_reference": "FOGRA39",
-    "convert_rgb_to_cmyk": true,
-    "pantone_library": "E:\\qhi_processor\\config\\pantone"
+    "api_port": 8088
   },
   "logging": {
-    "log_dir": "E:\\qhi_processor\\logs",
+    "level": "DEBUG",
     "max_file_size_mb": 10,
     "backup_count": 5,
-    "format": "%(asctime)s [%(levelname)s] %(name)s - %(message)s"
-  },
-  "api": {
-    "host": "192.168.1.45",
-    "port": 8088,
-    "dashboard_endpoint": "/api/dashboard",
-    "orders_endpoint": "/api/flow/orders",
-    "fleet_status_endpoint": "/api/fleet/status",
-    "stats_endpoint": "/api/stats/summary"
+    "log_dir": "E:\\qhi_processor\\logs"
   }
 }

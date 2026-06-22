@@ -10,9 +10,13 @@ logs/
 __pycache__/
 
 # 敏感配置
+config/credentials.json
 config/indet_erp_config.json
 config/printer_config.json
 config/license.key
+config/.machine_id
+config/.integrity_baseline
+config/.trial_data
 
 # 环境变量
 .env

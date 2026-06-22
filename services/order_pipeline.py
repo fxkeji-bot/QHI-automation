@@ -178,8 +178,20 @@ class OrderPipeline:
                             printer_ip = self._auto_select_printer(fp)
                         result.printer_ip = printer_ip
                         result.messages.append(f"  打印机: {printer_ip}")
+
+                        # 实际提交到热文件夹
+                        job = self._hot_folder._create_print_job(
+                            file_path=Path(fp),
+                            config=None,
+                            printer_ip=printer_ip,
+                        )
+                        if job:
+                            self._hot_folder._submit_job(job)
+                            result.messages.append(f"  已提交到热文件夹: {fp}")
+                        else:
+                            result.messages.append(f"  创建打印任务失败: {fp}")
                     except Exception as e:
-                        result.messages.append(f"  打印机选择失败: {e}")
+                        result.messages.append(f"  打印提交失败: {e}")
                         result.error = str(e)
 
         # === Stage 6: 生成小票 ===

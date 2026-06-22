@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """探索印特 ERP SQL Server 数据库结构"""
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))
 import pyodbc
 import json
+from core.credentials import get_wmi_host, get_wmi_password
+
+_host = get_wmi_host()
+_pw = get_wmi_password()
 
 conn_str = (
-    "DRIVER={SQL Server};"
-    "SERVER=192.168.1.22;"
+    f"DRIVER={{SQL Server}};"
+    f"SERVER={_host};"
     "DATABASE=EMSXDB;"
     "UID=sa;"
-    "PWD=dell-123"
+    f"PWD={_pw}"
 )
 
 conn = pyodbc.connect(conn_str, timeout=15)

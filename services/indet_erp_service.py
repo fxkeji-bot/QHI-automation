@@ -149,10 +149,10 @@ class WmiSqlClient:
     参考：job_bill_service.py 中的已验证方案。
     """
 
-    # 默认配置
+    # 默认配置（通过环境变量或凭据配置文件读取）
     DEFAULT_HOST = "192.168.1.22"
     DEFAULT_USER = "administrator"
-    DEFAULT_PASS = "dell-123"   # TODO: 移至环境变量 WMI_REMOTE_PASS
+    DEFAULT_PASS = ""  # 从 WMI_REMOTE_PASS 环境变量或 config/credentials.json 读取
     DEFAULT_CONN_STRING = r"Server=.\GT_YINTE_EMS;Database=EMSXDB;Integrated Security=SSPI;"
     DEFAULT_QUERY_TIMEOUT = 30
     REMOTE_TEMP_DIR = r"C:\Windows\Temp"

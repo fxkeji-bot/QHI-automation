@@ -2,6 +2,14 @@
 
 ## Execution History
 
+### 2026-06-22 15:43
+- Checked COLLABORATION_PLAN.md v2.1: all P0 tasks ✅, no new Marvis tasks. New P2 tasks (P2-19~P2-24 for Marvis) exist in plan but no corresponding pending files.
+- Checked shared/tasks/pending/: 11 stale auto-generated files found. Only task_p0_001 assigned to Marvis (already completed).
+  - task_p0_001_20260622.json (Marvis/安全漏洞修复) → moved to completed
+- 10 remaining pending files all assigned to qclaw/qorkbuddy, not Marvis.
+- Updated marvis_status.json: status=idle, pending_tasks_count=0, last_update=2026-06-22T15:43:38
+- Result: 无新任务
+
 ### 2026-06-22 14:38
 - Checked COLLABORATION_PLAN.md v2.0: all P0/P1/P2 tasks still ✅, no new tasks
 - Checked shared/tasks/pending/: 6 stale auto-generated files found (20260621+20260622 duplicates)

@@ -125,9 +125,52 @@ class ImpositionTemplate:
 
     加载、解析和修改 Quite Hot Imposing 5 的 XML 拼版模板。
     支持修改页面尺寸、出血、叼口等参数。
+
+    模板来源优先级：
+      1. master_config.json 中的 imposition.qhi_template_dir（默认 KPSM_v3.0\\XML）
+      2. 环境变量 QHI_TEMPLATE_DIR
+      3. KPSM_v3.0\\XML\\（首选目录，7 个真实模板）
+      4. KPSM_v2.0\\xml\\（降级备份目录）
+      5. 内置默认负载模板（兜底）
     """
 
-    # 默认模板内容（最小可用模板）
+    # ── 模板类型到文件名的映射 ──
+    TEMPLATE_FILES = {
+        XMLTemplateType.HUANCHEN_PIN: [
+            "3-环衬-拼.xml",
+            "3-环衬-拼-.xml",
+            "1+2---环衬（软精装 不带封面.xml",
+        ],
+        XMLTemplateType.TIHUANHOU: [
+            "替换后环衬.xml",
+        ],
+        XMLTemplateType.KANGXUAN_DELETE: [
+            "康轩删面底 尺寸A4缩放.xml",
+        ],
+        XMLTemplateType.NEIYE_TIQU: [
+            "4-内页-提取再多本合拼.xml",
+        ],
+        XMLTemplateType.KANGXUAN_DUOBEN: [
+            "康轩多本连拼 万2 拼4.xml",
+        ],
+    }
+
+    # ── 必需的 XML 节点检查清单 ──
+    REQUIRED_NODES = {
+        XMLTemplateType.HUANCHEN_PIN: [".//Paper", ".//Command"],
+        XMLTemplateType.TIHUANHOU: [".//Paper", ".//Command"],
+        XMLTemplateType.KANGXUAN_DELETE: [".//Paper", ".//Command"],
+        XMLTemplateType.NEIYE_TIQU: [".//Paper", ".//Command"],
+        XMLTemplateType.KANGXUAN_DUOBEN: [".//Paper", ".//Command"],
+    }
+
+    # ── 模板搜索目录 ──
+    TEMPLATE_DIRS = [
+        r"Z:\fxkeji\KPSM_v3.0\XML",
+        r"Z:\fxkeji\KPSM_v2.0\xml",
+    ]
+
+    # ── 兜底默认模板（当所有磁盘模板加载失败时使用） ──
     DEFAULT_TEMPLATES = {
         XMLTemplateType.HUANCHEN_PIN: """<?xml version="1.0" encoding="UTF-8"?>
 <QuiteHotImposing>
@@ -139,7 +182,6 @@ class ImpositionTemplate:
     <Bleed TrimBox="3mm" />
   </Command>
 </QuiteHotImposing>""",
-
         XMLTemplateType.TIHUANHOU: """<?xml version="1.0" encoding="UTF-8"?>
 <QuiteHotImposing>
   <Command Name="ReplaceBackEndpaper" Type="ReplacePage">
@@ -148,7 +190,6 @@ class ImpositionTemplate:
     <Replacement Page="Last" />
   </Command>
 </QuiteHotImposing>""",
-
         XMLTemplateType.KANGXUAN_DELETE: """<?xml version="1.0" encoding="UTF-8"?>
 <QuiteHotImposing>
   <Command Name="DeleteFrontBack" Type="DeletePages">
@@ -157,7 +198,6 @@ class ImpositionTemplate:
     <Source Size="Auto" />
   </Command>
 </QuiteHotImposing>""",
-
         XMLTemplateType.NEIYE_TIQU: """<?xml version="1.0" encoding="UTF-8"?>
 <QuiteHotImposing>
   <Command Name="ExtractInner" Type="ExtractPages">
@@ -166,7 +206,6 @@ class ImpositionTemplate:
     <Output Mode="Combine" />
   </Command>
 </QuiteHotImposing>""",
-
         XMLTemplateType.KANGXUAN_DUOBEN: """<?xml version="1.0" encoding="UTF-8"?>
 <QuiteHotImposing>
   <Command Name="MultiBookImpose" Type="Booklet">
@@ -177,28 +216,104 @@ class ImpositionTemplate:
 </QuiteHotImposing>""",
     }
 
+    @staticmethod
+    def _resolve_template_dir() -> Optional[str]:
+        """解析模板目录，按优先级搜索"""
+        # 1. 尝试从 master_config.json 读取
+        config_path = os.path.join(os.path.dirname(__file__), "..", "config", "master_config.json")
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                qhi_dir = config.get("imposition", {}).get("qhi_template_dir", "")
+                if qhi_dir and os.path.isdir(qhi_dir):
+                    return qhi_dir
+            except Exception:
+                pass
+
+        # 2. 环境变量
+        env_dir = os.environ.get("QHI_TEMPLATE_DIR", "")
+        if env_dir and os.path.isdir(env_dir):
+            return env_dir
+
+        # 3. 按 TEMPLATE_DIRS 顺序搜索
+        for d in ImpositionTemplate.TEMPLATE_DIRS:
+            if os.path.isdir(d):
+                return d
+
+        return None
+
+    @staticmethod
+    def _find_template_file(template_type: XMLTemplateType,
+                            template_dir: Optional[str] = None) -> Optional[str]:
+        """根据模板类型查找对应的 XML 文件
+
+        Returns:
+            找到的完整文件路径，未找到返回 None
+        """
+        candidates = ImpositionTemplate.TEMPLATE_FILES.get(template_type, [])
+        if not candidates:
+            return None
+
+        # 在指定目录中查找
+        if template_dir and os.path.isdir(template_dir):
+            for fname in candidates:
+                full_path = os.path.join(template_dir, fname)
+                if os.path.isfile(full_path):
+                    return full_path
+
+        # 全局搜索 TEMPLATE_DIRS
+        for d in ImpositionTemplate.TEMPLATE_DIRS:
+            if d == template_dir or not os.path.isdir(d):
+                continue
+            for fname in candidates:
+                full_path = os.path.join(d, fname)
+                if os.path.isfile(full_path):
+                    return full_path
+
+        return None
+
     def __init__(self, template_type: XMLTemplateType,
-                 template_path: Optional[str] = None):
+                 template_path: Optional[str] = None,
+                 template_dir: Optional[str] = None):
         """
         Args:
             template_type: 模板类型
-            template_path: 自定义 XML 模板文件路径，None 则使用内置默认
+            template_path: 自定义 XML 模板文件路径（最高优先级，覆盖自动查找）
+            template_dir: 指定模板搜索目录（优先级高于配置/环境变量）
         """
         self.template_type = template_type
         self._xml_root: Optional[ET.Element] = None
+        self._source: str = "unknown"  # 记录模板来源
 
-        if template_path and os.path.exists(template_path):
+        # 1. 优先使用显式传入的模板路径
+        if template_path and os.path.isfile(template_path):
             self.load(template_path)
+            return
+
+        # 2. 自动查找真实 XML 模板
+        resolved_dir = template_dir or self._resolve_template_dir()
+        resolved_path = self._find_template_file(template_type, resolved_dir)
+
+        if resolved_path and os.path.isfile(resolved_path):
+            self.load(resolved_path)
+            return
+
+        # 3. 降级为内置默认模板
+        default_xml = self.DEFAULT_TEMPLATES.get(template_type)
+        if default_xml:
+            self._xml_root = ET.fromstring(default_xml)
+            self._source = "builtin_default"
+            logger.warning(
+                f"模板 {template_type.value} 未找到磁盘文件，使用内置默认模板"
+            )
         else:
-            default_xml = self.DEFAULT_TEMPLATES.get(template_type)
-            if default_xml:
-                self._xml_root = ET.fromstring(default_xml)
-            else:
-                raise ValueError(f"未知模板类型: {template_type}")
+            raise ValueError(f"未知模板类型: {template_type}")
 
     def load(self, file_path: str):
         """从文件加载 XML 模板"""
         self._xml_root = ET.parse(file_path).getroot()
+        self._source = file_path
         logger.info(f"已加载 QHI 模板: {file_path}")
 
     def save(self, file_path: str):
@@ -245,6 +360,117 @@ class ImpositionTemplate:
         elem = self._xml_root.find(xpath)
         if elem is not None:
             elem.set(attr, value)
+
+    def validate(self) -> Dict:
+        """模板验证：XML 格式校验 + 参数完整性检查
+
+        Returns:
+            {"valid": bool, "checks": [...], "warnings": [...]}
+        """
+        checks = []
+        warnings = []
+        valid = True
+
+        # 检查1: XML 根节点非空
+        if self._xml_root is None:
+            checks.append("FAIL: XML 根节点为空，模板未加载")
+            return {"valid": False, "checks": checks, "warnings": warnings}
+
+        # 检查2: 必需节点存在
+        required = self.REQUIRED_NODES.get(self.template_type, [])
+        for xpath in required:
+            elem = self._xml_root.find(xpath)
+            if elem is None:
+                valid = False
+                checks.append(f"FAIL: 缺少必需节点 {xpath}")
+            else:
+                checks.append(f"PASS: 节点 {xpath} 存在")
+
+        # 检查3: Paper 节点参数完整性
+        paper = self._xml_root.find(".//Paper")
+        if paper is not None:
+            for attr in ["Width", "Height"]:
+                val = paper.get(attr, "")
+                if not val:
+                    valid = False
+                    checks.append(f"FAIL: Paper 节点缺少 {attr} 属性")
+                else:
+                    checks.append(f"PASS: Paper.{attr} = {val}")
+
+        # 检查4: Command 节点属性
+        cmd = self._xml_root.find(".//Command")
+        if cmd is not None:
+            cmd_name = cmd.get("Name", "")
+            cmd_type = cmd.get("Type", "")
+            if not cmd_name:
+                warnings.append("WARN: Command 缺少 Name 属性")
+            if not cmd_type:
+                warnings.append("WARN: Command 缺少 Type 属性")
+            checks.append(f"INFO: Command Name={cmd_name}, Type={cmd_type}")
+
+        # 检查5: 模板来源记录
+        checks.append(f"INFO: 模板来源 = {self._source}")
+
+        # 检查6: 文件大小（如果从文件加载）
+        if self._source != "builtin_default" and os.path.isfile(self._source):
+            size_kb = os.path.getsize(self._source) / 1024
+            checks.append(f"INFO: 模板文件大小 = {size_kb:.1f} KB")
+            if size_kb < 1.0:
+                warnings.append(f"WARN: 模板文件异常小 ({size_kb:.1f} KB)，可能不完整")
+
+        return {"valid": valid, "checks": checks, "warnings": warnings}
+
+    def substitute_params(self, params: Dict[str, str]) -> int:
+        """模板参数动态替换
+
+        遍历 XML 中所有属性，将占位符 {{key}} / {key} 替换为实际值。
+
+        Args:
+            params: 参数映射字典，如 {"PaperWidth": "440", "PaperHeight": "590"}
+
+        Returns:
+            替换数量
+        """
+        if self._xml_root is None:
+            return 0
+        count = 0
+
+        def _replace_in_element(elem: ET.Element):
+            nonlocal count
+            for attr_key, attr_val in list(elem.attrib.items()):
+                new_val = attr_val
+                for k, v in params.items():
+                    new_val = new_val.replace("{{%s}}" % k, v)
+                    new_val = new_val.replace("{%s}" % k, v)
+                    # 也尝试直接匹配整个属性值
+                    if attr_val.strip() == k:
+                        new_val = v
+                if new_val != attr_val:
+                    elem.set(attr_key, new_val)
+                    count += 1
+            for child in elem:
+                _replace_in_element(child)
+
+        _replace_in_element(self._xml_root)
+        if count > 0:
+            logger.info(f"模板参数替换完成，共 {count} 处")
+        return count
+
+    def apply_job_params(self, job: "ImpositionJob"):
+        """从 ImpositionJob 一键设置所有模板参数
+
+        包括：纸张尺寸、出血、叼口、间距等。
+        """
+        self.set_paper_size(job.paper_size[0], job.paper_size[1])
+        self.set_bleed(job.bleed_mm)
+
+        # 叼口
+        if job.grip_mm > 0:
+            self.set_param(".//Margins", "Bottom", f"{job.grip_mm}mm")
+
+        # 额外参数动态替换
+        if job.extra_params:
+            self.substitute_params(job.extra_params)
 
     def to_string(self) -> str:
         """导出为 XML 字符串"""
@@ -395,10 +621,17 @@ class ImpositionEngine:
                 error_message=f"QHI 可执行文件未找到: {self.qhi_exe}",
             )
 
-        # 1. 准备模板
+        # 1. 准备模板 → 从磁盘加载真实 XML 模板
         template = ImpositionTemplate(job.template_type)
-        template.set_paper_size(job.paper_size[0], job.paper_size[1])
-        template.set_bleed(job.bleed_mm)
+        # 参数预检
+        validation = template.validate()
+        if not validation["valid"]:
+            logger.warning(
+                f"模板验证未通过 ({job.template_type.value})，继续尝试执行："
+                + "; ".join(validation["checks"])
+            )
+        # 应用任务参数
+        template.apply_job_params(job)
 
         # 2. 写入临时 XML 文件
         os.makedirs(self.output_dir, exist_ok=True)

@@ -249,16 +249,131 @@ if HAS_FLASK:
 
     @app.route("/api/erp/orders", methods=["POST"])
     def api_create_order():
-        """创建订单"""
+        """创建订单 — POST /api/erp/orders
+
+        Request body (JSON):
+            customer_name (str, required): 客户名称
+            title (str, optional): 标题
+            tag (str, optional): 标签
+            style (str, optional): 规格
+            handler_name (str, optional): 经手人
+            standard_amount (float, optional): 标售金额
+            receive_amount (float, optional): 实收金额
+            customer_remark (str, optional): 客户备注
+            remark (str, optional): 备注
+            contact_man (str, optional): 联系人
+            contact_phone (str, optional): 联系电话
+            contact_address (str, optional): 联系地址
+            start_time (str, optional): 开始时间
+            delivery_time (str, optional): 交货时间
+            project (str, optional): 项目
+            produce_flow_spec_code (str, optional): 初始流程Code，默认10(排队)
+            items (list, optional): 工单明细 [{"title": ..., "quantity": ..., "price": ...}, ...]
+        """
         data = request.get_json()
         if not data:
             return jsonify({"error": "缺少请求数据"}), 400
-        
-        # TODO: 实现订单创建逻辑
-        return jsonify({
-            "success": False,
-            "error": "订单创建功能尚未实现"
-        }), 501
+
+        customer_name = data.get("customer_name", "").strip()
+        if not customer_name:
+            return jsonify({"error": "缺少必填字段 customer_name"}), 400
+
+        conn = get_connection()
+        if not conn:
+            return jsonify({"error": "数据库连接失败"}), 500
+
+        try:
+            cursor = conn.cursor()
+
+            # 生成工单号: GD + YYMMDD + 5位序号
+            today = datetime.now().strftime("%y%m%d")
+            prefix = f"GD{today}"
+            cursor.execute(
+                "SELECT TOP 1 Code FROM PPM_JobBill WHERE Code LIKE ? ORDER BY Code DESC",
+                (f"{prefix}%",)
+            )
+            row = cursor.fetchone()
+            if row and row[0].startswith(prefix):
+                last_seq = int(row[0][-5:])
+                seq = last_seq + 1
+            else:
+                seq = 1
+            order_code = f"{prefix}{seq:05d}"
+
+            # 构建 INSERT 字段
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            busi_date = data.get("busi_date", datetime.now().strftime("%Y-%m-%d"))
+            flow_code = data.get("produce_flow_spec_code", "10")
+
+            fields = ["Code", "Acc4CustomerName", "BusiDate", "ProduceFlowSpecCode", "Sys4CreateTime"]
+            placeholders = ["?", "?", "?", "?", "GETDATE()"]
+            values = [order_code, customer_name, busi_date, flow_code]
+
+            optional_map = {
+                "title": "Title",
+                "tag": "Tag",
+                "style": "Style",
+                "handler_name": "Acc4ChargeUserName",
+                "standard_amount": "StandardAmount",
+                "receive_amount": "ReceiveAmount",
+                "customer_remark": "CustomerRemark",
+                "remark": "Remark",
+                "contact_man": "CustomerContactMan",
+                "contact_phone": "CustomerPhone",
+                "contact_address": "CustomerAddress",
+                "start_time": "StartTime",
+                "delivery_time": "DeliveryTime",
+                "project": "Project",
+            }
+
+            for json_key, db_col in optional_map.items():
+                val = data.get(json_key)
+                if val is not None and val != "":
+                    fields.append(db_col)
+                    placeholders.append("?")
+                    values.append(val)
+
+            sql = f"INSERT INTO PPM_JobBill ({', '.join(fields)}) VALUES ({', '.join(placeholders)})"
+            cursor.execute(sql, values)
+
+            # 创建工单明细（如有）
+            items = data.get("items", [])
+            if items:
+                for item in items:
+                    item_title = item.get("title", "")
+                    item_qty = item.get("quantity", 0)
+                    item_price = item.get("price", 0)
+                    if item_title:
+                        cursor.execute(
+                            """INSERT INTO PPM_JobBillDetail
+                               (JobBillCode, Title, Quantity, Price, Sys4CreateTime)
+                               VALUES (?, ?, ?, ?, GETDATE())""",
+                            (order_code, item_title, item_qty, item_price),
+                        )
+
+            conn.commit()
+            logger.info("订单创建成功: %s (客户: %s)", order_code, customer_name)
+
+            # 查询返回完整数据
+            cursor.execute(
+                """SELECT Code, Acc4CustomerName, Title, Tag, Style,
+                          ProduceFlowSpecCode, Acc4ChargeUserName, BusiDate,
+                          Sys4CreateTime, StandardAmount, ReceiveAmount,
+                          CustomerRemark, Remark, CustomerContactMan,
+                          CustomerPhone, CustomerAddress, StartTime,
+                          DeliveryTime, Project
+                   FROM PPM_JobBill WHERE Code = ?""",
+                (order_code,),
+            )
+            created = row_to_dict(cursor.fetchone(), cursor)
+            return jsonify({"success": True, "order": created}), 201
+
+        except Exception as e:
+            conn.rollback()
+            logger.error("订单创建失败: %s", e)
+            return jsonify({"error": f"创建失败: {str(e)}"}), 500
+        finally:
+            conn.close()
 
 
     @app.route("/api/erp/orders/<code>/status", methods=["POST"])

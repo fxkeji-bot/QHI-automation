@@ -160,6 +160,11 @@ class MainWindow(QMainWindow):
         self.file_done.connect(self._on_file_done, Qt.UniqueConnection)
         self.finished.connect(self._on_finished, Qt.UniqueConnection)
 
+        # 连接Dashboard数据流
+        self.progress_updated.connect(self._on_dashboard_progress, Qt.UniqueConnection)
+        self.file_done.connect(self._on_dashboard_file_done, Qt.UniqueConnection)
+        self.finished.connect(self._on_dashboard_finished, Qt.UniqueConnection)
+
         # 更新状态栏
         self.statusBar().showMessage(
             f"就绪 | 数码印刷单P计价模式 | 默认设备: {self.config_mgr.get('default_machine', 'HP12000')} | "
@@ -315,6 +320,30 @@ class MainWindow(QMainWindow):
         self.dashboard.resume_requested.connect(self._on_dashboard_resume)
         self.dashboard.cancel_requested.connect(self.cancel_processing)
         self.tabs.addTab(self.dashboard, " 实时看板")
+
+        # ERP数据集成
+        try:
+            from ui.widgets.erp_integration_tab import ErpIntegrationTab
+            self.erp_tab = ErpIntegrationTab(main_window=self)
+            self.tabs.addTab(self.erp_tab, " ERP集成")
+        except Exception as e:
+            logger.warning(f"ERP集成Tab加载失败: {e}")
+
+        # 审批工作流
+        try:
+            from ui.widgets.approval_panel import ApprovalPanel
+            self.approval_panel = ApprovalPanel()
+            self.tabs.addTab(self.approval_panel, " 审批管理")
+        except Exception as e:
+            logger.warning(f"审批管理Tab加载失败: {e}")
+
+        # 高级统计分析
+        try:
+            from ui.widgets.charts.analytics_panel import AnalyticsPanel
+            self.analytics_panel = AnalyticsPanel(db=self.db)
+            self.tabs.addTab(self.analytics_panel, " 统计分析")
+        except Exception as e:
+            logger.warning(f"统计分析Tab加载失败: {e}")
 
         layout.addWidget(self.tabs)
 
@@ -622,6 +651,42 @@ class MainWindow(QMainWindow):
 
     def _on_dashboard_resume(self):
         self.proc_ctrl.on_dashboard_resume()
+
+    def _on_dashboard_progress(self, percent: int, filename: str, current: int, total: int):
+        """将处理进度推送到Dashboard"""
+        if hasattr(self, 'dashboard') and self.dashboard:
+            from ui.widgets.dashboard_widget import PipelineStatus
+            status = PipelineStatus(
+                total=total,
+                completed=current - 1,
+                current_file=filename,
+                stage_progress=percent,
+                in_progress=1,
+            )
+            self.dashboard.on_status_update(status)
+            self.dashboard.on_current_file(filename)
+
+    def _on_dashboard_file_done(self, filename: str, success: bool, msg: str):
+        """将文件完成事件推送到Dashboard"""
+        if hasattr(self, 'dashboard') and self.dashboard:
+            from ui.widgets.dashboard_widget import FileEvent
+            event = FileEvent(
+                filename=filename,
+                status="completed" if success else "failed",
+                message=msg,
+            )
+            self.dashboard.on_file_event(event)
+
+    def _on_dashboard_finished(self, success: int, fail: int):
+        """处理完成时更新Dashboard"""
+        if hasattr(self, 'dashboard') and self.dashboard:
+            from ui.widgets.dashboard_widget import PipelineStatus
+            status = PipelineStatus(
+                total=success + fail,
+                completed=success,
+                failed=fail,
+            )
+            self.dashboard.on_status_update(status)
 
     # ── DropProcessingZone 信号处理 ──
 

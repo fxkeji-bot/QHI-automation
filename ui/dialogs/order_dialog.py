@@ -23,6 +23,8 @@ _parent = Path(__file__).resolve().parent.parent.parent
 if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
+from core.credentials import get_api_password
+
 from PyQt5.QtWidgets import (  # noqa: F403
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QPushButton,
     QLabel, QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox,
@@ -322,7 +324,7 @@ class OrderCreateDialog(QDialog):
 
             result = create_gd_order_sync(
                 username=self.api_username or "admin",
-                password=self.api_password or "PrintSys2026!",
+                password=self.api_password or get_api_password("printing_system"),
                 gd_no=gd_no,
                 customer_code=self._get_customer_code(),
                 customer_name=customer_name,
@@ -368,7 +370,7 @@ class OrderCreateDialog(QDialog):
             # 尝试从 API 获取最新序号
             orders = list_gd_orders_sync(
                 username=self.api_username or "admin",
-                password=self.api_password or "PrintSys2026!",
+                password=self.api_password or get_api_password("printing_system"),
                 limit=1,
             )
             seq = (len(orders) + 1)

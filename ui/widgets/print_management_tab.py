@@ -834,7 +834,9 @@ class PrintManagementTab(QWidget):
 
             try:
                 from services.order_pipeline import OrderPipeline
-                pipeline = OrderPipeline()
+                pipeline = OrderPipeline(
+                    hot_folder_service=getattr(self, '_hot_folder_service', None),
+                )
 
                 result = pipeline.process_order(
                     files=selected_files[:] if selected_files else None,
