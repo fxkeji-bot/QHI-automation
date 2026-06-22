@@ -22,7 +22,7 @@ if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
 from models.order_models import (
-    OrderStage, VALID_TRANSITIONS,
+    OrderStage, ApprovalStatus, VALID_TRANSITIONS,
     TimelineEvent, OrderProgress, OrderStats,
 )
 from utils.logger import get_logger

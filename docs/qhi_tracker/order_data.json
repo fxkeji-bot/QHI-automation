@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-22T14:40:46.155259",
+  "generated_at": "2026-06-22T15:10:49.559205",
   "devices": [
     {
       "id": "hp_12000",
@@ -63,7 +63,7 @@
           }
         ]
       },
-      "last_updated": "2026-06-22T14:39:58.098364"
+      "last_updated": "2026-06-22T15:10:00.817508"
     },
     {
       "id": "hp_7900",
@@ -109,7 +109,7 @@
           }
         ]
       },
-      "last_updated": "2026-06-22T14:39:58.145286"
+      "last_updated": "2026-06-22T15:10:00.945215"
     },
     {
       "id": "oce_6000",
@@ -158,7 +158,7 @@
         ],
         "source": "unknown"
       },
-      "last_updated": "2026-06-22T14:40:27.913081"
+      "last_updated": "2026-06-22T15:10:30.840156"
     },
     {
       "id": "bizhub_287",
@@ -192,7 +192,7 @@
         ],
         "source": "unavailable"
       },
-      "last_updated": "2026-06-22T14:40:46.155259"
+      "last_updated": "2026-06-22T15:10:49.559205"
     }
   ],
   "recent_orders": [
@@ -349,9 +349,9 @@
   ],
   "monitor_stats": {
     "started_at": "2026-06-22T14:36:03.471313",
-    "polls": 4,
-    "successful_polls": 16,
+    "polls": 27,
+    "successful_polls": 108,
     "failed_polls": 0,
-    "last_poll": "2026-06-22T14:40:46.155259"
+    "last_poll": "2026-06-22T15:10:49.559205"
   }
 }

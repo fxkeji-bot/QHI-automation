@@ -24,11 +24,12 @@ from PyQt5.QtCore import QThread, pyqtSignal
 logger = logging.getLogger("qhi.job_bill_service")
 
 # ── 配置 ──────────────────────────────────────────────
-REMOTE_HOST = "192.168.1.22"
-REMOTE_USER = "administrator"
-# Security: 硬编码密码 - 应通过环境变量 REMOTE_PASS 或配置文件读取
-# 示例: REMOTE_PASS = os.environ.get('REMOTE_PASS', 'default_fallback')
-REMOTE_PASS = "dell-123"  # TODO: 移至安全配置
+import os
+from core.credentials import get_wmi_host, get_wmi_user, get_wmi_password
+
+REMOTE_HOST = get_wmi_host()
+REMOTE_USER = get_wmi_user()
+REMOTE_PASS = get_wmi_password()
 REMOTE_SHARE = f"\\\\{REMOTE_HOST}\\C$"
 REMOTE_CONN = r"Server=.\GT_YINTE_EMS;Database=EMSXDB;Integrated Security=SSPI;"
 

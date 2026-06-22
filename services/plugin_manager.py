@@ -175,12 +175,15 @@ class PluginManager:
         for entry in sorted(self._dir.iterdir()):
             if not entry.is_dir():
                 continue
-            mf_path = entry / "manifest.json"
-            if not mf_path.exists():
+            # 兼容 plugin.json（core 层标准）和 manifest.json（历史命名）
+            json_path = entry / "plugin.json"
+            if not json_path.exists():
+                json_path = entry / "manifest.json"
+            if not json_path.exists():
                 continue
 
             try:
-                manifest_dict = json.loads(mf_path.read_text(encoding="utf-8"))
+                manifest_dict = json.loads(json_path.read_text(encoding="utf-8"))
                 mf = PluginManifest(
                     id=manifest_dict.get("id", entry.name),
                     name=manifest_dict.get("name", entry.name),
@@ -196,10 +199,12 @@ class PluginManager:
                 self._manifests[mf.id] = mf
                 self._log(f"  发现插件: {mf.id} v{mf.version}")
             except json.JSONDecodeError as e:
-                self._log(f"  插件 manifest.json 解析失败: {entry.name} - {e}")
+                self._log(f"  插件配置文件解析失败: {json_path.name} - {e}")
             except Exception as e:
                 self._log(f"  发现插件异常: {entry.name} - {e}")
 
+        # 同步触发 core 层扫描，确保 _infos 字典已填充
+        self._core.scan_plugins()
         return manifests
 
     # ── 加载 ──────────────────────────────────────────────────
@@ -286,12 +291,10 @@ class PluginManager:
         try:
             core_hook = _HP(hook_name)
         except ValueError:
-            core_hook = _HP.CUSTOM if hasattr(_HP, "CUSTOM") else None
-            if core_hook is None:
-                return [HookResult(
-                    plugin_id="", hook=hook, success=False,
-                    error=f"不支持的钩子类型: {hook_name}"
-                )]
+            return [HookResult(
+                plugin_id="", hook=hook, success=False,
+                error=f"不支持的钩子类型: {hook_name}"
+            )]
 
         raw_results = self._core.dispatch_hook(core_hook, **kwargs)
         results = []

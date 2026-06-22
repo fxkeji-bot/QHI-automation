@@ -723,10 +723,18 @@ def create_erp_service() -> IndetERPFullService:
 
 
 def create_erp_service_with_config(
-    host: str = "192.168.1.22",
-    user: str = "administrator",
-    password: str = "dell-123",
+    host: str = "",
+    user: str = "",
+    password: str = "",
 ) -> IndetERPFullService:
-    """创建印特ERP完整服务实例（自定义WMI配置）"""
-    wmi = WmiSqlClient(host=host, user=user, password=password)
+    """创建印特ERP完整服务实例（自定义WMI配置）
+
+    未指定参数时从环境变量/配置文件读取。
+    """
+    from core.credentials import get_wmi_host, get_wmi_user, get_wmi_password
+    wmi = WmiSqlClient(
+        host=host or get_wmi_host(),
+        user=user or get_wmi_user(),
+        password=password or get_wmi_password(),
+    )
     return IndetERPFullService(wmi_client=wmi)

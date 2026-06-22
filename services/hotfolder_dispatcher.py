@@ -325,6 +325,9 @@ class HotfolderDispatcher:
             logger.error(result["message"])
             return result
 
+        # 合并默认参数
+        meta = dict(params or {})
+
         # ---- bizhub_287: 优先 RAW 9100 直打 ----
         if cfg.get("use_raw"):
             raw_result = self._dispatch_via_raw(pdf_path, printer, cfg, meta)
@@ -334,9 +337,6 @@ class HotfolderDispatcher:
                 f"[Dispatcher] RAW 9100 直打失败: {raw_result['message']}，"
                 f"降级到热文件夹"
             )
-
-        # 合并默认参数
-        meta = dict(params or {})
         if "job_id" not in meta:
             meta["job_id"] = f"J{datetime.now().strftime('%Y%m%d%H%M%S')}"
         meta.setdefault("copies", 1)

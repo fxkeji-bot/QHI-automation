@@ -30,9 +30,9 @@ from typing import List, Optional
 from pathlib import Path
 from datetime import datetime
 
-from PyQt5.QtWidgets import *  # noqa: F403
-from PyQt5.QtCore import *  # noqa: F403
-from PyQt5.QtGui import *  # noqa: F403
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QTabWidget, QMessageBox
+from PyQt5.QtCore import pyqtSignal, Qt, QTimer
+from PyQt5.QtGui import QCloseEvent
 
 # Project imports
 _parent = Path(__file__).resolve().parent.parent
@@ -73,7 +73,7 @@ except ImportError:
     FITZ_SUPPORT = False
 
 
-class MainWindow(QMainWindow):  # noqa: F405
+class MainWindow(QMainWindow):
     """QHI拼版处理器主窗口
 
     应用程序的主界面，包含8个功能选项卡：

@@ -28,7 +28,7 @@ import sqlite3
 import logging
 import threading
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Callable, Dict, List, Optional, Any, Tuple
 from pathlib import Path
 from dataclasses import dataclass
 
