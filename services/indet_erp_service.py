@@ -501,12 +501,12 @@ try {{
 
     def _smb_write(self, remote_path: str, content: str):
         """通过 C$ 共享写入文件"""
-        local_path = remote_path.replace(r"C:\", self._share + "\\")
+        local_path = remote_path.replace("C:\\", self._share + "\\")
         Path(local_path).write_text(content, encoding="utf-8")
 
     def _smb_delete(self, remote_path: str):
         """通过 C$ 共享删除文件"""
-        local_path = remote_path.replace(r"C:\", self._share + "\\")
+        local_path = remote_path.replace("C:\\", self._share + "\\")
         try:
             os.remove(local_path)
         except FileNotFoundError:
@@ -577,7 +577,7 @@ try {{
 
     def _smb_read_text(self, remote_path: str) -> str:
         """通过 C$ 共享读取文本文件"""
-        local_path = remote_path.replace(r"C:\", self._share + "\\")
+        local_path = remote_path.replace("C:\\", self._share + "\\")
         return Path(local_path).read_text(encoding="utf-8").strip()
 
     @staticmethod

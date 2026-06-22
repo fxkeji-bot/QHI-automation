@@ -1,14 +1,14 @@
 {
   "agent": "marvis",
-  "status": "idle",
+  "status": "pending_tasks",
   "current_task": null,
   "progress": 100,
-  "last_update": "2026-06-21T02:32:19",
-  "last_scheduler_check": "2026-06-21T02:32:19",
-  "collab_plan_version": "v2.0",
-  "pending_tasks_count": 0,
+  "last_update": "2026-06-21T17:26:34",
+  "last_scheduler_check": "2026-06-22T14:40:01.317265",
+  "collab_plan_version": "v1.0",
+  "pending_tasks_count": 4,
   "files_modified": [],
   "issues_found": [],
   "next_tasks": [],
-  "notes": "巡检完成：COLLABORATION_PLAN.md v2.0 中所有任务均已完成（P0/P1/P2 全部 ✅）。pending 目录中 3 个 20260620 陈旧重复任务文件已清理删除（task_p0_001/安全漏洞修复, task_p1_001/ERP数据同步, task_p1_003/纸张工艺库完善 — completed 目录已有副本）。无新任务。"
+  "notes": "巡检完成：COLLABORATION_PLAN.md v2.0 中所有任务均已完成（P0/P1/P2 全部 ✅）。pending 目录为空（连续第15次干净巡检），无新任务分配给 Marvis。"
 }

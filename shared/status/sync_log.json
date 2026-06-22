@@ -293,6 +293,1728 @@
       "found_tasks": 4,
       "written_tasks": 0,
       "error": ""
+    },
+    {
+      "time": "2026-06-21T18:10:00.961525",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 3,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T18:15:00.653298",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T18:20:00.689033",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T18:25:00.700881",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T18:30:00.708816",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T18:35:00.714926",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T18:40:00.748784",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T18:45:00.790721",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T18:50:00.710741",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T18:55:00.750284",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T19:00:00.741182",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T19:05:00.739488",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T19:10:00.742821",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T19:15:00.785160",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T19:20:00.765456",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T19:25:00.807369",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T19:30:00.811974",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T19:35:00.815402",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T19:40:00.794841",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T19:45:00.838016",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T19:50:00.836235",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T19:55:00.839727",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T20:00:00.939207",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T20:05:00.849183",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T20:10:00.844098",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T20:15:00.878771",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T20:20:00.868418",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T20:25:00.836111",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T20:30:00.858146",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T20:35:00.872268",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T20:40:00.885491",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T20:45:00.906551",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T20:50:00.892111",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T20:55:00.887063",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T21:00:00.889664",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T21:05:00.904098",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T21:10:00.924176",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T21:15:00.938088",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T21:20:00.926038",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T21:25:00.948622",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T21:30:00.953463",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T21:35:00.957063",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T21:40:00.969840",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T21:45:00.977887",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T21:50:00.987663",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T21:55:00.961774",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T22:00:00.994842",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T22:05:01.012128",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T22:10:01.026288",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T22:15:01.042358",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T22:20:01.018884",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T22:25:01.059837",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T22:30:01.067463",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T22:35:01.061503",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T22:40:01.067401",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T22:45:01.084463",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T22:50:01.078756",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T22:55:01.084065",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T23:00:01.084969",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T23:05:01.094990",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T23:10:01.111491",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T23:15:01.085567",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T23:20:01.116080",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T23:25:01.127091",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T23:30:01.134589",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T23:35:01.113507",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T23:40:01.156993",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T23:45:01.168104",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T23:50:00.175974",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-21T23:55:00.191608",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T00:00:00.218803",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 3,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T00:05:00.202549",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T00:10:00.179062",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T00:15:00.234061",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T00:20:00.227092",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T00:25:00.237113",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T00:30:00.233036",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T00:35:00.272294",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T00:40:00.267298",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T00:45:00.275668",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T00:50:00.279406",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T00:55:00.295346",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T01:00:00.321871",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T01:05:00.293047",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T01:10:00.336931",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T01:15:00.350949",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T01:20:00.346225",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T01:25:00.358546",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T01:30:00.388459",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T01:35:00.369200",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T01:40:00.384539",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T01:45:00.392804",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T01:50:00.414245",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T01:55:00.389607",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T02:00:00.442179",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T02:05:00.439343",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T02:10:00.453566",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T02:15:00.474963",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T02:20:00.461721",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T02:25:00.444522",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T02:30:00.514071",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T02:35:00.508349",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T02:40:00.478682",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T02:45:00.504390",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T02:50:00.512542",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T02:55:00.515808",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T03:00:00.537465",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T03:05:00.504832",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T03:10:00.518423",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T03:15:00.589334",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T03:20:00.571575",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T03:25:00.537867",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T03:30:00.607510",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T03:35:00.611999",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T03:40:00.605118",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T03:45:00.613786",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T03:50:00.629628",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T03:55:00.624700",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T04:00:00.658630",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T04:05:00.640988",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T04:10:00.658489",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T04:15:00.642697",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T04:20:00.658129",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T04:25:00.657685",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T04:30:00.673770",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T04:35:00.686830",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T04:40:00.692920",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T04:45:00.695482",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T04:50:00.687208",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T04:55:00.715168",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T05:00:00.724695",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T05:05:00.718414",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T05:10:00.741910",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T05:15:00.724647",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T05:20:00.742271",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T05:25:00.762740",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T05:30:00.758745",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T05:35:00.795309",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T05:40:00.787616",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T05:45:00.804202",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T05:50:00.802227",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T05:55:00.776343",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T06:00:00.835876",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T06:05:00.833804",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T06:10:00.841184",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T06:15:00.854383",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T06:20:00.825299",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T06:25:00.860643",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T06:30:00.873353",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T06:35:00.898469",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T06:40:00.898969",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T06:45:00.869398",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T06:50:00.901207",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T06:55:00.921555",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T07:00:00.942438",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T07:05:00.932114",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T07:10:00.937949",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T07:15:00.955693",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T07:20:00.924424",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T07:25:00.946329",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T07:30:00.990988",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T07:35:01.017048",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T07:40:01.003474",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T07:45:01.010252",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T07:50:00.991326",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T07:55:01.036223",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T08:00:01.069885",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T08:05:01.025016",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T08:10:01.035250",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T08:15:01.059165",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T08:20:01.085521",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T08:25:02.132005",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T08:30:01.096703",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T08:35:01.114374",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T08:40:01.147865",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T08:45:01.145761",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T08:50:01.156534",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T08:55:00.160243",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T09:00:00.160987",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T09:05:00.186882",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T09:10:00.169370",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T09:15:00.167131",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T09:20:00.191347",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T09:25:00.202151",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T09:30:00.192147",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T09:35:00.240823",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T09:40:00.225311",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T09:45:00.230069",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T09:50:00.206594",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T09:55:00.206356",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T10:00:00.228922",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T10:05:00.288625",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T10:10:00.269564",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T10:15:00.253443",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T10:20:00.281390",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T10:25:00.312685",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T10:30:00.331919",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T10:35:00.371514",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T10:40:00.357606",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T10:45:00.375372",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T10:50:00.465139",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T10:55:00.360682",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T11:00:00.343280",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T11:05:00.386508",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T11:10:00.378767",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T11:15:00.393083",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T11:20:00.416779",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T11:25:00.428347",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T11:30:00.388473",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T11:35:00.452948",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T11:40:00.443730",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T11:45:00.463919",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T11:50:00.461709",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T11:55:00.431931",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T12:00:00.444725",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T12:05:00.470730",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T12:10:00.479533",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T12:15:00.481732",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T12:20:00.525734",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T12:25:00.527479",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T12:30:00.544911",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T12:35:00.547399",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T12:40:00.558101",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T12:45:00.529234",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T12:50:00.553691",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T12:55:00.538499",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T13:00:00.579857",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T13:05:00.584222",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T13:10:00.589884",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T13:15:00.627958",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T13:20:00.623195",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T13:25:00.622427",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T13:30:00.623391",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T13:35:00.650001",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T13:40:00.656222",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T13:45:00.671653",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T13:50:00.658014",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T13:55:00.686624",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T14:00:00.686239",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T14:05:00.736580",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T14:10:00.723885",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T14:15:00.682782",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T14:20:00.715693",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T14:25:00.729221",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T14:30:00.738301",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
+    },
+    {
+      "time": "2026-06-22T14:40:01.349685",
+      "script": "collab_scheduler.py",
+      "found_tasks": 4,
+      "written_tasks": 0,
+      "error": ""
     }
   ]
 }

@@ -10,6 +10,14 @@ logger = get_logger(__name__)
 """
 ui/main_window.py - Main application window with 8 tabs.
 
+审查日期：2026-06-21
+上帝对象缓解：初始化流程（7步引导 + 8个Tab构建 + 配置序列化）已拆分到
+ui/main_window_init.py 的 MainWindowInitializer 类中。
+MainWindow 现在仅保留窗口骨架、信号路由和控制器引用（693 行 → 可进一步委托）。
+
+导入优化建议：from PyQt5.QtWidgets import * 等通配符导入可改为显式导入以进一步
+降低模块依赖。当前保留以确保兼容性。
+
 Refactored: 对话框与控件逻辑已拆分到 ui/controllers/ 下的独立控制器模块，
 MainWindow 仅保留窗口骨架、信号路由和控制器引用。
 """
@@ -18,7 +26,6 @@ import os
 import sys
 import json
 import traceback as tb_module
-import shutil
 from typing import List, Optional
 from pathlib import Path
 from datetime import datetime
