@@ -81,6 +81,7 @@ class ConnectionPool:
         max_connection_age: float = 3600.0,  # 1小时
         max_use_count: int = 1000,
         check_same_thread: bool = False,
+        acquire_timeout: float = 3.0,  # 获取连接超时（秒）
     ):
         """初始化连接池
         
@@ -98,6 +99,7 @@ class ConnectionPool:
         self.max_connection_age = max_connection_age
         self.max_use_count = max_use_count
         self.check_same_thread = check_same_thread
+        self.acquire_timeout = acquire_timeout
         
         self._pool: queue.Queue = queue.Queue(maxsize=max_connections)
         self._all_connections: list = []
@@ -185,8 +187,8 @@ class ConnectionPool:
         
         return ConnectionContextManager(self)
     
-    def _acquire(self) -> PooledConnection:
-        """获取连接（内部方法）"""
+    def _acquire(self) -> Optional[PooledConnection]:
+        """获取连接（内部方法）— 等待队列+超时降级，返回None而非抛异常"""
         # 尝试从池中获取
         while True:
             try:
@@ -213,11 +215,33 @@ class ConnectionPool:
         # 创建新连接
         with self._lock:
             if len(self._all_connections) >= self.max_connections:
-                # 等待现有连接释放
-                logger.warning(f"连接池已满 ({self.max_connections})，等待连接释放...")
-                # 这里可以选择阻塞等待或抛出异常
-                # 目前选择抛出异常
-                raise RuntimeError(f"连接池已满，无法创建新连接 (max={self.max_connections})")
+                # 等待现有连接释放，最多等待 acquire_timeout 秒
+                logger.warning(
+                    f"连接池已满 ({self.max_connections})，等待连接释放 (超时: {self.acquire_timeout}s)..."
+                )
+                self._stats['errors'] += 1
+                # 降级：等待一段时间后返回 None，而非抛异常
+                deadline = time.time() + self.acquire_timeout
+                while time.time() < deadline:
+                    # 尝试回收空闲连接
+                    self._cleanup_one_idle()
+                    time.sleep(0.05)
+                    try:
+                        pooled = self._pool.get_nowait()
+                        if self._validate_connection(pooled):
+                            pooled.touch()
+                            pooled.in_use = True
+                            self._stats['reused'] += 1
+                            return pooled
+                        else:
+                            self._close_connection(pooled)
+                            with self._lock:
+                                if pooled in self._all_connections:
+                                    self._all_connections.remove(pooled)
+                    except queue.Empty:
+                        continue
+                logger.error(f"连接池获取超时 ({self.acquire_timeout}s)，返回 None")
+                return None
             
             conn = self._create_connection()
             pooled = self._wrap_connection(conn)
@@ -243,6 +267,16 @@ class ConnectionPool:
             with self._lock:
                 if pooled in self._all_connections:
                     self._all_connections.remove(pooled)
+    
+    def _cleanup_one_idle(self):
+        """尝试回收一个空闲过期连接，为等待者腾出空间"""
+        with self._lock:
+            for pooled in list(self._all_connections):
+                if not pooled.in_use and not self._validate_connection(pooled):
+                    self._close_connection(pooled)
+                    self._all_connections.remove(pooled)
+                    self._stats['recycled'] += 1
+                    return
     
     def cleanup(self):
         """清理过期连接"""
@@ -315,6 +349,8 @@ class ConnectionContextManager:
     
     def __enter__(self) -> sqlite3.Connection:
         self.pooled = self.pool._acquire()
+        if self.pooled is None:
+            raise RuntimeError("连接池获取连接超时，请稍后重试")
         return self.pooled.conn
     
     def __exit__(self, exc_type, exc_val, exc_tb):

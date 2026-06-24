@@ -45,7 +45,7 @@ class APIConfig:
     """API配置"""
     HOST = "127.0.0.1"
     PORT = 18900
-    _DEFAULT_SECRET = "qhi-default-secret-key-change-in-production"
+    _DEFAULT_SECRET = ""
     _cached_secret: Optional[str] = None
     JWT_EXPIRY_HOURS = 24
     RATE_LIMIT_REQUESTS = 100  # 每分钟最大请求数
@@ -65,17 +65,12 @@ class APIConfig:
         
         secret = os.environ.get("QHI_API_SECRET", "")
         
-        # 检查是否使用默认值（不安全）
-        if secret == cls._DEFAULT_SECRET:
-            logger.critical(
-                "安全警告：API密钥使用了默认值！"
-                "生产环境必须设置环境变量 QHI_API_SECRET。"
+        # 生产环境必须设置环境变量
+        if not secret and cls.is_production():
+            raise RuntimeError(
+                "安全致命错误：生产环境必须设置环境变量 QHI_API_SECRET！"
                 "命令: set QHI_API_SECRET=<your-random-secret>"
             )
-            # 开发环境：生成随机密钥
-            import secrets
-            secret = secrets.token_hex(32)
-            logger.warning("已生成临时随机密钥（仅限开发环境使用）")
         
         # 未设置时生成随机密钥
         if not secret:

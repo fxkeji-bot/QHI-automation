@@ -532,13 +532,14 @@ class JobQueue:
         columns = [desc[0] for desc in description]
         data = dict(zip(columns, row))
         
-        # 解析JSON字段
-        for field in ['file_paths', 'config', 'output_paths', 'metadata']:
-            if data.get(field) and isinstance(data[field], str):
-                try:
-                    data[field] = json.loads(data[field])
-                except:
-                    data[field] = [] if field.endswith('s') else {}
+        # 解析JSON字段（线程安全）
+        with self._lock:
+            for field in ['file_paths', 'config', 'output_paths', 'metadata']:
+                if data.get(field) and isinstance(data[field], str):
+                    try:
+                        data[field] = json.loads(data[field])
+                    except Exception:
+                        data[field] = [] if field.endswith('s') else {}
         
         return Job(**{k: v for k, v in data.items() if k in Job.__dataclass_fields__})
     
@@ -800,28 +801,29 @@ class JobQueue:
     
     def _load_devices(self):
         """从数据库加载设备"""
-        conn = self._get_conn()
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM print_devices WHERE enabled = 1")
-            
-            columns = [desc[0] for desc in cursor.description]
-            for row in cursor.fetchall():
-                data = dict(zip(columns, row))
+        with self._lock:
+            conn = self._get_conn()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM print_devices WHERE enabled = 1")
                 
-                # 解析JSON
-                if data.get('supported_formats'):
-                    try:
-                        data['supported_formats'] = json.loads(data['supported_formats'])
-                    except:
-                        data['supported_formats'] = ["pdf"]
-                
-                data['enabled'] = bool(data.get('enabled', 1))
-                
-                device = Device(**{k: v for k, v in data.items() if k in Device.__dataclass_fields__})
-                self._devices[device.device_id] = device
-        finally:
-            self._close_conn(conn)
+                columns = [desc[0] for desc in cursor.description]
+                for row in cursor.fetchall():
+                    data = dict(zip(columns, row))
+                    
+                    # 解析JSON
+                    if data.get('supported_formats'):
+                        try:
+                            data['supported_formats'] = json.loads(data['supported_formats'])
+                        except Exception:
+                            data['supported_formats'] = ["pdf"]
+                    
+                    data['enabled'] = bool(data.get('enabled', 1))
+                    
+                    device = Device(**{k: v for k, v in data.items() if k in Device.__dataclass_fields__})
+                    self._devices[device.device_id] = device
+            finally:
+                self._close_conn(conn)
     
     def assign_job_to_device(self, job_id: str, device_id: str) -> bool:
         """将作业分配给设备"""

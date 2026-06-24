@@ -150,7 +150,7 @@ class ProcessingController:
     def on_file_done(self, filename: str, success: bool, msg: str):
         """文件处理完成回调"""
         mw = self._mw
-        status = "" if success else ""
+        status = "[OK]" if success else "[X]"
         mw.log(f"{status} {filename}")
         if msg:
             for line in msg.split(" | "):

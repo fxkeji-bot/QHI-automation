@@ -426,64 +426,79 @@ class PrintManagementTab(QWidget):
     def _refresh_queue(self):
         if not self._hot_folder_service:
             return
-        try:
-            jobs = self._hot_folder_service.get_jobs()
-            filter_text = self._filter_combo.currentText()
-            if filter_text != "全部":
-                jobs = [j for j in jobs if j.get("status") == filter_text]
+        def _do_refresh():
+            try:
+                jobs = self._hot_folder_service.get_jobs()
+                filter_text = self._filter_combo.currentText()
+                if filter_text != "全部":
+                    jobs = [j for j in jobs if j.get("status") == filter_text]
 
-            self._queue_table.setRowCount(len(jobs))
-            status_colors = {
-                "completed": QColor("#4CAF50"),
-                "failed": QColor("#f44336"),
-                "pending": QColor("#FF9800"),
-                "printing": QColor("#2196F3"),
-                "dead_letter": QColor("#9e9e9e"),
-            }
-            for row, job in enumerate(jobs):
-                self._queue_table.setItem(row, 0, QTableWidgetItem(job.get("job_id", "")[:16]))
-                filepath = job.get("file_path", "")
-                self._queue_table.setItem(row, 1, QTableWidgetItem(filepath.split("\\")[-1] if filepath else ""))
-                self._queue_table.setItem(row, 2, QTableWidgetItem(job.get("printer_ip", "")))
-                status = job.get("status", "")
-                status_item = QTableWidgetItem(status)
-                status_item.setForeground(status_colors.get(status, QColor("#333")))
-                self._queue_table.setItem(row, 3, status_item)
-                self._queue_table.setItem(row, 4, QTableWidgetItem(str(job.get("retry_count", 0))))
-                self._queue_table.setItem(row, 5, QTableWidgetItem(job.get("error", "")[:80]))
-                created = job.get("created_at", "")
-                if "T" in created:
-                    created = created.split("T")[1][:8] if len(created) > 10 else created
-                self._queue_table.setItem(row, 6, QTableWidgetItem(created))
-        except Exception:
-            pass
+                QTimer.singleShot(0, lambda: self._fill_queue(jobs))
+            except Exception:
+                pass
+        threading.Thread(target=_do_refresh, daemon=True).start()
+
+    def _fill_queue(self, jobs):
+        self._queue_table.setRowCount(len(jobs))
+        status_colors = {
+            "completed": QColor("#4CAF50"),
+            "failed": QColor("#f44336"),
+            "pending": QColor("#FF9800"),
+            "printing": QColor("#2196F3"),
+            "dead_letter": QColor("#9e9e9e"),
+        }
+        for row, job in enumerate(jobs):
+            self._queue_table.setItem(row, 0, QTableWidgetItem(job.get("job_id", "")[:16]))
+            filepath = job.get("file_path", "")
+            self._queue_table.setItem(row, 1, QTableWidgetItem(filepath.split("\\")[-1] if filepath else ""))
+            self._queue_table.setItem(row, 2, QTableWidgetItem(job.get("printer_ip", "")))
+            status = job.get("status", "")
+            status_item = QTableWidgetItem(status)
+            status_item.setForeground(status_colors.get(status, QColor("#333")))
+            self._queue_table.setItem(row, 3, status_item)
+            self._queue_table.setItem(row, 4, QTableWidgetItem(str(job.get("retry_count", 0))))
+            self._queue_table.setItem(row, 5, QTableWidgetItem(job.get("error", "")[:80]))
+            created = job.get("created_at", "")
+            if "T" in created:
+                created = created.split("T")[1][:8] if len(created) > 10 else created
+            self._queue_table.setItem(row, 6, QTableWidgetItem(created))
 
     def _refresh_stats(self):
         if not self._hot_folder_service:
             return
-        try:
-            stats = self._hot_folder_service.get_stats()
-            self._stat_labels["total_jobs"].setText(str(stats.get("total_jobs", 0)))
-            self._stat_labels["completed"].setText(str(stats.get("completed", 0)))
-            self._stat_labels["failed"].setText(str(stats.get("failed", 0)))
-            self._stat_labels["pending"].setText(str(stats.get("pending", 0)))
-        except Exception:
-            pass
+        def _do_refresh():
+            try:
+                stats = self._hot_folder_service.get_stats()
+                QTimer.singleShot(0, lambda: self._apply_stats(stats))
+            except Exception:
+                pass
+        threading.Thread(target=_do_refresh, daemon=True).start()
+
+    def _apply_stats(self, stats):
+        self._stat_labels["total_jobs"].setText(str(stats.get("total_jobs", 0)))
+        self._stat_labels["completed"].setText(str(stats.get("completed", 0)))
+        self._stat_labels["failed"].setText(str(stats.get("failed", 0)))
+        self._stat_labels["pending"].setText(str(stats.get("pending", 0)))
 
     def _refresh_monitors(self):
         if not self._hot_folder_service:
             return
-        try:
-            stats = self._hot_folder_service.get_stats()
-            count = stats.get("monitors", 0)
-            running = stats.get("running", False)
-            self._monitor_count_label.setText(f"监控数: {count}")
-            status = "运行中" if running else "已停止"
-            color = "#4CAF50" if running else "#f44336"
-            self._monitor_label.setText(f"状态: {status}")
-            self._monitor_label.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold;")
-        except Exception:
-            pass
+        def _do_refresh():
+            try:
+                stats = self._hot_folder_service.get_stats()
+                QTimer.singleShot(0, lambda: self._apply_monitors(stats))
+            except Exception:
+                pass
+        threading.Thread(target=_do_refresh, daemon=True).start()
+
+    def _apply_monitors(self, stats):
+        count = stats.get("monitors", 0)
+        running = stats.get("running", False)
+        self._monitor_count_label.setText(f"监控数: {count}")
+        status = "运行中" if running else "已停止"
+        color = "#4CAF50" if running else "#f44336"
+        self._monitor_label.setText(f"状态: {status}")
+        self._monitor_label.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold;")
 
     def _apply_filter(self, _text):
         self._refresh_queue()
@@ -512,14 +527,20 @@ class PrintManagementTab(QWidget):
         if not self._hot_folder_service:
             QMessageBox.warning(self, "提示", "热文件夹服务未连接")
             return
-        printers = self._hot_folder_service.get_printer_status()
-        online = [p for p in printers if p.get("status") == "online"]
-        if not online:
-            QMessageBox.warning(self, "提示", "无在线打印机")
-            return
-        ip = online[0]["ip"]
-        self._hot_folder_service.print_test_page(ip)
-        self.status_message.emit(f"测试样张已发送到 {online[0]['name']}")
+        # 移入后台线程避免UI冻结
+        def _do_test():
+            try:
+                printers = self._hot_folder_service.get_printer_status()
+                online = [p for p in printers if p.get("status") == "online"]
+                if not online:
+                    QTimer.singleShot(0, lambda: QMessageBox.warning(self, "提示", "无在线打印机"))
+                    return
+                ip = online[0]["ip"]
+                self._hot_folder_service.print_test_page(ip)
+                QTimer.singleShot(0, lambda: self.status_message.emit(f"测试样张已发送到 {online[0]['name']}"))
+            except Exception as e:
+                QTimer.singleShot(0, lambda: QMessageBox.critical(self, "错误", f"测试打印失败: {e}"))
+        threading.Thread(target=_do_test, daemon=True).start()
 
     def _open_web_monitor(self):
         webbrowser.open("http://127.0.0.1:8080")
@@ -611,43 +632,61 @@ class PrintManagementTab(QWidget):
             log_text.append(f"[{ts}] {msg}")
 
         def do_connect():
-            try:
-                from services.erp_order_bridge import ErpOrderBridge
-                bridge[0] = ErpOrderBridge()
-                stats = bridge[0].get_customer_stats()
-                total = sum(s["cnt"] for s in stats)
-                self._erp_status.setText(f"已连接 ({len(stats)}客户, {total}条)")
-                self._erp_status.setStyleSheet("color: #4CAF50; font-weight: bold;")
-                log(f"ERP连接成功: {len(stats)}客户, {total}记录")
+            # 移入后台线程避免UI冻结（Issue #4/#5 修复）
+            btn_connect.setEnabled(False)
+            log("连接ERP数据库中...")
+            def _do():
+                try:
+                    from services.erp_order_bridge import ErpOrderBridge
+                    b = ErpOrderBridge()
+                    stats = b.get_customer_stats()
+                    total = sum(s["cnt"] for s in stats)
+                    bridge[0] = b
+                    # 通过QTimer回到主线程更新UI
+                    QTimer.singleShot(0, lambda: _update_connect_ui(stats, total))
+                except Exception as e:
+                    QTimer.singleShot(0, lambda: log(f"连接失败: {e}"))
+                    QTimer.singleShot(0, lambda: btn_connect.setEnabled(True))
+            threading.Thread(target=_do, daemon=True).start()
 
-                erp_filter.blockSignals(True)
-                erp_filter.clear()
-                erp_filter.addItem("全部", "all")
-                for s in stats[:30]:
-                    erp_filter.addItem(f"{s['customer_name']}({s['customer_code']})", s["customer_code"])
-                erp_filter.blockSignals(False)
-
-                do_refresh()
-            except Exception as e:
-                log(f"连接失败: {e}")
+        def _update_connect_ui(stats, total):
+            self._erp_status.setText(f"已连接 ({len(stats)}客户, {total}条)")
+            self._erp_status.setStyleSheet("color: #4CAF50; font-weight: bold;")
+            log(f"ERP连接成功: {len(stats)}客户, {total}记录")
+            erp_filter.blockSignals(True)
+            erp_filter.clear()
+            erp_filter.addItem("全部", "all")
+            for s in stats[:30]:
+                erp_filter.addItem(f"{s['customer_name']}({s['customer_code']})", s["customer_code"])
+            erp_filter.blockSignals(False)
+            btn_connect.setEnabled(True)
+            do_refresh()
 
         def do_refresh():
             if not bridge[0]:
                 log("请先连接ERP")
                 return
+            # 移入后台线程避免UI冻结
             code = erp_filter.currentData()
             if code == "all":
                 code = None
             log("加载工单...")
-            orders = bridge[0].get_pending_orders(limit=100)
-            if code:
-                orders = [o for o in orders if o["customer_code"] == code]
-            orders_data[0] = orders[:50]
-            parsed_results[0] = []
+            def _do():
+                try:
+                    orders = bridge[0].get_pending_orders(limit=100)
+                    if code:
+                        orders = [o for o in orders if o["customer_code"] == code]
+                    QTimer.singleShot(0, lambda: _fill_orders_table(orders[:50]))
+                except Exception as e:
+                    QTimer.singleShot(0, lambda: log(f"加载失败: {e}"))
+            threading.Thread(target=_do, daemon=True).start()
 
-            order_table.setRowCount(len(orders_data[0]))
+        def _fill_orders_table(orders):
+            orders_data[0] = orders
+            parsed_results[0] = []
+            order_table.setRowCount(len(orders))
             from services.multi_customer_parser import auto_detect_format
-            for i, o in enumerate(orders_data[0]):
+            for i, o in enumerate(orders):
                 order_table.setItem(i, 0, QTableWidgetItem(o["gd_no"][:20]))
                 order_table.setItem(i, 1, QTableWidgetItem(o["customer_name"][:10]))
                 order_table.setItem(i, 2, QTableWidgetItem(o["date"]))
@@ -661,7 +700,7 @@ class PrintManagementTab(QWidget):
                     status_item.setForeground(QColor("#FF9800"))
                 order_table.setItem(i, 4, status_item)
                 o["_parsed_fmt"] = fmt
-            log(f"加载 {len(orders_data[0])} 条工单")
+            log(f"加载 {len(orders)} 条工单")
 
         def on_select(row, col, prev_row, prev_col):
             if row < 0 or row >= len(orders_data[0]):
@@ -683,7 +722,7 @@ class PrintManagementTab(QWidget):
                     for k, v in d.items():
                         if v:
                             lines.append(f"{k}: {v}")
-                except:
+                except Exception:
                     pass
             preview.setText("\n".join(lines))
 
@@ -691,12 +730,23 @@ class PrintManagementTab(QWidget):
             if not bridge[0]:
                 return
             rows = set(idx.row() for idx in order_table.selectedIndexes())
-            for row in rows:
-                if row < len(orders_data[0]):
-                    o = orders_data[0][row]
-                    result = bridge[0].process_order_from_erp(o)
-                    parsed_results[0].append(result)
-                    log(f"{result['gd_no']}: {result['status']} ({result['spec_count']} specs)")
+            # 移入后台线程避免UI冻结（Issue #4 修复）
+            selected_orders = [orders_data[0][row] for row in rows if row < len(orders_data[0])]
+            btn_parse.setEnabled(False)
+            def _do():
+                results_local = []
+                for o in selected_orders:
+                    try:
+                        result = bridge[0].process_order_from_erp(o)
+                        results_local.append(result)
+                        parsed_results[0].append(result)
+                    except Exception as e:
+                        results_local.append({"gd_no": o.get("gd_no", "?"), "status": "error", "spec_count": 0, "error": str(e)})
+                # 回到主线程更新UI
+                for r in results_local:
+                    QTimer.singleShot(0, lambda rr=r: log(f"{rr['gd_no']}: {rr['status']} ({rr.get('spec_count', 0)} specs)"))
+                QTimer.singleShot(0, lambda: btn_parse.setEnabled(True))
+            threading.Thread(target=_do, daemon=True).start()
 
         def do_batch():
             if not bridge[0]:
@@ -704,34 +754,50 @@ class PrintManagementTab(QWidget):
             code = erp_filter.currentData()
             if code == "all":
                 code = None
+            btn_batch.setEnabled(False)
             log("批量解析...")
-            results = bridge[0].batch_process_from_erp(limit=20, customer_code=code)
-            parsed = sum(1 for r in results if r["status"] == "parsed")
-            parsed_results[0] = results
-            log(f"批量完成: {len(results)}条, {parsed}条已解析")
-            for r in results[:10]:
-                log(f"  {r['gd_no']}: {r['status']} ({r['spec_count']} specs)")
+            # 移入后台线程避免UI冻结（Issue #4 修复）
+            def _do():
+                try:
+                    results = bridge[0].batch_process_from_erp(limit=20, customer_code=code)
+                    parsed = sum(1 for r in results if r["status"] == "parsed")
+                    parsed_results[0] = results
+                    QTimer.singleShot(0, lambda: log(f"批量完成: {len(results)}条, {parsed}条已解析"))
+                    for r in results[:10]:
+                        QTimer.singleShot(0, lambda rr=r: log(f"  {rr['gd_no']}: {rr['status']} ({rr.get('spec_count', 0)} specs)"))
+                except Exception as e:
+                    QTimer.singleShot(0, lambda: log(f"批量解析失败: {e}"))
+                finally:
+                    QTimer.singleShot(0, lambda: btn_batch.setEnabled(True))
+            threading.Thread(target=_do, daemon=True).start()
 
         def do_send():
             cnt = len(parsed_results[0])
             if cnt == 0:
                 log("请先解析工单")
                 return
+            btn_send.setEnabled(False)
             log(f"发送 {cnt} 条工单到订单管线...")
-            try:
-                from services.order_pipeline import OrderPipeline
-                pipeline = OrderPipeline()
-                for r in parsed_results[0]:
-                    if r.get("specs"):
-                        result = pipeline.process_order(
-                            files=[r.get("file_path", "")] if r.get("file_path") else None,
-                            requirement_text=r.get("raw_text", ""),
-                            customer_id=r.get("customer_code", "auto"),
-                        )
-                        log(f"  {result.order_code}: {result.status} ({len(result.specs)} specs)")
-                log(f"管线处理完成")
-            except Exception as e:
-                log(f"管线错误: {e}")
+            # 移入后台线程避免UI冻结（Issue #4 修复）
+            _results = parsed_results[0][:]
+            def _do():
+                try:
+                    from services.order_pipeline import OrderPipeline
+                    pipeline = OrderPipeline()
+                    for r in _results:
+                        if r.get("specs"):
+                            result = pipeline.process_order(
+                                files=[r.get("file_path", "")] if r.get("file_path") else None,
+                                requirement_text=r.get("raw_text", ""),
+                                customer_id=r.get("customer_code", "auto"),
+                            )
+                            QTimer.singleShot(0, lambda rr=result: log(f"  {rr.order_code}: {rr.status} ({len(rr.specs)} specs)"))
+                    QTimer.singleShot(0, lambda: log(f"管线处理完成"))
+                except Exception as e:
+                    QTimer.singleShot(0, lambda: log(f"管线错误: {e}"))
+                finally:
+                    QTimer.singleShot(0, lambda: btn_send.setEnabled(True))
+            threading.Thread(target=_do, daemon=True).start()
 
         btn_connect.clicked.connect(do_connect)
         btn_refresh.clicked.connect(do_refresh)
@@ -832,31 +898,35 @@ class PrintManagementTab(QWidget):
             result_label.setText("处理中...")
             btn_submit.setEnabled(False)
 
-            try:
-                from services.order_pipeline import OrderPipeline
-                pipeline = OrderPipeline(
-                    hot_folder_service=getattr(self, '_hot_folder_service', None),
-                )
-
-                result = pipeline.process_order(
-                    files=selected_files[:] if selected_files else None,
-                    requirement_text=text,
-                    customer_id=cid,
-                )
-
-                lines = []
-                lines.append(f"订单: {result.order_code} | 客户: {result.customer_name}")
-                lines.append(f"状态: {result.status} | 打印机: {result.printer_ip or 'N/A'}")
-                lines.append(f"规格数: {len(result.specs)}")
-                for msg in result.messages:
-                    lines.append(msg)
-                if result.error:
-                    lines.append(f"错误: {result.error}")
-                result_label.setText("\n".join(lines))
-            except Exception as e:
-                result_label.setText(f"[ERROR] {e}")
-            finally:
-                btn_submit.setEnabled(True)
+            # 移入后台线程避免UI冻结（Issue #4 修复）
+            _text = text
+            _cid = cid
+            _files = selected_files[:] if selected_files else None
+            def _do():
+                try:
+                    from services.order_pipeline import OrderPipeline
+                    pipeline = OrderPipeline(
+                        hot_folder_service=getattr(self, '_hot_folder_service', None),
+                    )
+                    result = pipeline.process_order(
+                        files=_files,
+                        requirement_text=_text,
+                        customer_id=_cid,
+                    )
+                    lines = []
+                    lines.append(f"订单: {result.order_code} | 客户: {result.customer_name}")
+                    lines.append(f"状态: {result.status} | 打印机: {result.printer_ip or 'N/A'}")
+                    lines.append(f"规格数: {len(result.specs)}")
+                    for msg in result.messages:
+                        lines.append(msg)
+                    if result.error:
+                        lines.append(f"错误: {result.error}")
+                    QTimer.singleShot(0, lambda: result_label.setText("\n".join(lines)))
+                except Exception as e:
+                    QTimer.singleShot(0, lambda: result_label.setText(f"[ERROR] {e}"))
+                finally:
+                    QTimer.singleShot(0, lambda: btn_submit.setEnabled(True))
+            threading.Thread(target=_do, daemon=True).start()
 
         btn_submit.clicked.connect(on_submit)
         dlg.exec_()

@@ -24,9 +24,9 @@ logger = logging.getLogger(__name__)
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 BASE_URL = os.environ.get("PRINTING_SYSTEM_URL", DEFAULT_BASE_URL)
 
-# 默认登录凭据（环境变量 > 默认值 admin/admin123）
-DEFAULT_USERNAME = os.environ.get("PRINTING_SYSTEM_USERNAME", "admin")
-DEFAULT_PASSWORD = os.environ.get("PRINTING_SYSTEM_PASSWORD", "admin123")
+# 登录凭据：环境变量 > credentials模块 > 空字符串（需显式配置）
+DEFAULT_USERNAME = os.environ.get("PRINTING_SYSTEM_USERNAME", "")
+DEFAULT_PASSWORD = ""  # 从 credentials 模块获取
 
 _JWT_TOKEN: Optional[str] = None
 _JWT_TOKEN_EXPIRES_AT: Optional[datetime] = None
@@ -44,6 +44,12 @@ class PrintingSystemClient:
         self._token_expires_at: Optional[datetime] = None
         self._username = username or DEFAULT_USERNAME
         self._password = password or DEFAULT_PASSWORD
+        if not self._password:
+            try:
+                from core.credentials import get_api_password
+                self._password = get_api_password("printing_system")
+            except ImportError:
+                pass
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:

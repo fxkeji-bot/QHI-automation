@@ -99,7 +99,7 @@ class Consumable:
             expires = datetime.strptime(self.expires_at, "%Y-%m-%d")
             delta = expires - datetime.now()
             return max(0, delta.days)
-        except:
+        except Exception:
             return 999
     
     def to_dict(self) -> Dict:
@@ -147,9 +147,10 @@ class ConsumableRecord:
 class ConsumableManager:
     """耗材管理器"""
     
-    def __init__(self, db=None, log_callback: Callable = None):
+    def __init__(self, db=None, log_callback: Callable = None, alert_callback: Callable = None):
         self._db = db
         self.log = log_callback or logger.info
+        self._alert_callback = alert_callback  # 告警通知回调
         self._consumables: Dict[str, Consumable] = {}
         self._lock = threading.RLock()
         
@@ -301,7 +302,23 @@ class ConsumableManager:
         
         # 检查告警
         if consumable.needs_replacement:
-            self.log(f"警告: {consumable.name} 余量不足 {consumable.level_percent:.1f}%")
+            alert_msg = f"🚨 耗材告警: {consumable.name} 余量不足 {consumable.level_percent:.1f}% (阈值: {consumable.warning_threshold}%)"
+            self.log(alert_msg)
+            
+            # 调用告警回调（如果设置）
+            if self._alert_callback:
+                try:
+                    self._alert_callback({
+                        "type": "consumable_low",
+                        "consumable_id": consumable.consumable_id,
+                        "name": consumable.name,
+                        "device_id": consumable.device_id,
+                        "level_percent": consumable.level_percent,
+                        "threshold": consumable.warning_threshold,
+                        "urgency": "高" if consumable.level_percent <= 10 else "中",
+                    })
+                except Exception as e:
+                    self.log(f"告警回调执行失败: {e}")
         
         self.log(f"耗材余量更新: {consumable.name} = {new_level}%")
         return True
@@ -426,25 +443,209 @@ class ConsumableManager:
             },
         }
     
-    def generate_purchase_suggestion(self) -> List[Dict]:
-        """生成采购建议"""
+    def get_all_consumption_trends(self, days: int = 30) -> Dict[str, Dict]:
+        """批量获取所有耗材的消耗趋势"""
+        trends = {}
+        for consumable_id in self._consumables.keys():
+            trend = self.get_consumption_trend(consumable_id, days)
+            if trend:
+                trends[consumable_id] = trend
+        return trends
+    
+    def check_and_alert_all(self) -> List[Dict]:
+        """检查所有耗材并触发告警（可定时调用）"""
+        alerts = []
+        
+        for consumable in self._consumables.values():
+            if consumable.needs_replacement:
+                alert = {
+                    "consumable_id": consumable.consumable_id,
+                    "name": consumable.name,
+                    "device_id": consumable.device_id,
+                    "level_percent": round(consumable.level_percent, 1),
+                    "threshold": consumable.warning_threshold,
+                    "urgency": "高" if consumable.level_percent <= 10 else "中",
+                }
+                alerts.append(alert)
+                
+                # 触发回调
+                if self._alert_callback:
+                    try:
+                        self._alert_callback({
+                            "type": "consumable_low",
+                            **alert,
+                        })
+                    except Exception as e:
+                        self.log(f"告警回调执行失败: {e}")
+        
+        return alerts
+        """获取消耗统计"""
+        consumables = self.list_consumables(device_id=device_id)
+        
+        total_value = sum(c.unit_price * (c.current_level / 100) for c in consumables)
+        low_count = sum(1 for c in consumables if c.needs_replacement)
+        expiring_count = sum(1 for c in consumables if c.days_until_expires <= 30)
+        
+        return {
+            "total_consumables": len(consumables),
+            "total_value": round(total_value, 2),
+            "low_level_count": low_count,
+            "expiring_soon_count": expiring_count,
+            "by_category": {
+                cat.value: sum(1 for c in consumables if c.category == cat.value)
+                for cat in ConsumableCategory
+            },
+        }
+    
+    def generate_purchase_suggestion(self, include_trend: bool = True) -> List[Dict]:
+        """生成采购建议（增强版：包含消耗速度预测）"""
         suggestions = []
         
         for consumable in self._consumables.values():
             if consumable.needs_replacement:
-                suggestions.append({
+                # 基础信息
+                suggestion = {
                     "consumable_id": consumable.consumable_id,
                     "name": consumable.name,
                     "brand": consumable.brand,
                     "model": consumable.model,
                     "part_number": consumable.part_number,
-                    "current_level": consumable.level_percent,
+                    "current_level": round(consumable.level_percent, 1),
                     "unit_price": consumable.unit_price,
                     "priority": "高" if consumable.current_level <= 10 else "中",
                     "reason": "余量不足" if consumable.needs_replacement else "即将过期",
-                })
+                }
+                
+                # 增强：计算消耗速度和建议采购数量
+                if include_trend:
+                    trend = self.get_consumption_trend(consumable.consumable_id, days=30)
+                    if trend.get("daily_consumption_rate"):
+                        daily_rate = trend["daily_consumption_rate"]
+                        days_until_empty = (consumable.current_level / 100 * consumable.max_level) / daily_rate if daily_rate > 0 else 999
+                        
+                        suggestion["daily_consumption"] = round(daily_rate, 2)
+                        suggestion["days_until_empty"] = round(days_until_empty, 1)
+                        suggestion["recommended_quantity"] = self._calculate_reorder_quantity(consumable, daily_rate)
+                        suggestion["estimated_cost"] = round(suggestion["recommended_quantity"] * consumable.unit_price, 2)
+                    else:
+                        suggestion["daily_consumption"] = None
+                        suggestion["days_until_empty"] = None
+                        suggestion["recommended_quantity"] = 1
+                        suggestion["estimated_cost"] = consumable.unit_price
+                
+                suggestions.append(suggestion)
+        
+        # 按紧急程度排序
+        suggestions.sort(key=lambda x: (x["priority"] == "高", x.get("days_until_empty") or 999))
         
         return suggestions
+    
+    def _calculate_reorder_quantity(self, consumable: Consumable, daily_rate: float) -> int:
+        """计算建议采购数量（考虑安全库存和采购周期）"""
+        if daily_rate <= 0:
+            return 1
+        
+        # 安全库存：满足 N 天消耗
+        SAFETY_DAYS = 14  # 两周安全库存
+        
+        # 采购周期（天）
+        LEAD_TIME_DAYS = 7  # 默认一周
+        
+        # 计算总需求 = (安全库存 + 采购周期) * 日消耗量 / 单件容量
+        total_demand = (SAFETY_DAYS + LEAD_TIME_DAYS) * daily_rate
+        max_capacity = consumable.max_level  # 假设 max_level 是单件容量
+        
+        # 计算需要采购的件数
+        quantity = max(1, int(total_demand / max_capacity) + 1)
+        
+        return quantity
+    
+    def get_consumption_trend(self, consumable_id: str, days: int = 30) -> Dict:
+        """获取耗材消耗趋势（时间序列分析）"""
+        consumable = self._consumables.get(consumable_id)
+        if not consumable:
+            return {}
+        
+        # 查询历史记录
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        
+        since_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        cursor.execute("""
+            SELECT created_at, action, old_level, new_level
+            FROM consumable_records
+            WHERE consumable_id = ? AND created_at >= ?
+            ORDER BY created_at ASC
+        """, (consumable_id, since_date))
+        
+        records = cursor.fetchall()
+        self._close_conn(conn)
+        
+        if not records:
+            return {
+                "consumable_id": consumable_id,
+                "days_analyzed": days,
+                "record_count": 0,
+                "daily_consumption_rate": None,
+                "trend": "unknown",
+            }
+        
+        # 计算消耗速度
+        total_consumption = 0
+        consumption_events = []
+        
+        for record in records:
+            action = record[1]
+            old_level = record[2]
+            new_level = record[3]
+            
+            if action == "adjust" and new_level < old_level:
+                # 自然消耗
+                consumed = old_level - new_level
+                total_consumption += consumed
+                consumption_events.append({
+                    "date": record[0],
+                    "consumption": consumed,
+                })
+            elif action == "replace":
+                # 更换后重置，之前的消耗已记录
+                pass
+        
+        # 计算日均消耗
+        if len(records) > 1:
+            first_date = datetime.strptime(records[0][0], "%Y-%m-%d %H:%M:%S")
+            last_date = datetime.strptime(records[-1][0], "%Y-%m-%d %H:%M:%S")
+            days_span = max(1, (last_date - first_date).days)
+            daily_rate = total_consumption / days_span
+        else:
+            daily_rate = total_consumption  # 单次事件，无法计算日均
+        
+        # 判断趋势
+        trend = "stable"
+        if len(consumption_events) >= 3:
+            # 简单趋势判断：比较前半段和后半段的平均消耗
+            mid = len(consumption_events) // 2
+            first_half_avg = sum(e["consumption"] for e in consumption_events[:mid]) / max(1, mid)
+            second_half_avg = sum(e["consumption"] for e in consumption_events[mid:]) / max(1, len(consumption_events) - mid)
+            
+            if second_half_avg > first_half_avg * 1.2:
+                trend = "increasing"
+            elif second_half_avg < first_half_avg * 0.8:
+                trend = "decreasing"
+        
+        return {
+            "consumable_id": consumable_id,
+            "name": consumable.name,
+            "days_analyzed": days,
+            "record_count": len(records),
+            "total_consumption": round(total_consumption, 2),
+            "daily_consumption_rate": round(daily_rate, 2),
+            "trend": trend,  # increasing | stable | decreasing
+            "current_level": round(consumable.level_percent, 1),
+            "estimated_days_remaining": round(
+                (consumable.current_level / 100 * consumable.max_level) / daily_rate, 1
+            ) if daily_rate > 0 else None,
+        }
 
 
 # ==================== 默认耗材配置 ====================

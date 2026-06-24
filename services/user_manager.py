@@ -207,7 +207,7 @@ class Session:
         try:
             expires = datetime.fromisoformat(self.expires_at)
             return datetime.now() > expires
-        except:
+        except Exception:
             return True
     
     def to_dict(self) -> Dict:
@@ -262,7 +262,7 @@ class APIKey:
         try:
             expires = datetime.fromisoformat(self.expires_at)
             return datetime.now() > expires
-        except:
+        except Exception:
             return False
     
     def to_dict(self, include_key: bool = False) -> Dict:

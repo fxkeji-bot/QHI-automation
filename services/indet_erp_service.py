@@ -24,6 +24,7 @@ import os
 import subprocess
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
@@ -41,9 +42,9 @@ DEFAULT_CONFIG = {
     "primary": {
         "mode": "direct",  # direct | api
         "sql_server": {
-            "host": "192.168.1.22",
-            "port": 1433,
-            "database": "EMSXDB",
+            "host": os.environ.get("SQL_SERVER_HOST", "192.168.1.22"),
+            "port": int(os.environ.get("SQL_SERVER_PORT", "1433")),
+            "database": os.environ.get("SQL_SERVER_DB", "EMSXDB"),
             "driver": "ODBC Driver 17 for SQL Server",
             "trusted_connection": True,
             "connect_timeout": 10,
@@ -54,7 +55,7 @@ DEFAULT_CONFIG = {
     "fallback": {
         "mode": "api",
         "api": {
-            "base_url": "http://192.168.1.22:8080/api",
+            "base_url": os.environ.get("ERP_API_BASE_URL", "http://192.168.1.22:8080/api"),
             "timeout": 15,
             "retry": 3
         }
@@ -150,8 +151,8 @@ class WmiSqlClient:
     """
 
     # 默认配置（通过环境变量或凭据配置文件读取）
-    DEFAULT_HOST = "192.168.1.22"
-    DEFAULT_USER = "administrator"
+    DEFAULT_HOST = os.environ.get("WMI_REMOTE_HOST", "192.168.1.22")
+    DEFAULT_USER = os.environ.get("WMI_REMOTE_USER", "administrator")
     DEFAULT_PASS = ""  # 从 WMI_REMOTE_PASS 环境变量或 config/credentials.json 读取
     DEFAULT_CONN_STRING = r"Server=.\GT_YINTE_EMS;Database=EMSXDB;Integrated Security=SSPI;"
     DEFAULT_QUERY_TIMEOUT = 30

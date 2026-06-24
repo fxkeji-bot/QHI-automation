@@ -58,7 +58,7 @@ except ImportError:
 # ===========================================================================
 # 配置
 # ===========================================================================
-QHI_EXE = r"C:\Program Files\Quite\Quite Hot Imposing 5\qi_applycommands.exe"
+QHI_EXE = r"C:\Program Files (x86)\Quite\Quite Hot Imposing 5\qi_applycommands.exe"
 QHI_MAX_CONCURRENT = 2
 DEFAULT_OUTPUT_DIR = r"\\Server2\客户文件2\输出"
 

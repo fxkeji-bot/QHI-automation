@@ -579,32 +579,33 @@ class DeviceManager:
     
     def _load_devices(self):
         """从数据库加载设备"""
-        conn = self._get_conn()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM devices WHERE enabled = 1")
-        columns = [desc[0] for desc in cursor.description]
-        
-        for row in cursor.fetchall():
-            data = dict(zip(columns, row))
+        with self._lock:
+            conn = self._get_conn()
+            cursor = conn.cursor()
             
-            # 解析JSON字段
-            if data.get('capability'):
-                try:
-                    cap_data = json.loads(data['capability'])
-                    data['capability'] = DeviceCapability(**cap_data)
-                except:
+            cursor.execute("SELECT * FROM devices WHERE enabled = 1")
+            columns = [desc[0] for desc in cursor.description]
+            
+            for row in cursor.fetchall():
+                data = dict(zip(columns, row))
+                
+                # 解析JSON字段
+                if data.get('capability'):
+                    try:
+                        cap_data = json.loads(data['capability'])
+                        data['capability'] = DeviceCapability(**cap_data)
+                    except Exception:
+                        data['capability'] = DeviceCapability()
+                else:
                     data['capability'] = DeviceCapability()
-            else:
-                data['capability'] = DeviceCapability()
-            
-            data['enabled'] = bool(data.get('enabled', 1))
-            
-            # 加载耗材
-            data['consumables'] = self._load_consumables(data['device_id'])
-            
-            device = Device(**{k: v for k, v in data.items() if k in Device.__dataclass_fields__})
-            self._devices[device.device_id] = device
+                
+                data['enabled'] = bool(data.get('enabled', 1))
+                
+                # 加载耗材
+                data['consumables'] = self._load_consumables(data['device_id'])
+                
+                device = Device(**{k: v for k, v in data.items() if k in Device.__dataclass_fields__})
+                self._devices[device.device_id] = device
         
         self._close_conn(conn)
     

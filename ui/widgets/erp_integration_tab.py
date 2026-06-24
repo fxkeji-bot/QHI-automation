@@ -58,6 +58,7 @@ class ErpIntegrationTab(QWidget):
     status_message = pyqtSignal(str)
 
     def __init__(self, main_window=None, parent=None):
+        import sys
         super().__init__(parent)
         self.main_window = main_window
         self._bridge = None
@@ -86,137 +87,47 @@ class ErpIntegrationTab(QWidget):
         conn_bar.addWidget(self._status_label)
         layout.addLayout(conn_bar)
 
-        # 主内容
-        splitter = QSplitter(Qt.Horizontal)
-
-        # 左: 客户统计
-        left = QWidget()
-        left_layout = QVBoxLayout(left)
-
-        stats_group = QGroupBox("客户统计")
-        stats_layout = QVBoxLayout()
-
-        self._stats_grid = QGridLayout()
-        self._stats_labels = {}
-        for i, (key, label, color) in enumerate([
-            ("total_records", "总记录", "#2196F3"),
-            ("total_orders", "总工单", "#4CAF50"),
-            ("total_customers", "客户数", "#FF9800"),
-            ("date_range", "日期范围", "#9C27B0"),
-        ]):
-            card = QFrame()
-            card.setStyleSheet(f"QFrame {{ background: {color}10; border-left: 3px solid {color}; border-radius: 4px; padding: 6px; }}")
-            cl = QVBoxLayout(card)
-            cl.setContentsMargins(8, 4, 8, 4)
-            val = QLabel("--")
-            val.setFont(QFont("Microsoft YaHei", 16, QFont.Bold))
-            val.setStyleSheet(f"color: {color};")
-            val.setAlignment(Qt.AlignCenter)
-            lbl = QLabel(label)
-            lbl.setStyleSheet("color: #666; font-size: 10px;")
-            lbl.setAlignment(Qt.AlignCenter)
-            cl.addWidget(val)
-            cl.addWidget(lbl)
-            self._stats_labels[key] = val
-            self._stats_grid.addWidget(card, i // 2, i % 2)
-
-        stats_layout.addLayout(self._stats_grid)
-
-        # 客户表格
-        self._customer_table = QTableWidget()
-        self._customer_table.setColumnCount(4)
-        self._customer_table.setHorizontalHeaderLabels(["客户码", "名称", "工单数", "文件数"])
-        self._customer_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self._customer_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self._customer_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._customer_table.setAlternatingRowColors(True)
-        self._customer_table.verticalHeader().setVisible(False)
-        self._customer_table.setMaximumHeight(300)
-        stats_layout.addWidget(self._customer_table)
-
-        stats_group.setLayout(stats_layout)
-        left_layout.addWidget(stats_group)
-        splitter.addWidget(left)
-
-        # 右: 工单处理
-        right = QWidget()
-        right_layout = QVBoxLayout(right)
-
-        # 工单筛选
+        # 客户筛选下拉框 — 放入可见布局
         filter_bar = QHBoxLayout()
         filter_bar.addWidget(QLabel("客户筛选:"))
         self._filter_combo = QComboBox()
         self._filter_combo.addItem("全部", "all")
         self._filter_combo.currentTextChanged.connect(self._refresh_orders)
-        filter_bar.addWidget(self._filter_combo)
-        filter_bar.addStretch()
+        filter_bar.addWidget(self._filter_combo, 1)
+        layout.addLayout(filter_bar)
 
-        btn_refresh = QPushButton("刷新")
-        btn_refresh.clicked.connect(self._refresh_all)
-        filter_bar.addWidget(btn_refresh)
-        right_layout.addLayout(filter_bar)
+        # 统计标签行 — 加入可见布局
+        stats_row = QHBoxLayout()
+        stats_row.setSpacing(16)
+        for key, label_text in [("total_records", "总记录"), ("total_orders", "总工单"), ("total_customers", "客户数"), ("date_range", "日期范围")]:
+            lbl_title = QLabel(label_text)
+            lbl_title.setStyleSheet("color: #888; font-size: 11px;")
+            stats_row.addWidget(lbl_title)
+            self._stats_labels[key] = QLabel("-" if key == "date_range" else "0")
+            self._stats_labels[key].setStyleSheet("color: #2196F3; font-weight: bold; font-size: 13px;")
+            stats_row.addWidget(self._stats_labels[key])
+        stats_row.addStretch()
+        layout.addLayout(stats_row)
 
-        # 工单表格
+        # 主内容 - 简化版
+        self._customer_table = QTableWidget()
+        self._customer_table.setColumnCount(4)
+        self._customer_table.setHorizontalHeaderLabels(["客户码", "名称", "工单数", "文件数"])
+        layout.addWidget(self._customer_table)
+
         self._order_table = QTableWidget()
         self._order_table.setColumnCount(6)
         self._order_table.setHorizontalHeaderLabels(["工单号", "客户", "日期", "文件", "解析", "状态"])
-        header = self._order_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.Stretch)
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
-        self._order_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self._order_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._order_table.setAlternatingRowColors(True)
-        self._order_table.verticalHeader().setVisible(False)
-        self._order_table.currentCellChanged.connect(self._on_order_selected)
-        right_layout.addWidget(self._order_table)
+        layout.addWidget(self._order_table)
 
-        # 解析预览
-        preview_group = QGroupBox("解析预览")
-        preview_layout = QVBoxLayout()
         self._preview_text = QTextEdit()
         self._preview_text.setReadOnly(True)
         self._preview_text.setMaximumHeight(150)
-        self._preview_text.setStyleSheet("font-family: Consolas; font-size: 12px; background: #fafafa;")
-        preview_layout.addWidget(self._preview_text)
-        preview_group.setLayout(preview_layout)
-        right_layout.addWidget(preview_group)
+        layout.addWidget(self._preview_text)
 
-        right_layout.addWidget(splitter)
-
-        # 底部操作栏
-        btn_bar = QHBoxLayout()
-        btn_bar.addStretch()
-
-        btn_process = QPushButton("处理选中工单")
-        btn_process.setObjectName("btn-process")
-        btn_process.clicked.connect(self._process_selected)
-        btn_bar.addWidget(btn_process)
-
-        btn_batch = QPushButton("批量处理 (Top 20)")
-        btn_batch.setObjectName("btn-process")
-        btn_batch.clicked.connect(self._batch_process)
-        btn_bar.addWidget(btn_batch)
-
-        btn_pipeline = QPushButton("发送到订单管线")
-        btn_pipeline.setObjectName("btn-pipeline")
-        btn_pipeline.clicked.connect(self._send_to_pipeline)
-        btn_bar.addWidget(btn_pipeline)
-
-        right_layout.addLayout(btn_bar)
-        splitter.addWidget(right)
-        splitter.setSizes([350, 650])
-
-        layout.addWidget(splitter)
-
-        # 底部日志
         self._log_text = QTextEdit()
         self._log_text.setReadOnly(True)
         self._log_text.setMaximumHeight(100)
-        self._log_text.setStyleSheet("font-family: Consolas; font-size: 11px; background: #1e1e1e; color: #d4d4d4;")
         layout.addWidget(self._log_text)
 
     def _connect_erp(self):
@@ -230,18 +141,18 @@ class ErpIntegrationTab(QWidget):
             self._bridge = ErpOrderBridge()
             stats = self._bridge.get_customer_stats()
             if not stats:
-                self._log("[ERROR] 无法连接ERP数据库")
-                self._status_label.setText("连接失败")
-                self._status_label.setStyleSheet("color: #f44336; font-weight: bold;")
+                QTimer.singleShot(0, lambda: self._log("[ERROR] 无法连接ERP数据库"))
+                QTimer.singleShot(0, lambda: self._status_label.setText("连接失败"))
+                QTimer.singleShot(0, lambda: self._status_label.setStyleSheet("color: #f44336; font-weight: bold;"))
                 return
 
             total_records = sum(s["cnt"] for s in stats)
             total_orders = sum(s["order_count"] for s in stats)
 
             QTimer.singleShot(0, lambda: self._update_stats(stats, total_records, total_orders))
-            self._log(f"[OK] 已连接ERP: {total_records} records, {total_orders} orders, {len(stats)} customers")
+            QTimer.singleShot(0, lambda: self._log(f"[OK] 已连接ERP: {total_records} records, {total_orders} orders, {len(stats)} customers"))
         except Exception as e:
-            self._log(f"[ERROR] 连接失败: {e}")
+            QTimer.singleShot(0, lambda: self._log(f"[ERROR] 连接失败: {e}"))
 
     def _update_stats(self, stats, total_records, total_orders):
         self._status_label.setText(f"已连接 ({len(stats)}客户)")
@@ -285,7 +196,7 @@ class ErpIntegrationTab(QWidget):
                      [o for o in self._bridge.get_pending_orders(limit=200) if o["customer_code"] == code]
             QTimer.singleShot(0, lambda: self._fill_orders(orders[:50]))
         except Exception as e:
-            self._log(f"[ERROR] 刷新失败: {e}")
+            QTimer.singleShot(0, lambda: self._log(f"[ERROR] 刷新失败: {e}"))
 
     def _fill_orders(self, orders):
         self._order_table.setRowCount(len(orders))
@@ -299,7 +210,8 @@ class ErpIntegrationTab(QWidget):
             self._order_table.setItem(i, 3, QTableWidgetItem(fname[:30]))
 
             from services.multi_customer_parser import auto_detect_format
-            fmt = auto_detect_format(raw) if raw else "unknown"
+            raw_text = o.get("raw_text", "")
+            fmt = auto_detect_format(raw_text) if raw_text else "unknown"
             spec_item = QTableWidgetItem(fmt)
             self._order_table.setItem(i, 4, spec_item)
 
@@ -341,7 +253,7 @@ class ErpIntegrationTab(QWidget):
                 for k, v in d.items():
                     if v:
                         lines.append(f"  {k}: {v}")
-            except:
+            except Exception:
                 pass
         self._preview_text.setText("\n".join(lines))
 
@@ -372,13 +284,53 @@ class ErpIntegrationTab(QWidget):
         try:
             results = self._bridge.batch_process_from_erp(limit=20, customer_code=code)
             parsed = sum(1 for r in results if r["status"] == "parsed")
-            self._log(f"批量处理完成: {len(results)} orders, {parsed} parsed")
+            QTimer.singleShot(0, lambda: self._log(f"批量处理完成: {len(results)} orders, {parsed} parsed"))
         except Exception as e:
-            self._log(f"[ERROR] 批量处理失败: {e}")
+            QTimer.singleShot(0, lambda: self._log(f"[ERROR] 批量处理失败: {e}"))
 
     def _send_to_pipeline(self):
-        self._log("发送到订单管线...")
-        QMessageBox.information(self, "管线", "订单管线对接完成，请使用打印管理Tab的'新建订单'按钮")
+        """将选中的工单发送到订单管线"""
+        row = self._order_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "提示", "请先选择一个工单")
+            return
+
+        item = self._order_table.item(row, 0)
+        if not item:
+            return
+        order = item.data(Qt.UserRole)
+        if not order:
+            return
+
+        gd_no = order.get("gd_no", "")
+        if not gd_no:
+            QMessageBox.warning(self, "提示", "工单号为空")
+            return
+
+        self._log(f"发送工单 {gd_no} 到订单管线...")
+        try:
+            from services.order_pipeline import OrderPipeline
+            from services.hot_folder_service import HotFolderService
+
+            hot_folder = HotFolderService()
+            pipeline = OrderPipeline(hot_folder_service=hot_folder)
+
+            result = pipeline.process_order(
+                requirement_text=order.get("raw_text", ""),
+                customer_id=order.get("customer_code", "auto"),
+            )
+
+            self._log(f"管线处理完成: {result.order_code} | 状态: {result.status}")
+            if result.error:
+                self._log(f"[ERROR] {result.error}")
+            else:
+                QMessageBox.information(self, "成功",
+                    f"工单 {gd_no} 已发送到管线\n"
+                    f"订单号: {result.order_code}\n"
+                    f"状态: {result.status}")
+        except Exception as e:
+            self._log(f"[ERROR] 管线处理失败: {e}")
+            QMessageBox.critical(self, "错误", f"发送失败: {e}")
 
     def _log(self, msg):
         ts = datetime.now().strftime("%H:%M:%S")

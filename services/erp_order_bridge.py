@@ -21,11 +21,15 @@ from datetime import datetime
 from typing import Dict, List, Optional, Callable
 from pathlib import Path
 
+import os
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-ERP_DB_PATH = r"\\Server2\客户文件2\out\customer_info.db"
+ERP_DB_PATH = os.environ.get(
+    "ERP_DB_PATH",
+    r"\\Server2\客户文件2\out\customer_info.db",
+)
 
 
 class ErpOrderBridge:

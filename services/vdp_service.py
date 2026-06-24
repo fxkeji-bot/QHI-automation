@@ -334,7 +334,7 @@ class PlaceholderProcessor:
                     text = text.lower()
                 elif placeholder.format_pattern == "title":
                     text = text.title()
-            except:
+            except Exception:
                 pass
         
         return {

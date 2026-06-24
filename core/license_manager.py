@@ -237,7 +237,7 @@ class LicenseInfo:
         try:
             expires = datetime.fromisoformat(self.expires_at)
             return datetime.now() > expires
-        except:
+        except Exception:
             return True
     
     @property
@@ -249,7 +249,7 @@ class LicenseInfo:
             expires = datetime.fromisoformat(self.expires_at)
             delta = expires - datetime.now()
             return max(0, delta.days)
-        except:
+        except Exception:
             return 0
     
     def to_dict(self) -> Dict:
@@ -288,7 +288,7 @@ class TrialInfo:
             first = datetime.fromisoformat(self.first_launch)
             expiry = first + timedelta(days=LicenseConfig.TRIAL_DAYS)
             return datetime.now() > expiry
-        except:
+        except Exception:
             return True
     
     @property
@@ -301,7 +301,7 @@ class TrialInfo:
             expiry = first + timedelta(days=LicenseConfig.TRIAL_DAYS)
             delta = expiry - datetime.now()
             return max(0, delta.days)
-        except:
+        except Exception:
             return 0
     
     @property
@@ -346,28 +346,28 @@ class MachineFingerprint:
             processor = platform.processor()
             if processor:
                 components.append(f"CPU:{hashlib.md5(processor.encode()).hexdigest()[:8]}")
-        except:
+        except Exception:
             pass
         
         # 3. 主机名
         try:
             hostname = platform.node()
             components.append(f"HOST:{hashlib.md5(hostname.encode()).hexdigest()[:8]}")
-        except:
+        except Exception:
             pass
         
         # 4. 操作系统信息
         try:
             os_info = f"{platform.system()}-{platform.release()}"
             components.append(f"OS:{hashlib.md5(os_info.encode()).hexdigest()[:8]}")
-        except:
+        except Exception:
             pass
         
         # 5. Python实现
         try:
             impl = platform.python_implementation()
             components.append(f"PY:{impl}")
-        except:
+        except Exception:
             pass
         
         # 组合并哈希
@@ -395,7 +395,7 @@ class MachineFingerprint:
         try:
             int(clean, 16)
             return True
-        except:
+        except Exception:
             return False
 
 
@@ -534,7 +534,7 @@ class LicenseGenerator:
                     expire_dt = datetime.strptime(expire_time, "%Y-%m-%d %H:%M:%S")
                     if datetime.now() > expire_dt:
                         return False, "授权已过期", data
-                except:
+                except Exception:
                     pass
             elif expire_time < time.time():
                 return False, "授权已过期", data
@@ -592,7 +592,7 @@ class LicenseManager:
                     saved_code = f.read().strip()
                     if MachineFingerprint.verify(saved_code):
                         return saved_code
-            except:
+            except Exception:
                 pass
         
         # 生成新机器码
@@ -658,7 +658,7 @@ class LicenseManager:
                 with open(trial_file, 'r') as f:
                     data = json.load(f)
                     return TrialInfo.from_dict(data)
-            except:
+            except Exception:
                 pass
         
         # 创建新的试用信息
@@ -705,7 +705,7 @@ class LicenseManager:
                             if datetime.now() > datetime.fromisoformat(expiry_date):
                                 self._status = LicenseStatus.EXPIRED
                                 return
-                        except:
+                        except Exception:
                             pass
                     
                     self._status = LicenseStatus.VALID
@@ -862,7 +862,7 @@ class LicenseManager:
             self._status = LicenseStatus.INVALID
             
             return True
-        except:
+        except Exception:
             return False
     
     def check_feature(self, feature: str) -> bool:
