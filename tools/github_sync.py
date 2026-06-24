@@ -44,7 +44,7 @@ GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 REPO_DIR = Path(__file__).resolve().parent.parent  # E:\qhi_processor
 
 # 认证 URL（含 token）
-AUTH_REPO_URL = f"https://fxkeji-bot:{GITHUB_TOKEN}@github.com/fxkeji-bot/QHI-automation.git"
+AUTH_REPO_URL = "https://github.com/fxkeji-bot/QHI-automation.git"
 
 # 同步时间配置
 SYNC_HOUR = 3     # 凌晨 3 点
